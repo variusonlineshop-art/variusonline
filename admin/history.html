@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Historial de Clientes — Varius</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="assets/css/orders.css">
+    <link rel="stylesheet" href="../assets/css/presence.css">
+    <style>
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .history-header .title-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .client-name-pill {
+            background: linear-gradient(135deg, #34d399, #10b981);
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 14px;
+            color: #fff;
+        }
+
+        .history-kpis {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .history-filters {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: end;
+            margin-bottom: 12px;
+        }
+
+        .history-filters label {
+            font-size: 13px;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .history-filters input,
+        .history-filters select {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+        }
+
+        .btn-primary {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--btn-bg);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .orders-list {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--card-bg);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .kpis {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .kpi-card {
+            min-width: 260px;
+            flex: 1 1 260px;
+        }
+
+        .kpi-top {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .kpi-avatar {
+            font-size: 20px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .kpi-title {
+            font-weight: 700;
+        }
+
+        .kpi-sub {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .kpi-divider {
+            height: 1px;
+            background: rgba(0, 0, 0, 0.04);
+            margin: 8px 0;
+        }
+
+        .kpi-amount {
+            font-size: 20px;
+            font-weight: 800;
+        }
+
+        .kpi-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .kpi-meta.muted {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .small-muted {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        table.history-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+            word-break: break-word;
+            max-width: 100%;
+        }
+
+        table.history-table th,
+        table.history-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            text-align: left;
+            white-space: normal;
+            vertical-align: middle;
+        }
+
+        table.history-table thead th {
+            background: #fbfdff;
+            font-weight: 700;
+        }
+
+        .total-summary {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgb(46 206 149);
+            color: #fff;
+            border-radius: 8px;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nota-pago {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 6px;
+        }
+
+        /* Status badges + pending row style */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .status-activo {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid rgba(34, 197, 94, 0.12);
+        }
+
+        .status-inactivo {
+            background: #fff7ed;
+            color: #7c2d12;
+            border: 1px solid rgba(245, 158, 11, 0.12);
+        }
+
+        /* toda la fila cuando está pendiente */
+        .pending-row td {
+            background: #fff7ed !important;
+        }
+
+        /* Mobile */
+        @media (max-width: 900px) {
+            .history-kpis {
+                flex-direction: column;
+            }
+
+            .history-filters {
+                align-items: stretch;
+            }
+        }
+
+        /* Small hover visual */
+        table.history-table tbody tr:hover {
+            background: linear-gradient(180deg, #fff, #fcfdff);
+        }
+
+        /* Forzamos que tanto 'a' como 'button' se comporten igual */
+    </style>
+</head>
+
+<body>
+    <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
+
+    <!-- Top bar -->
+    <header class="topbar">
+        <div class="top-left">
+            <label for="nav-toggle" class="hamburger" aria-hidden="true">
+                <span class="hamburger-box"><span class="hamburger-inner"></span></span>
+            </label>
+            <a class="brand" href="./" aria-label="Dashboard">
+                <img src="assets/img/logo.png" alt="Varius" width="14%">
+                <span class="brand-text">VARIUS</span>
+            </a>
+        </div>
+
+        <div class="top-search">
+            <!-- input eliminado intencionalmente -->
+            <div id="presence-pill" class="presence-pill offline" role="status" aria-live="polite">
+                <span class="dot"></span>
+                <span class="label">Desconectado</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <div id="app-sidebar"></div>
+
+    <main class="main">
+        <section class="card">
+            <div class="history-header">
+                <div class="title-row" style="display: flex; align-items: center; gap: 8px;" bis_skin_checked="1">
+                    <h3 style="margin: 0;">Historial de Compras</h3>
+
+                    <div id="clientName" class="client-name-pill"
+                        style="display: inline-flex; align-items: center; text-transform: capitalize;"
+                        aria-live="polite" bis_skin_checked="1">
+
+                    </div>
+                </div>
+                <div class="actions">
+                    <a href="orders.html" class="btn-apply" title="Volver a Pedidos" aria-label="Volver a Pedidos"
+                        style="display:inline-flex;gap:8px;align-items:center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                            class="bi bi-caret-left-fill" viewBox="0 0 16 16">
+                            <path
+                                d="m3.86 8.753 5.482 4.796c.646.566 1.658.106 1.658-.753V3.204a1 1 0 0 0-1.659-.753l-5.48 4.796a1 1 0 0 0 0 1.506z" />
+                        </svg>
+                        Regresar
+                    </a>
+                </div>
+            </div>
+
+            <!-- KPIs: colocadas arriba de los filtros como solicitaste -->
+            <section class="kpis" aria-label="Indicadores rápidos">
+                <article class="card kpi-card kpi-modern kpi-variant-info" id="kpi-card-purchases" data-kpi="purchases"
+                    tabindex="0" role="button" aria-pressed="false">
+                    <div class="kpi-top">
+                        <div class="kpi-avatar" aria-hidden="true">🛒</div>
+                        <div>
+                            <div class="kpi-title">Veces que ha comprado</div>
+                            <div class="kpi-sub">Órdenes pagadas</div>
+                        </div>
+                    </div>
+                    <div class="kpi-divider" role="separator"></div>
+                    <div>
+                        <div class="kpi-amount kpi-value"><span id="kpi-purchases-amount">—</span></div>
+                    </div>
+
+                </article>
+
+                <article class="card kpi-card kpi-modern kpi-variant-info" id="kpi-card-total" data-kpi="total-spent"
+                    tabindex="0" role="button" aria-pressed="false">
+                    <div class="kpi-top">
+                        <div class="kpi-avatar" aria-hidden="true">💲</div>
+                        <div>
+                            <div class="kpi-title">Monto total gastado</div>
+                            <div class="kpi-sub">Sólo órdenes pagadas</div>
+                        </div>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div>
+                        <div class="kpi-amount"><span id="kpi-total-amount">—</span></div>
+                    </div>
+                </article>
+
+                <article class="card kpi-card kpi-modern kpi-variant-info" id="kpi-card-products"
+                    data-kpi="products-count" tabindex="0" role="button" aria-pressed="false">
+                    <div class="kpi-top">
+                        <div class="kpi-avatar" aria-hidden="true">📦</div>
+                        <div>
+                            <div class="kpi-title">Cantidad total de productos</div>
+                            <div class="kpi-sub">Sumatoria en órdenes pagadas</div>
+                        </div>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div>
+                        <div class="kpi-amount"><span id="kpi-products-amount">—</span></div>
+                    </div>
+                </article>
+            </section>
+
+            <div class="orders-list">
+                <h4>Pedidos</h4>
+                <div id="histOrdersContainer" style="margin-top:8px;"></div>
+                <div class="nota-pago">Los totales muestran solo órdenes pagadas.</div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script type="module" src="../assets/js/sidebar-loader.js"></script>
+    <script type="module" src="../assets/js/history-admin.js"></script>
+    <script type="module" src="../assets/js/session-timeout.js"></script>
+</body>
+
+
+</html>
