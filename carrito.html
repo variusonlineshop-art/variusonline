@@ -152,7 +152,7 @@
     !function (f, b, e, v, n, t, s) {
       if (f.fbq) return; n = f.fbq = function () {
         n.callMethod ?
-        n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+          n.callMethod.apply(n, arguments) : n.queue.push(arguments)
       };
       if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
       n.queue = []; t = b.createElement(e); t.async = !0;
@@ -232,8 +232,8 @@
 
           <div class="form-row">
             <label for="cust_phone">Teléfono <span class="req">*</span></label>
-            <input id="cust_phone" name="phone" type="text" placeholder="Ej: 04121234567" required autocomplete="tel"
-              inputmode="numeric" pattern="\d*" maxlength="15">
+            <input id="cust_phone" name="phone" type="text" placeholder="Ej: 1234567" required autocomplete="tel"
+              inputmode="numeric" pattern="\d*" maxlength="7">
             <div id="cust_phone_err" class="field-err" aria-live="polite"></div>
           </div>
 
