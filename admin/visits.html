@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Visitas Online — Varius</title>
+    <title>Categoria — Varius</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
@@ -66,7 +66,7 @@
                     <div class="flex justify-between items-start">
                         <div class="p-3 bg-slate-50 text-emerald-600 rounded-xl">
                             <i class="fa-brands fa-instagram text-xl"></i>
-                        </div>                        
+                        </div>
                     </div>
                     <div class="mt-4">
                         <p class="text-sm text-slate-500 font-medium">Sesiones RRSS</p>
@@ -130,10 +130,14 @@
                 <div class="p-4 bg-slate-50/50 flex justify-between items-center text-sm text-slate-500">
                     <p>Mostrando <span id="count-rows">0</span> de <span id="total-rows">0</span> registros</p>
                     <div class="flex gap-2">
-                        <button
-                            class="px-4 py-1 bg-white border border-slate-200 rounded-md hover:bg-slate-100 transition">Anterior</button>
-                        <button
-                            class="px-4 py-1 bg-white border border-emerald-500 text-emerald-600 font-medium rounded-md hover:bg-emerald-50 transition">Siguiente</button>
+                        <button id="prev-btn"
+                            class="px-4 py-1 bg-white border border-slate-200 rounded-md hover:bg-slate-100 transition disabled:cursor-not-allowed">
+                            Anterior
+                        </button>
+                        <button id="next-btn"
+                            class="px-4 py-1 bg-white border border-emerald-500 text-emerald-600 font-medium rounded-md hover:bg-emerald-50 transition disabled:cursor-not-allowed">
+                            Siguiente
+                        </button>
                     </div>
                 </div>
             </div>
@@ -149,6 +153,5 @@
     <script type="module" src="../assets/js/session-timeout.js"></script>
 
 </body>
-
 
 </html>
