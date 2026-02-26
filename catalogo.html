@@ -5,14 +5,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Tienda - Varius</title>
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="stylesheet" href="assets/css/carrito.css">
   <link rel="stylesheet" href="assets/css/catalogo.css">
 
   <!-- Meta Pixel Code -->
   <script>
-    !function(f, b, e, v, n, t, s) {
+    !function (f, b, e, v, n, t, s) {
       if (f.fbq) return;
-      n = f.fbq = function() {
+      n = f.fbq = function () {
         n.callMethod ?
           n.callMethod.apply(n, arguments) : n.queue.push(arguments)
       };
@@ -29,8 +30,7 @@
     fbq('track', 'PageView');
   </script>
   <noscript><img height="1" width="1" style="display:none"
-                 src="https://www.facebook.com/tr?id=959500979748263&ev=PageView&noscript=1" /></noscript>
-  <!-- End Meta Pixel Code -->
+      src="https://www.facebook.com/tr?id=959500979748263&ev=PageView&noscript=1" /></noscript>
 </head>
 
 <body>
@@ -64,14 +64,8 @@
       <div class="catalog-categories" id="catalogCategories"></div>
       <div class="search-offer-row">
         <div class="catalog-search-wrapper">
-          <input
-            type="text"
-            id="catalogSearch"
-            class="catalog-search"
-            placeholder="Buscar producto..."
-            autocomplete="off"
-            aria-label="Buscar producto"
-            tabindex="0" />
+          <input type="text" id="catalogSearch" class="catalog-search" placeholder="Buscar producto..."
+            autocomplete="off" aria-label="Buscar producto" tabindex="0" />
           <span class="search-shortcut-inside">Ctrl + K</span>
         </div>
         <label class="offer-toggle-label" for="offerToggle">
@@ -159,4 +153,5 @@
     });
   </script>
 </body>
+
 </html>
