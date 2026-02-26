@@ -572,7 +572,6 @@ a.btn-secondary,
 .product-modal-right h2 {
   font-size: var(--heading-size);
   margin-bottom: var(--md);
-  line-height: 5.3;
 }
 
 product-ribbon {
