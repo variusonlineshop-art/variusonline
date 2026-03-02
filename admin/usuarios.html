@@ -8,382 +8,7 @@
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
-    <style>
-        /* Tabla: nombre + punto de presencia + email debajo */
-        table#usersTable {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        table#usersTable thead th {
-            text-align: left;
-            padding: 12px 10px;
-            font-size: 13px;
-            color: var(--muted);
-            border-bottom: 1px solid var(--border);
-        }
-
-        table#usersTable tbody td {
-            padding: 12px 10px;
-            vertical-align: middle;
-            border-bottom: 1px solid #f1f3f5;
-        }
-
-        .user-cell {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .user-meta-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .user-name {
-            font-weight: 600;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .user-email {
-            font-size: 13px;
-            color: var(--muted);
-        }
-
-        .online-dot,
-        .offline-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .online-dot {
-            background: #22c55e;
-            box-shadow: 0 0 8px rgba(34, 197, 94, 0.14);
-        }
-
-        .offline-dot {
-            background: #cbd5e1;
-        }
-
-        /* role badges */
-        .role-badge {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 13px;
-            color: #1f2937;
-            background: #f3f4f6;
-            font-weight: 600;
-        }
-
-        .role-admin {
-            background: linear-gradient(180deg, #fde68a, #fcd34d);
-            color: #7c2d12;
-        }
-
-        .role-vendedor {
-            background: linear-gradient(180deg, #dbeafe, #bfdbfe);
-            color: #1e40af;
-        }
-
-        .role-motorizado {
-            background: linear-gradient(180deg, #d1fae5, #86efac);
-            color: #065f46;
-        }
-
-        /* status badges */
-        .status-badge {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .status-activo {
-            background: #ecfdf5;
-            color: #065f46;
-            border: 1px solid rgba(16, 185, 129, 0.06);
-        }
-
-        .status-inactivo {
-            background: #fff7ed;
-            color: #92400e;
-            border: 1px solid rgba(245, 158, 11, 0.06);
-        }
-
-        .status-suspendido {
-            background: #fff1f2;
-            color: #7f1d1d;
-            border: 1px solid rgba(239, 68, 68, 0.06);
-        }
-
-        .actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        /* Modal input improvements */
-        .modal .modal-content {
-            /* adaptative width, less padding and scroll for very tall content */
-            max-width: 720px;
-            width: min(96%, 720px);
-            padding: 12px;
-            border-radius: 12px;
-            background: #fff;
-            box-sizing: border-box;
-            max-height: calc(100vh - 80px);
-            overflow-y: auto;
-        }
-
-        .modal-form .form-row {
-            margin-bottom: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            position: relative;
-        }
-
-        .modal-form input[type="text"],
-        .modal-form input[type="email"],
-        .modal-form input[type="tel"],
-        .modal-form input[type="password"],
-        .modal-form select {
-            padding: 10px 12px;
-            border-radius: 10px;
-            border: 1px solid #cdcdcd;
-            background: #f9f9f9;
-            font-size: 14px;
-            transition: box-shadow 120ms ease, border-color 120ms ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .modal-form input:focus,
-        .modal-form select:focus {
-            outline: none;
-            border-color: rgba(43, 110, 246, 0.45);
-            box-shadow: 0 6px 18px rgba(43, 110, 246, 0.06);
-        }
-
-        .input-alert {
-            color: #b71c1c;
-            font-size: 13px;
-            min-height: 16px;
-        }
-
-        .search-row {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .search {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: #fff;
-            flex: 1 1 320px;
-        }
-
-        .search input {
-            border: 0;
-            outline: 0;
-            width: 100%;
-            font-size: 14px;
-        }
-
-        .filter-select {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: #fff;
-        }
-
-        .table-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 8px;
-            margin: 8px 0 12px 0;
-        }
-
-        .pagination-controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-
-        /* Layout utilities */
-        .two-col {
-            display: flex;
-            gap: 12px;
-        }
-
-        .two-col .form-row {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
-        /* small helper to align two inputs on same row */
-        .row-2 {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-
-        .row-2>* {
-            flex: 1;
-        }
-
-        /* small width helper (for extension select and operator) */
-        .w-160 {
-            width: 160px;
-            flex: 0 0 160px;
-        }
-
-        .w-120 {
-            width: 120px;
-            flex: 0 0 120px;
-        }
-
-        /* Responsive tweaks */
-        @media (max-width: 700px) {
-
-            /* ocultar rol, teléfono y fecha en pantallas pequeñas */
-            table#usersTable thead th:nth-child(2),
-            table#usersTable thead th:nth-child(3),
-            table#usersTable thead th:nth-child(4) {
-                display: none;
-            }
-
-            table#usersTable tbody td:nth-child(2),
-            table#usersTable tbody td:nth-child(3),
-            table#usersTable tbody td:nth-child(4) {
-                display: none;
-            }
-
-            /* Mantener row-2 (correo/ext y operadora + numero) lado a lado,
-               pero convertir two-col (passwords) a columna */
-            .two-col {
-                flex-direction: column;
-            }
-
-            /* row-2 stays horizontal so correo + ext and operadora + numero remain side-by-side */
-        }
-
-        /* target very small screens including < 380px */
-        @media (max-width: 380px) {
-
-            .modal-form input[type="text"],
-            .modal-form input[type="tel"],
-            .modal-form select {
-                font-size: 13px;
-                padding: 8px 10px;
-            }
-
-            .modal-header h2 {
-                font-size: 16px;
-            }
-
-            .btn-add,
-            .btn-secondary {
-                font-size: 13px;
-                padding: 8px 10px;
-            }
-
-        }
-
-        /* estilo fila suspendida: fondo rosado y barra izquierda roja (como en tu ejemplo) */
-        tr.row-suspendido {
-            background: #fff1f2;
-            /* rosa suave */
-        }
-                /* barra roja a la izquierda */
-        tr.row-suspendido td:first-child {
-            position: relative;
-            padding-left: 12px;
-        }
-
-        tr.row-suspendido td:first-child::before {
-            content: '';
-            position: absolute;
-            left: -8px;
-            top: 10px;
-            bottom: 10px;
-            width: 4px;
-            background: #ef4444;
-            /* rojo */
-            border-radius: 2px;
-        }
-
-        /* estilo fila inactiva: fondo naranja suave y barra izquierda naranja */
-        tr.row-inactivo {
-            background: #fff7ed;
-        }
-
-        tr.row-inactivo td:first-child {
-            position: relative;
-            padding-left: 12px;
-        }
-
-        tr.row-inactivo td:first-child::before {
-            content: '';
-            position: absolute;
-            left: -8px;
-            top: 10px;
-            bottom: 10px;
-            width: 4px;
-            background: #f59e0b;
-            border-radius: 2px;
-        }
-
-        /* ===== Loader modal styles ===== */
-        .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: 5px solid rgba(0, 0, 0, 0.08);
-            border-top-color: #2b6ef6;
-            animation: spin 1s linear infinite;
-            margin: 10px auto 0 auto;
-        }
-
-        .loading-modal-content {
-            padding: 20px;
-            border-radius: 12px;
-            max-width: 360px;
-            text-align: center;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        /* ============================== */
-
-        /* Modal layout/styles inspired by prueba.html */
-        .modal-header { padding: 12px 8px; border-bottom: 1px solid var(--border); }
-        .modal-body { padding: 12px 16px; }
-        .section-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
-        .grid-fixed-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; }
-        .hidden-input { display: none; margin-top: 8px; }
-
-        .modal-footer { padding: 12px 16px; border-top: 1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
-        .btn { padding: 8px 14px; border-radius: 8px; font-weight:600; cursor:pointer; border:none; }
-        .btn-cancel { background:#f1f5f9; color:var(--muted); }
-        .btn-save { background:#10b981; color:#fff; }
-    </style>
+    <link rel="stylesheet" href="assets/css/admin-users.css">
 </head>
 
 <body>
@@ -503,10 +128,12 @@
                         </div>
                         <div>
                             <h2 id="modalTitle" style="margin:0;">Agregar Usuario</h2>
-                            <p style="margin:0; font-size:0.85rem; color:var(--muted)">Segmentado por contacto, seguridad y pagos</p>
+                            <p style="margin:0; font-size:0.85rem; color:var(--muted)">Segmentado por contacto,
+                                seguridad y pagos</p>
                         </div>
                     </div>
-                    <button id="closeModal" class="close-btn" aria-label="Cerrar" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
+                    <button id="closeModal" class="close-btn" aria-label="Cerrar"
+                        style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
                 </header>
 
                 <form id="userForm" class="modal-form" novalidate>
@@ -525,8 +152,10 @@
 
                             <div class="grid-fixed-2">
                                 <div class="form-group">
-                                    <label for="u_email_local">Correo Electrónico <span class="required">*</span></label>
-                                    <input id="u_email_local" type="text" placeholder="usuario" aria-describedby="u_email_alert" />
+                                    <label for="u_email_local">Correo Electrónico <span
+                                            class="required">*</span></label>
+                                    <input id="u_email_local" type="text" placeholder="usuario"
+                                        aria-describedby="u_email_alert" />
                                     <div id="u_email_alert" class="input-alert"></div>
                                 </div>
                                 <div class="form-group">
@@ -538,7 +167,8 @@
                                         <option value="yahoo.com">@yahoo.com</option>
                                         <option value="otro">Otro</option>
                                     </select>
-                                    <input id="u_email_ext_custom" type="text" placeholder="dominio.com" style="display:none;margin-top:8px;" />
+                                    <input id="u_email_ext_custom" type="text" placeholder="dominio.com"
+                                        style="display:none;margin-top:8px;" />
                                 </div>
                             </div>
 
@@ -557,7 +187,8 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="u_phone_local">Teléfono</label>
-                                    <input id="u_phone_local" type="tel" inputmode="numeric" maxlength="7" placeholder="4723636" />
+                                    <input id="u_phone_local" type="tel" inputmode="numeric" maxlength="7"
+                                        placeholder="4723636" />
                                     <div id="u_phone_alert" class="input-alert"></div>
                                 </div>
                             </div>
@@ -578,18 +209,21 @@
                             <div class="grid-fixed-2" style="margin-top:12px;">
                                 <div class="form-group">
                                     <label for="u_password">Contraseña <span class="required">*</span></label>
-                                    <input id="u_password" type="password" minlength="6" maxlength="8" placeholder="6 a 8 caracteres" />
+                                    <input id="u_password" type="password" minlength="6" maxlength="8"
+                                        placeholder="6 a 8 caracteres" />
                                     <div id="u_password_alert" class="input-alert"></div>
                                 </div>
                                 <div class="form-group">
                                     <label for="u_password_confirm">Confirmar <span class="required">*</span></label>
-                                    <input id="u_password_confirm" type="password" minlength="6" maxlength="8" placeholder="Repite la contraseña" />
+                                    <input id="u_password_confirm" type="password" minlength="6" maxlength="8"
+                                        placeholder="Repite la contraseña" />
                                     <div id="u_password_confirm_alert" class="input-alert"></div>
                                 </div>
                             </div>
                             <div style="font-size:13px;color:#6b7280;margin-top:-6px;margin-bottom:6px;">
                                 La contraseña debe tener 6 a 8 caracteres e incluir: <strong>mayúscula</strong>,
-                                <strong>minúscula</strong>, <strong>número</strong> y <strong>carácter especial</strong>.
+                                <strong>minúscula</strong>, <strong>número</strong> y <strong>carácter
+                                    especial</strong>.
                             </div>
                         </div>
 
@@ -597,16 +231,22 @@
                         <div id="commissionSection" class="section-card" style="display:none;">
                             <label style="display:block; margin-bottom:8px;">Esquema de Comisiones</label>
                             <div style="display:flex; gap:18px; align-items:center;">
-                                <label class="radio-option" style="display:flex; gap:8px; align-items:center; cursor:pointer;">
-                                    <input id="commission_percent_radio" type="radio" name="commissionType" value="percent"> % Porcentaje
+                                <label class="radio-option"
+                                    style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                    <input id="commission_percent_radio" type="radio" name="commissionType"
+                                        value="percent"> % Porcentaje
                                 </label>
-                                <label class="radio-option" style="display:flex; gap:8px; align-items:center; cursor:pointer;">
-                                    <input id="commission_amount_radio" type="radio" name="commissionType" value="amount"> Bs Monto
+                                <label class="radio-option"
+                                    style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                    <input id="commission_amount_radio" type="radio" name="commissionType"
+                                        value="amount"> Bs Monto
                                 </label>
                             </div>
 
-                            <div id="commission_percent_box" class="hidden-input" style="margin-top:10px; display:none;">
-                                <input id="commission_percent" type="number" min="0" max="100" placeholder="Ingrese porcentaje %" />
+                            <div id="commission_percent_box" class="hidden-input"
+                                style="margin-top:10px; display:none;">
+                                <input id="commission_percent" type="number" min="0" max="100"
+                                    placeholder="Ingrese porcentaje %" />
                             </div>
                             <div id="commission_amount_box" class="hidden-input" style="margin-top:10px; display:none;">
                                 <input id="commission_amount" type="number" min="0" placeholder="Ingrese monto en Bs" />
@@ -620,6 +260,31 @@
                         <button type="submit" class="btn btn-save btn-add">Guardar Usuario</button>
                     </footer>
                 </form>
+            </div>
+        </div>
+
+        <div id="modalPermissions" class="modal-permissions hidden" aria-hidden="true"
+            style="display:none;position:fixed;z-index:99;">
+            <div class="modal-content"
+                style="max-width:520px;background:#fff;border-radius:14px;padding:2.2em 2em 1.5em 2em;box-shadow:0 8px 32px #c7b8fa42;">
+                <h2 style="margin:0 0 12px 0;font-size:1.3em;letter-spacing:.02em;">Permisos de acceso</h2>
+                <label style="display:flex;align-items:center;gap:8px;font-size:.98em;margin-bottom:9px;">
+                    <input type="checkbox" id="permissionsSelectAll"
+                        style="accent-color:#7c3aed;transform:scale(1.20);" />
+                    <span>Seleccionar todas las páginas</span>
+                </label>
+                <div id="permissionsPagesGrid"
+                    style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:flex-start;margin-bottom:1.1em;">
+                </div>
+                <div style="margin-bottom:1em;display:flex;align-items:center;gap:6px;">
+                    <span id="permissionsSelectedCount" style="font-weight:600;font-size:1.06em;color:#7c3aed;">0</span>
+                    <span style="color:var(--muted,#7f7f7f);font-size:13px;">páginas seleccionadas</span>
+                </div>
+                <div>
+                    <button id="savePermissionsBtn" class="btn btn-save btn-add">Guardar</button>
+                    <button id="cancelPermissionsBtn" class="btn btn-cancel btn-secondary"
+                        style="margin-left:14px;">Cancelar</button>
+                </div>
             </div>
         </div>
 
@@ -640,4 +305,3 @@
 </body>
 
 </html>
-
