@@ -622,3 +622,15 @@ summary:focus {
   color: #533232;
   border-color: rgba(15, 23, 42, 0.03);
 }
+
+.btn-permissions {
+  background: #e3caf785;
+  color: #4a3253;
+  border-color: rgba(36, 15, 42, 0.03);
+}
+
+.btn-password {
+  background: #d5f7ca85;
+  color: #435332;
+  border-color: rgba(33, 42, 15, 0.03);
+}
