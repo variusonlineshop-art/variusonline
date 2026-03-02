@@ -144,6 +144,7 @@ async function isEmailTaken(email, excludeId = null) {
     }
     return false;
 }
+
 async function isPhoneTaken(phone, excludeId = null) {
     if (!phone) return false;
     const norm = normalizePhone(phone);
@@ -280,12 +281,18 @@ function renderTable() {
                     <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
                     </svg>
                 </button>
-                <button class="btn-small btn-password" data-id="${u.id}" title="Cambiar contraseña" aria-label="Cambiar contraseña">
+                <button class="btn-small btn-permissions" data-id="${u.id}" title="Administrar permisos" aria-label="Permisos">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M8 1a4 4 0 0 0-4 4v2a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2V5a4 4 0 0 0-4-4zm-3 4a3 3 0 1 1 6 0v2H5V5zm9 4v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1z"/>
+                    <path d="M3 8a5 5 0 1 1 9.9-1h.6a1 1 0 0 1 0 2h-.6A5 5 0 0 1 3 8zm5-4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM9.293 7.293a1 1 0 0 1 1.414 0l2 2a1 1 0 1 1-1.414 1.414l-2-2a1 1 0 0 1 0-1.414z"/>
                     </svg>
                 </button>
             </div>`;
+
+        ////<button class="btn-small btn-password" data-id="${u.id}" title="Cambiar contraseña" aria-label="Cambiar contraseña">
+        //    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        //    <path d="M8 1a4 4 0 0 0-4 4v2a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2V5a4 4 0 0 0-4-4zm-3 4a3 3 0 1 1 6 0v2H5V5zm9 4v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1z"/>
+        //    </svg>
+        ////</button>
 
         tr.appendChild(tdName);
         tr.appendChild(tdRole);
@@ -347,6 +354,103 @@ function renderTable() {
             openPasswordModal(id);
         });
     });
+    usersBody.querySelectorAll('.btn-permissions').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            openPermissionsModal(id);
+        });
+    });
+}
+
+const PAGES = [
+  { key: 'panel', label: 'Panel', icon: '🏠' },
+  { key: 'usuarios', label: 'Usuarios', icon: '👥' },
+  { key: 'productos', label: 'Productos', icon: '📦' },
+  { key: 'categoria', label: 'Categoría', icon: '🏷️' },
+  { key: 'pedidos', label: 'Pedidos', icon: '📝' },
+  { key: 'cierre_caja', label: 'Cierre de Caja', icon: '💰' },
+  { key: 'crm', label: 'CRM', icon: '🖥️' },
+  { key: 'chat', label: 'Chat', icon: '💬' },
+  { key: 'visitas', label: 'Visitas', icon: '👁️' }
+];
+
+async function openPermissionsModal(userId) {
+  const modal = document.getElementById('modalPermissions');
+  const grid = document.getElementById('permissionsPagesGrid');
+  const countEl = document.getElementById('permissionsSelectedCount');
+  const selectAllEl = document.getElementById('permissionsSelectAll');
+  if (!modal || !grid || !countEl || !selectAllEl) return;
+  
+  const userObj = allUsers.find(u => u.id === userId);
+  const current = Array.isArray(userObj?.allowedPages) ? userObj.allowedPages : [];
+  let selected = [...current];
+
+  // Renderiza tarjetas
+  grid.innerHTML = '';
+  PAGES.forEach(pg => {
+    const card = document.createElement('div');
+    card.className = 'perm-card' + (selected.includes(pg.key) ? ' selected' : '');
+    card.setAttribute('data-key', pg.key);
+    card.innerHTML = `
+      <div class="icon">${pg.icon}</div>
+      <div style="font-size:.96em;">${pg.label}</div>
+      <span class="checkmark" aria-hidden="true">
+        <svg viewBox="0 0 16 16"><path fill="#7c3aed" d="M6.173 12.067a.75.75 0 0 1-1.06 0l-2.18-2.215a.75.75 0 1 1 1.067-1.055l1.646 1.67 4.345-4.345a.75.75 0 0 1 1.06 1.06l-4.878 4.885z"/></svg>
+      </span>
+    `;
+    card.addEventListener('click', () => {
+      if (selected.includes(pg.key)) {
+        selected = selected.filter(k => k !== pg.key);
+        card.classList.remove('selected');
+      } else {
+        selected.push(pg.key);
+        card.classList.add('selected');
+      }
+      updatePermissionsCount();
+      selectAllEl.checked = selected.length === PAGES.length;
+    });
+    grid.appendChild(card);
+  });
+  // Función para actualizar cantidad
+  function updatePermissionsCount() {
+    countEl.textContent = selected.length;
+    // Reflejar visual en tarjetas
+    grid.querySelectorAll('.perm-card').forEach(cardEl => {
+      const key = cardEl.getAttribute('data-key');
+      if (selected.includes(key)) cardEl.classList.add('selected');
+      else cardEl.classList.remove('selected');
+    });
+  }
+  updatePermissionsCount();
+  selectAllEl.checked = selected.length === PAGES.length;
+
+  // Checkbox "Seleccionar todas"
+  selectAllEl.onchange = () => {
+    if (selectAllEl.checked) {
+      selected = PAGES.map(pg => pg.key);
+    } else {
+      selected = [];
+    }
+    updatePermissionsCount();
+  };
+
+  modal.style.display = 'flex'; modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false');
+  document.getElementById('cancelPermissionsBtn').onclick = () => {
+    modal.style.display = 'none'; modal.classList.add('hidden');
+  };
+  document.getElementById('savePermissionsBtn').onclick = async () => {
+    try {
+      showLoading('Actualizando permisos...');
+      await updateDoc(doc(db, 'users', userId), { allowedPages: selected });
+      showToast('Permisos guardados');
+      modal.style.display = 'none'; modal.classList.add('hidden');
+      await loadUsers();
+    } catch (err) {
+      showToast('Error guardando permisos');
+    } finally {
+      hideLoading();
+    }
+  };
 }
 
 // ---------- MODAL CAMBIO CONTRASEÑA ----------
