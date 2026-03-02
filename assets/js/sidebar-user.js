@@ -138,11 +138,14 @@ async function init() {
 
     // --- Auth state handling ---
     onAuthStateChanged(auth, async (user) => {
+        // Nueva lógica: mini loading para el menú hasta que obtenemos role.
+        sidebarEl.classList.add('sidebar-loading'); // <- crea esta clase en CSS para ocultar menú si deseas
         if (!user) {
             setSidebar('Invitado', '');
             applyUiRestrictions('');
             setRestrictedNavVisibility('');
             updatePresenceIndicator('offline');
+            sidebarEl.classList.remove('sidebar-loading'); // quitar loading aunque sea guest
             return;
         }
         try {
@@ -158,15 +161,15 @@ async function init() {
             setSidebar(displayName, role);
             applyUiRestrictions(role);
             setRestrictedNavVisibility(role);
-            ensurePresenceIndicator();
         } catch (err) {
             console.error('Error obtaining user doc for sidebar:', err);
             const displayName = user.displayName || user.email || 'Usuario';
             setSidebar(displayName, '');
             applyUiRestrictions('');
             setRestrictedNavVisibility('');
-            ensurePresenceIndicator();
         }
+        ensurePresenceIndicator();
+        sidebarEl.classList.remove('sidebar-loading'); // <- SOLO después de obtener el role
     });
 
     if (logoutBtn) {
@@ -330,6 +333,11 @@ async function init() {
 
         // "Usuarios" remains admin-only (previous behavior)
         setNavVisibilityByFragment('usuarios.html', isAdmin);
+        // "Visitas" solo administrador
+        setNavVisibilityByFragment('visits.html', isAdmin);
+
+        // "Categoría" solo administrador
+        setNavVisibilityByFragment('category.html', isAdmin);
     }
 
     function setSidebar(name, role) {
