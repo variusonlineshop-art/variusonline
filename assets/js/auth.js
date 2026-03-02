@@ -23,8 +23,7 @@ const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// LOG para diagnóstico: confirma con qué proyecto/credenciales estamos conectando
-console.log('Firebase app options:', app.options);
+//console.log('Firebase app options:', app.options);
 
 // Rutas por rol
 const ROLE_ROUTES = {
