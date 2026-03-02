@@ -195,7 +195,7 @@
   overflow-x: hidden;
   padding: 16px 12px 16px 12px;
   /* Aseguramos que el último elemento no quede tapado por el footer */
-  padding-bottom: calc(var(--sidebar-footer-height) + 12px);
+  padding-bottom: calc(var(--sidebar-footer-height) + 2px);
   scroll-behavior: smooth;
 }
 
