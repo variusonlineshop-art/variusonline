@@ -619,3 +619,14 @@
     height: 8px;
   }
 }
+.nav-skeleton {
+  height: 36px;
+  margin: 8px 0;
+  background: linear-gradient(90deg, #f1f1f3 40%, #ececec 60%, #f1f1f3 100%);
+  border-radius: 6px;
+  animation: shimmer 1.2s infinite linear;
+}
+@keyframes shimmer {
+  0% { background-position: -150px 0; }
+  100% { background-position: 300px 0; }
+}
