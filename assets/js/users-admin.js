@@ -793,19 +793,15 @@ function getFullPhoneFromForm() {
 }
 
 function openModal(mode = 'add', data = null) {
+    // limpiar toggles y valores residuales
     removePasswordToggles();
+
     modalMode = mode;
     const titleEl = document.getElementById('modalTitle');
     const userIdEl = document.getElementById('userId');
     if (titleEl) titleEl.textContent = mode === 'add' ? 'Agregar Usuario' : 'Editar Usuario';
     if (userIdEl) userIdEl.value = data?.id || '';
     if (document.getElementById('u_name')) document.getElementById('u_name').value = data?.name || '';
-    // ... resto igual que antes ...
-    // Añade botón "Cambiar contraseña" en modal, solo en modo admin y edit.
-    if (mode === 'edit' && data?.id && document.getElementById('btnChangePassword')) {
-        document.getElementById('btnChangePassword').style.display = 'inline-block';
-        document.getElementById('btnChangePassword').onclick = () => openPasswordModal(data.id);
-    }
 
     // email split
     const emailLocalEl = document.getElementById('u_email_local');
@@ -855,11 +851,17 @@ function openModal(mode = 'add', data = null) {
             phoneLocalEl.value = '';
         }
     }
+
     if (document.getElementById('u_role')) document.getElementById('u_role').value = data?.role || '';
     if (document.getElementById('u_status')) document.getElementById('u_status').value = data?.status || 'Activo';
+
     if (pwdInput) pwdInput.value = '';
     if (pwdConfirmInput) pwdConfirmInput.value = '';
-    clearAllAlerts();
+
+    ['u_name_alert', 'u_email_alert', 'u_phone_alert', 'u_password_alert', 'u_password_confirm_alert', 'u_role_alert'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.textContent = '';
+    });
+
     // Required flags
     const setRequired = (id, req) => { const el = document.getElementById(id); if (!el) return; if (req) el.setAttribute('required', 'true'); else el.removeAttribute('required'); };
     const addRequired = mode === 'add';
@@ -870,8 +872,10 @@ function openModal(mode = 'add', data = null) {
     setRequired('u_role', addRequired);
     setRequired('u_password', addRequired);
     setRequired('u_password_confirm', addRequired);
+
     if (emailExtSelect && emailExtSelect.value === 'otro' && addRequired) emailExtCustom.setAttribute('required', 'true');
     else if (emailExtCustom) emailExtCustom.removeAttribute('required');
+
     // rellenar comisiones si vienen en data
     const cType = data?.commissionType || '';
     const cValue = data?.commissionValue != null ? data.commissionValue : '';
@@ -879,14 +883,17 @@ function openModal(mode = 'add', data = null) {
     if (commissionAmountRadio) commissionAmountRadio.checked = cType === 'amount';
     if (commissionPercentInput) commissionPercentInput.value = (cType === 'percent' && cValue !== '') ? cValue : '';
     if (commissionAmountInput) commissionAmountInput.value = (cType === 'amount' && cValue !== '') ? cValue : '';
+
     // mostrar/ocultar sección de comisiones según rol actual
     const currentRole = document.getElementById('u_role')?.value || '';
     updateCommissionVisibilityByRole(currentRole);
+
     if (userModal) {
         userModal.classList.remove('hidden');
         userModal.setAttribute('aria-hidden', 'false');
     }
 }
+
 function closeModal() {
     removePasswordToggles();
     if (!userModal) return;
