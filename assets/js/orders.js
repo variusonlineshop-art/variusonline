@@ -1645,12 +1645,8 @@ document.addEventListener('keydown', (e) => {
 /* ================= AUTH & START ================= */
 onAuthStateChanged(auth, async (user) => {
     if (!user) {
-        console.warn('Usuario no autenticado. Intentando cargar pedidos sin usuario (si reglas lo permiten).');
-        currentUser = null;
-        currentUserRole = 'vendedor';
-        listenOrders();
-        loadMotorizados();
-        loadAvailableProducts();
+        // Redirigir a la página de inicio de sesión o index
+        window.location.href = '../index.html';
         return;
     }
     currentUser = user;
