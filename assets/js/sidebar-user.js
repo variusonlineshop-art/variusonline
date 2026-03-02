@@ -7,6 +7,19 @@ import { applyUiRestrictions } from './rbac.js';
 
 import './presence.js';
 
+/** Catálogo de páginas soportadas **/
+const PAGE_CATALOG = {
+    panel:      { name: 'Panel',         icon: '🏠',    url: './' },
+    usuarios:   { name: 'Usuarios',      icon: '👥',    url: 'usuarios.html' },
+    productos:  { name: 'Productos',     icon: '📦',    url: './product.html' },
+    categoria:  { name: 'Categoría',     icon: '🔖',    url: './category.html' },
+    pedidos:    { name: 'Pedidos',       icon: '📋',    url: 'orders.html' },
+    cierre_caja:{ name: 'Cierre de Caja',icon: '💰',    url: 'cierre-caja.html' },
+    crm:        { name: 'CRM',           icon: '🖥️',   url: 'crm.html' },
+    chat:       { name: 'Chat',          icon: '💬',    url: 'chats.html' },
+    visitas:    { name: 'Visitas',       icon: '👁️',    url: './visits.html' }
+};
+
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -38,6 +51,43 @@ function getInitials(name) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+/** Construye el menú sidebar según allowedPages **/
+function buildSidebarMenu(allowedPages) {
+    const navList = document.querySelector('.nav-list');
+    if (!navList) return;
+    navList.innerHTML = ''; // Borra contenido actual
+
+    allowedPages.forEach(key => {
+        const page = PAGE_CATALOG[key];
+        if (!page) return; // Ignora claves que no existen en el catálogo
+
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+
+        // Resalta el item activo según URL
+        const current = window.location.pathname.split('/').pop() || 'index.html';
+        let isActive = false;
+        try {
+            let pageTarget = new URL(page.url, window.location.href).pathname.split('/').pop();
+            if (!pageTarget) pageTarget = 'index.html';
+            isActive = (pageTarget === current || current.endsWith(pageTarget));
+        } catch {
+            // Degrada a comparación simple
+            isActive = page.url && current.endsWith(page.url);
+        }
+        if (isActive) li.classList.add('active');
+
+        li.innerHTML = `
+            <a href="${page.url}" class="nav-link">
+                <span class="nav-icon" aria-hidden="true">${page.icon}</span>
+                <span class="nav-text">${page.name}</span>
+            </a>
+        `;
+        navList.appendChild(li);
+    });
+}
+
+/** Sidebar user section **/
 async function init() {
     const sidebarEl = await whenReady('aside.sidebar');
     if (!sidebarEl) {
@@ -51,48 +101,7 @@ async function init() {
     const logoutBtn = sidebarEl.querySelector('.sidebar-user .logout-btn, .sidebar-user #logout, #logout, .logout-btn');
     const topSearch = document.querySelector('.top-search');
 
-    // --- NAV active highlighting ---
-    function currentFileName() {
-        const p = window.location.pathname || '/';
-        let name = p.substring(p.lastIndexOf('/') + 1);
-        if (!name) name = 'index.html';
-        return name;
-    }
-
-    function markActiveNav() {
-        const anchors = Array.from(sidebarEl.querySelectorAll('.nav-list a[href]'));
-        const current = currentFileName();
-
-        anchors.forEach(a => {
-            const li = a.closest('.nav-item');
-            if (!li) return;
-            const href = a.getAttribute('href') || '';
-            try {
-                const resolved = new URL(href, window.location.href);
-                let targetName = resolved.pathname.substring(resolved.pathname.lastIndexOf('/') + 1) || 'index.html';
-                if (href === './' || href === '/' || targetName === '') targetName = 'index.html';
-                const isActive = targetName === current ||
-                    current.endsWith(targetName) ||
-                    (resolved.hash && resolved.hash === window.location.hash) ||
-                    (a.dataset && a.dataset.nav && window.location.href.includes(a.dataset.nav));
-                li.classList.toggle('active', Boolean(isActive));
-            } catch (err) {
-                const fallbackName = href.split('/').pop();
-                li.classList.toggle('active', Boolean(fallbackName && current.endsWith(fallbackName)));
-            }
-        });
-    }
-
-    markActiveNav();
-    sidebarEl.addEventListener('click', (ev) => {
-        const a = ev.target.closest && ev.target.closest('a[href]');
-        if (!a) return;
-        setTimeout(markActiveNav, 60);
-    });
-    window.addEventListener('popstate', markActiveNav);
-    window.addEventListener('hashchange', markActiveNav);
-
-    // --- Presence indicator (re-use topSearch .presence-indicator or create if missing) ---
+    // --- PRESENCE INDICATOR ---
     function ensurePresenceIndicator() {
         if (!topSearch) return null;
         let indicator = topSearch.querySelector('.presence-indicator');
@@ -136,40 +145,52 @@ async function init() {
         updatePresenceIndicator(state);
     });
 
-    // --- Auth state handling ---
+    /** Actualiza zona superior usuario **/
+    function setSidebar(name, role) {
+        if (nameEl) nameEl.textContent = name || 'Invitado';
+        if (metaEl) metaEl.textContent = role ? (role.charAt(0).toUpperCase() + role.slice(1)) : '';
+        if (avatarEl) avatarEl.textContent = getInitials(name || role || 'U');
+    }
+
+    // ==== ON AUTH STATE CHANGED ====
     onAuthStateChanged(auth, async (user) => {
-        // Nueva lógica: mini loading para el menú hasta que obtenemos role.
-        sidebarEl.classList.add('sidebar-loading'); // <- crea esta clase en CSS para ocultar menú si deseas
+        sidebarEl.classList.add('sidebar-loading');
         if (!user) {
             setSidebar('Invitado', '');
             applyUiRestrictions('');
-            setRestrictedNavVisibility('');
             updatePresenceIndicator('offline');
-            sidebarEl.classList.remove('sidebar-loading'); // quitar loading aunque sea guest
+            sidebarEl.classList.remove('sidebar-loading');
+            buildSidebarMenu([]); // Quita menú
             return;
         }
         try {
             const userRef = fsDoc(db, 'users', user.uid);
             const userSnap = await getDoc(userRef);
+
             let displayName = user.displayName || user.email || 'Usuario';
             let role = '';
+            let allowedPages = [];
+
             if (userSnap.exists()) {
                 const data = userSnap.data();
                 displayName = data.name || displayName;
                 role = data.role || '';
+                allowedPages = Array.isArray(data.allowedPages) ? data.allowedPages : [];
             }
+
             setSidebar(displayName, role);
             applyUiRestrictions(role);
-            setRestrictedNavVisibility(role);
+            updatePresenceIndicator('online');
+            buildSidebarMenu(allowedPages);
+
         } catch (err) {
             console.error('Error obtaining user doc for sidebar:', err);
-            const displayName = user.displayName || user.email || 'Usuario';
-            setSidebar(displayName, '');
+            setSidebar(user.displayName || user.email || 'Usuario', '');
             applyUiRestrictions('');
-            setRestrictedNavVisibility('');
+            updatePresenceIndicator('');
+            buildSidebarMenu([]);
         }
-        ensurePresenceIndicator();
-        sidebarEl.classList.remove('sidebar-loading'); // <- SOLO después de obtener el role
+        sidebarEl.classList.remove('sidebar-loading');
     });
 
     if (logoutBtn) {
@@ -191,12 +212,10 @@ async function init() {
         console.debug('sidebar-user: logout button not found yet');
     }
 
-    // Overlay handling: reuse existing .overlay (created by loader) when possible
+    // --- OVERLAY/TOGGLE LÓGICA (como ya tienes, lo puedes conservar igual) ---
     function getOverlayElement() {
-        // prefer the global overlay injected by the loader (sibling of nav-toggle)
         let ov = document.querySelector('.overlay');
         if (ov) return ov;
-        // fallback: create a lightweight overlay (keeps behavior)
         ov = document.createElement('div');
         ov.className = 'overlay';
         ov.setAttribute('aria-hidden', 'true');
@@ -215,7 +234,6 @@ async function init() {
     const navToggle = document.getElementById('nav-toggle');
     const hamburgerButtons = Array.from(document.querySelectorAll('.hamburger, .hamburger-box, [data-sidebar-toggle]'));
 
-    // Ensure sidebar z-index is above overlay
     const desiredSidebarZ = 80;
     sidebarEl.style.zIndex = sidebarEl.style.zIndex || String(desiredSidebarZ);
     const sidebarComputed = getComputedStyle(sidebarEl).position;
@@ -241,7 +259,6 @@ async function init() {
         sidebarEl.setAttribute('aria-hidden', 'false');
         positionOverlay();
         overlay.style.display = '';
-        // allow fade-in via CSS transition if present
         requestAnimationFrame(() => { overlay.style.opacity = '1'; overlay.style.pointerEvents = 'auto'; overlay.setAttribute('aria-hidden', 'false'); });
         if (navToggle && !navToggle.checked) navToggle.checked = true;
     }
@@ -253,11 +270,9 @@ async function init() {
         overlay.style.pointerEvents = 'none';
         overlay.setAttribute('aria-hidden', 'true');
         if (navToggle && navToggle.checked) navToggle.checked = false;
-        // hide after transition
         setTimeout(() => { if (!navToggle || !navToggle.checked) overlay.style.display = 'none'; }, 220);
     }
 
-    // sync checkbox -> sidebar
     if (navToggle) {
         if (navToggle.checked) openSidebar(); else closeSidebar();
         navToggle.addEventListener('change', () => {
@@ -265,13 +280,12 @@ async function init() {
         });
     }
 
-    // hamburger fallback for pages without checkbox
     hamburgerButtons.forEach(h => {
         h.addEventListener('click', (e) => {
             if (!navToggle) {
                 e.preventDefault();
                 if (sidebarEl.classList.contains('open')) closeSidebar(); else openSidebar();
-            } // else allow checkbox to handle it
+            }
         });
     });
 
@@ -282,7 +296,6 @@ async function init() {
         }
     });
 
-    // Close menu after clicking a nav link (mobile UX)
     sidebarEl.addEventListener('click', (ev) => {
         const a = ev.target.closest && ev.target.closest('a[href]');
         if (!a) return;
@@ -293,7 +306,6 @@ async function init() {
         }, 80);
     });
 
-    // Recalculate overlay position on resize / orientation change if open
     let resizeTimer;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
@@ -303,48 +315,6 @@ async function init() {
             }
         }, 80);
     });
-
-    // RBAC helpers
-    function getNavItemByHrefFragment(fragment) {
-        const anchor = sidebarEl.querySelector(`.nav-list a[href$="${fragment}"], .nav-list a[href*="/${fragment}"], .nav-list a[href*="${fragment}"]`);
-        if (!anchor) return null;
-        return anchor.closest('.nav-item') || null;
-    }
-
-    function setNavVisibilityByFragment(fragment, visible) {
-        const item = getNavItemByHrefFragment(fragment);
-        if (!item) return;
-        item.style.display = visible ? '' : 'none';
-    }
-
-    function setRestrictedNavVisibility(role) {
-        // Normalize role to lowercase to be robust against capitalization
-        const r = (role || '').toString().toLowerCase();
-
-        const isAdmin = r === 'administrador';
-        const isVendedor = r === 'vendedor';
-        const isMotorizado = r === 'motorizado';
-
-        // "Cierre de Caja" should be visible ONLY to administrador
-        setNavVisibilityByFragment('cierre-caja.html', isAdmin);
-
-        // "Productos" (product.html) visible to administrador and vendedor, hidden for motorizado/guests
-        setNavVisibilityByFragment('product.html', isAdmin || isVendedor);
-
-        // "Usuarios" remains admin-only (previous behavior)
-        setNavVisibilityByFragment('usuarios.html', isAdmin);
-        // "Visitas" solo administrador
-        setNavVisibilityByFragment('visits.html', isAdmin);
-
-        // "Categoría" solo administrador
-        setNavVisibilityByFragment('category.html', isAdmin);
-    }
-
-    function setSidebar(name, role) {
-        if (nameEl) nameEl.textContent = name || 'Invitado';
-        if (metaEl) metaEl.textContent = role ? (role.charAt(0).toUpperCase() + role.slice(1)) : '';
-        if (avatarEl) avatarEl.textContent = getInitials(name || role || 'U');
-    }
 
     window.__sidebar = {
         open: openSidebar,
