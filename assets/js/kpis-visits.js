@@ -1,154 +1,155 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const URL_CARRITO = "http://localhost/refact-varius/carrito.html";
+let allVisits = []; 
+let paginaActual = 1;
+const registrosPorPagina = 5;
 
-async function cargarVisitasCarrito() {
-  const q = query(collection(db, "visits"), where("url_pagina", "==", URL_CARRITO));
-  const snapshot = await getDocs(q);
-  const count = snapshot.size;
-  document.getElementById("kpi-visitas-carrito-value").textContent = count;
-
-  window.__visitasCarrito = [];
-  snapshot.forEach(doc => window.__visitasCarrito.push(doc.data()));
+// --- Escucha de datos en tiempo real ---
+function listenGlobalVisits() {
+    const q = query(collection(db, "visits"), orderBy("fecha_registro", "desc"), limit(100));
+    onSnapshot(q, (querySnapshot) => {
+        allVisits = [];
+        querySnapshot.forEach((doc) => {
+            allVisits.push({ id: doc.id, ...doc.data() });
+        });
+        
+        const kpiElement = document.getElementById("kpi-visitas-carrito-value");
+        if (kpiElement) kpiElement.textContent = allVisits.length;
+        
+        const modal = document.getElementById("modal-visitas-carrito");
+        if (modal && !modal.classList.contains("hidden")) {
+            renderizarEstructuraModal();
+        }
+    });
 }
 
 function abrirModalVisitasCarrito() {
-  const modal = document.getElementById("modal-visitas-carrito");
-  const visitas = window.__visitasCarrito || [];
-
-  if (visitas.length === 0) {
-    document.getElementById("modalVisitasCarritoBody").innerHTML = "<p>Sin visitas.</p>";
-    modal.classList.remove("hidden");
-    return;
-  }
-
-  // Campos principales + los de screen
-  const campos = [
-    "ip", "nombre", "navegador", "plataforma", "memoria_dispositivo", "idioma",
-    "idiomas_preferidos", "cookies", "online", "referrer", "fecha_registro", "hora_local", "zona_horaria",
-    "soporte_tactil",
-    "screen.width", "screen.height", "screen.colorDepth", "screen.pixelRatio"
-  ];
-
-  // Headers bonitos
-  const headers = {
-    ip: "IP",
-    nombre: "Nombre",
-    navegador: "Navegador",
-    plataforma: "Plataforma",
-    memoria_dispositivo: "Memoria (GB)",
-    idioma: "Idioma",
-    idiomas_preferidos: "Idiomas",
-    cookies: "Cookies",
-    online: "Online",
-    referrer: "Referrer",
-    fecha_registro: "Fecha Registro",
-    hora_local: "Hora Local",
-    zona_horaria: "Zona Horaria",
-    soporte_tactil: "Touch",
-    "screen.width": "Screen W",
-    "screen.height": "Screen H",
-    "screen.colorDepth": "ColorDepth",
-    "screen.pixelRatio": "Ratio"
-  };
-
-  let html = `
-    <div style="overflow-x:auto;max-width:100vw;">
-      <table class="visitas-table-responsive">
-        <thead>
-          <tr>
-            ${campos.map(c => `<th>${headers[c]||c}</th>`).join("")}
-          </tr>
-        </thead>
-        <tbody>
-          ${visitas.map(v => `
-            <tr>
-              ${campos.map(c => {
-                if(c.startsWith("screen.")){
-                  // Desglose screen.[prop]
-                  const prop = c.split(".")[1];
-                  return `<td>${v.screen && v.screen[prop] !== undefined ? v.screen[prop] : "-"}</td>`;
-                } else if(typeof v[c] === "boolean"){
-                  return `<td>${v[c] ? "✔️" : "✖️"}</td>`;
-                } else if(v[c] !== undefined && v[c] !== null){
-                  return `<td>${v[c]}</td>`;
-                } else {
-                  return `<td>-</td>`;
-                }
-              }).join("")}
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-      <style>
-      .visitas-table-responsive {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-        background: #ffffff;
-        min-width: 880px;
-      }
-      .visitas-table-responsive th, .visitas-table-responsive td {
-        padding: 7px 12px;
-        border: 1px solid #e8e9ee;
-        text-align: left;
-      }
-      .visitas-table-responsive th {
-        background: #f0f4fa;
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        font-weight: bold;
-        color: #324295;
-      }
-      .visitas-table-responsive tr:nth-child(even) {
-        background: #fafcfe;
-      }
-      .visitas-table-responsive tr:hover td {
-        background: #eafaff;
-      }
-      @media (max-width: 900px) {
-        .visitas-table-responsive th, .visitas-table-responsive td {
-          font-size: 11px;
-          padding: 6px 4px;
-        }
-        .visitas-table-responsive {
-          min-width: 620px;
-        }
-      }
-      @media (max-width: 650px) {
-        .visitas-table-responsive th, .visitas-table-responsive td {
-          font-size: 10px;
-          padding: 4px 2px;
-        }
-        .visitas-table-responsive {
-          min-width: 440px;
-        }
-      }
-      </style>
-    </div>
-    <div style="margin-top:10px;color:#6b7280;font-size:12px;">
-      <span>Se muestran <b>${visitas.length}</b> registros; puedes hacer scroll horizontal si hay muchas columnas.</span>
-    </div>
-  `;
-  document.getElementById("modalVisitasCarritoBody").innerHTML = html;
-  modal.classList.remove("hidden");
+    paginaActual = 1;
+    renderizarEstructuraModal();
+    document.getElementById("modal-visitas-carrito").classList.remove("hidden");
 }
 
-// Cerrar modal
-document.getElementById("closeModalVisitasCarrito")?.addEventListener("click", () => {
-  document.getElementById("modal-visitas-carrito").classList.add("hidden");
-});
-document.getElementById("modalVisitasCarritoOk")?.addEventListener("click", () => {
-  document.getElementById("modal-visitas-carrito").classList.add("hidden");
+function renderizarEstructuraModal() {
+    const totalRegistros = allVisits.length;
+    const unicas = [...new Set(allVisits.map(v => v.ip).filter(Boolean))].length;
+    const activas = allVisits.filter(v => v.online).length;
+    const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina) || 1;
+
+    let html = `
+    <div class="p-5 bg-slate-50 font-sans">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-xl border-l-4 border-emerald-500 shadow-sm">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Total</p>
+                <h3 class="text-2xl font-black text-slate-800">${totalRegistros}</h3>
+            </div>
+            <div class="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Únicas</p>
+                <h3 class="text-2xl font-black text-slate-800">${unicas}</h3>
+            </div>
+            <div class="bg-white p-4 rounded-xl border-l-4 border-amber-500 shadow-sm">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Online</p>
+                <h3 class="text-2xl font-black text-slate-800">${activas}</h3>
+            </div>
+            <div class="bg-white p-4 rounded-xl border-l-4 border-rose-500 shadow-sm">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Páginas</p>
+                <h3 class="text-2xl font-black text-slate-800">${totalPaginas}</h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+            <div id="tabla-dinamica-container">
+                ${renderizarTablaPaginada()}
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 border-t border-slate-200 pt-6">
+            <button onclick="window.location.href='visits.html'" 
+                    class="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-chart-line"></i> Ver más detalles
+            </button>
+            <button onclick="cerrarModalVisitas()" 
+                    class="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-300 transition-all">
+                Cerrar
+            </button>
+        </div>
+    </div>
+    `;
+
+    document.getElementById("modalVisitasCarritoBody").innerHTML = html;
+}
+
+function renderizarTablaPaginada() {
+    const inicio = (paginaActual - 1) * registrosPorPagina;
+    const fin = inicio + registrosPorPagina;
+    const visitasPaginadas = allVisits.slice(inicio, fin);
+    const totalPaginas = Math.ceil(allVisits.length / registrosPorPagina) || 1;
+
+    return `
+        <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-100 text-slate-600">
+                <tr>
+                    <th class="p-4 font-bold uppercase tracking-tighter">Usuario / IP</th>
+                    <th class="p-4 font-bold uppercase tracking-tighter text-center">Estado</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                ${visitasPaginadas.map(v => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-4">
+                            <div class="font-bold text-slate-700">${v.ip || '0.0.0.0'}</div>
+                            <div class="text-[10px] text-slate-400 truncate max-w-[200px]">${v.url_pagina?.split('/').pop() || 'index.html'}</div>
+                        </td>
+                        <td class="p-4 text-center">
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-black ${v.online ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
+                                ${v.online ? 'ONLINE' : 'OFF'}
+                            </span>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+            <div class="flex gap-2">
+                <button onclick="cambiarPaginaModal(-1)" ${paginaActual === 1 ? 'disabled' : ''} 
+                        class="px-3 py-1.5 bg-white border border-slate-200 rounded text-[10px] font-bold hover:bg-slate-100 disabled:opacity-30">
+                    Anterior
+                </button>
+                <button onclick="cambiarPaginaModal(1)" ${paginaActual === totalPaginas ? 'disabled' : ''} 
+                        class="px-3 py-1.5 bg-white border border-slate-200 rounded text-[10px] font-bold hover:bg-slate-100 disabled:opacity-30">
+                    Siguiente
+                </button>
+            </div>
+            <span class="text-[10px] font-bold text-slate-400 uppercase">Pág. ${paginaActual} / ${totalPaginas}</span>
+        </div>
+    `;
+}
+
+// --- Funciones Globales (Disponibles para onclick) ---
+window.cambiarPaginaModal = (direccion) => {
+    paginaActual += direccion;
+    const container = document.getElementById("tabla-dinamica-container");
+    if (container) container.innerHTML = renderizarTablaPaginada();
+};
+
+window.cerrarModalVisitas = () => {
+    document.getElementById("modal-visitas-carrito").classList.add("hidden");
+};
+
+window.abrirModalVisitasCarrito = abrirModalVisitasCarrito;
+
+// --- Inicialización ---
+document.addEventListener("DOMContentLoaded", () => {
+    listenGlobalVisits();
+    
+    // Vincular el botón de la X (arriba a la derecha)
+    const btnX = document.getElementById("closeModalVisitasCarrito");
+    if (btnX) btnX.onclick = window.cerrarModalVisitas;
 });
 
 cargarVisitasCarrito();
 setInterval(cargarVisitasCarrito, 60_000);
-
-window.abrirModalVisitasCarrito = abrirModalVisitasCarrito;
