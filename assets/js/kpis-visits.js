@@ -150,6 +150,3 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnX = document.getElementById("closeModalVisitasCarrito");
     if (btnX) btnX.onclick = window.cerrarModalVisitas;
 });
-
-cargarVisitasCarrito();
-setInterval(cargarVisitasCarrito, 60_000);
