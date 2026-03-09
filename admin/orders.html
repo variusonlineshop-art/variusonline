@@ -4,16 +4,44 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Gestión de Pedidos — Varius</title>
+    <title>Categoria — Varius</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/app.css">
-    <link rel="stylesheet" href="assets/css/orders.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        #map {
+            height: 200px;
+            width: 100%;
+            border-radius: 12px;
+            margin-top: 10px;
+        }
+
+        .product-img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .sidebar {
+            z-index: 10 !important;
+        }
+    </style>
 </head>
 
 <body>
     <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
-
     <!-- Top bar -->
     <header class="topbar">
         <div class="top-left">
@@ -37,182 +65,266 @@
 
     <div id="app-sidebar"></div>
 
+    <!-- Main content -->
     <main class="main">
-        <!-- Filters -->
-        <section class="card filters-card" aria-label="Filtros">
-            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items: flex-end;">
-                <div class="filter-field" style="display:flex; flex-direction:column; min-width:220px;">
-                    <label for="filter-status" style="margin-bottom: 4px;">Estado del Pedido</label>
-                    <select id="filter-status">
-                        <option value="">Todos</option>
-                        <option value="pendiente">Pendiente</option>
-                        <option value="asignado">Asignado</option>
-                        <option value="en camino">En camino</option>
-                        <option value="entregado">Entregado</option>
-                        <option value="cancelado">Cancelado</option>
-                        <option value="suspendido">Suspendido</option>
-                    </select>
+        <div class="px-6 py-8">
+        <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-8">
+            <div class="flex flex-col gap-6">
+                <div class="border-b border-gray-50 pb-4">
+                    <h2 class="text-lg font-bold text-gray-800">Gestión de Órdenes</h2>
+                    <p class="text-xs text-gray-400">Gestiona y filtra los pedidos de la plataforma</p>
                 </div>
 
-                <div class="filter-field" style="display:flex; flex-direction:column; min-width:220px;">
-                    <label for="filter-date" style="margin-bottom: 4px;">Fecha</label>
-                    <input id="filter-date" type="date" />
-                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-end">
+                    
+                    <div class="xl:col-span-1">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                            Buscador (Cliente, ID, Teléfono)
+                        </label>
+                        <div class="relative group">
+                            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-blue-500 transition-colors"></i>
+                            <input type="text" id="globalSearch" oninput="applyAllFilters()"
+                                placeholder="Escribe para buscar..."
+                                class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all">
+                        </div>
+                    </div>
 
-                <div class="filter-field" style="display:flex; flex-direction:column; flex:1; min-width:200px;">
-                    <label for="filter-client" style="margin-bottom: 4px;">Buscar cliente</label>
-                    <input id="filter-client" type="search" placeholder="Buscar cliente..." />
-                </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Vendedor</label>
+                        <select id="filterSeller" onchange="applyAllFilters()"
+                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                            <option value="all">Todos los Vendedores</option>
+                        </select>
+                    </div>
 
-                <div style="display:flex; gap:8px; padding-bottom: 1px;">
-                    <button id="btnFilter" class="btn-apply" style="height: fit-content;">Buscar</button>
-                    <button id="btnClear" class="icon-btn" style="height: fit-content;">Limpiar</button>
-                </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Motorizado</label>
+                        <select id="filterMotorized" onchange="applyAllFilters()"
+                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                            <option value="all">Todos los Motorizados</option>
+                        </select>
+                    </div>
 
-            </div>
-        </section>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Cronología</label>
+                        <select id="filterSort" onchange="applyAllFilters()"
+                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                            <option value="newest">Más recientes</option>
+                            <option value="oldest">Más antiguos</option>
+                        </select>
+                    </div>
 
-        <section class="table-wrap card" style="display:flex;gap:16px;margin-top:12px;">
-            <div style="flex:1;min-width:0;">
-                <div class="table-header">
-                    <h3>Lista de Pedidos</h3>
-                </div>
-
-                <div class="table-scroll" id="orders-area">
-                    <!-- Desktop / tablet table -->
-                    <table id="ordersTable" class="orders-table" aria-label="Tabla de pedidos">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Cliente</th>
-                                <th>Fecha</th>
-                                <th>Total</th>
-                                <th>Vendedor</th>
-                                <th>Motorizado</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ordersTbody">
-                            <!-- Rows injected by JS -->
-                        </tbody>
-                    </table>
-
-                    <!-- Mobile: cards -->
-                    <div id="ordersCards" aria-live="polite"></div>
+                    <div class="flex items-end">
+                        <button onclick="clearAllFilters()"
+                            class="w-full p-3 bg-red-50 text-red-500 font-bold rounded-2xl hover:bg-red-500 hover:text-white transition-all text-sm flex items-center justify-center gap-2 group">
+                            <i class="fa-solid fa-eraser group-hover:rotate-12 transition-transform"></i>
+                            Limpiar Filtros
+                        </button>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Chats column removed -->
-        </section>
-
-        <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+        <div id="grid-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-10">
+        </div>
     </main>
 
-
-    <!-- View Modal -->
-    <div id="order-view-modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
-        <div class="modal-content modal-lg" role="document">
-            <div class="modal-header">
-                <h2 id="view-order-title">Detalle del Pedido</h2>
-                <button class="close-btn" id="view-close" aria-label="Cerrar">&times;</button>
-            </div>
-            <div class="modal-body" id="view-order-body">
-                <!-- Injected -->
-            </div>
-            <div class="modal-footer"
-                style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-                <button id="view-history" class="btn-small btn-history" title="Historial del cliente">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                        class="bi bi-clock-history" viewBox="0 0 16 16">
-                        <path
-                            d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z" />
-                        <path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z" />
-                        <path
-                            d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5" />
-                    </svg>
+    <div id="editOrderModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            <div class="p-6 border-b flex justify-between items-center bg-gray-50">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">Editar Orden</h3>
+                    <p id="editOrderToken" class="text-xs text-gray-400"></p>
+                </div>
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
                 </button>
-                <button id="view-close-bottom" class="btn-small btn-suspender">Cerrar</button>
             </div>
-        </div>
-    </div>
 
-    <!-- Edit Modal -->
-    <div id="order-edit-modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
-        <div class="modal-content modal-lg">
-            <div class="modal-header">
-                <h2 id="edit-order-title">Editar Pedido</h2>
-                <button class="close-btn" id="edit-close" aria-label="Cerrar">&times;</button>
-            </div>
-            <div class="modal-body" id="edit-order-body">
-                <!-- Form -->
-                <form id="edit-order-form">
-                    <div class="form-row">
-                        <label>Cliente</label>
-                        <div id="edit-customer" class="small-muted"></div>
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wider">Productos en el Pedido
+                            </h4>
+                            <button onclick="showProductSelector()"
+                                class="text-xs bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-all">
+                                <i class="fa-solid fa-plus mr-1"></i> Agregar Producto
+                            </button>
+                        </div>
+
+                        <div id="editItemsContainer" class="space-y-3">
+                        </div>
                     </div>
 
-                    <div class="form-row inline" style="margin-top:8px;">
+                    <div class="space-y-6">
                         <div>
-                            <label>Motorizado asignado</label>
-                            <select id="edit-motorizado">
-                                <option value="">-- POR ASIGNAR --</option>
-                                <!-- opciones pobladas por JS (usuarios con role == "motorizado") -->
+                            <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Asignación de
+                                Motorizado</h4>
+                            <select id="motorizedSelect" onchange="handleMotorizedChange()"
+                                class="w-full p-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">Seleccionar Motorizado</option>
                             </select>
+                            <div id="motorizedCommentContainer" class="mt-3 hidden">
+                                <textarea id="motorizedComment" placeholder="Motivo del cambio o comentario..."
+                                    class="w-full p-3 rounded-xl border border-gray-200 text-sm h-24 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-900 rounded-2xl p-6 text-white">
+                            <h4 class="text-xs font-bold text-blue-400 uppercase mb-4 tracking-widest">Resumen de
+                                Totales</h4>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-400">Subtotal</span>
+                                    <span id="editSubtotal">$0.00</span>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-700 pt-4 flex justify-between items-center">
+                                <span class="font-bold">TOTAL</span>
+                                <span id="editTotal" class="text-2xl font-black text-white">$0.00</span>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <div class="form-row" style="margin-top:8px;">
-                        <label>Comentario</label>
-                        <textarea id="edit-motorizado-comment" rows="3"
-                            placeholder="Realizar Comentario..."></textarea>
-                    </div>
-
-                    <hr style="margin:12px 0;" />
-
-                    <div id="edit-items-area">
-                        <label>Items</label>
-                        <div id="items-list"></div>
-
-                        <!-- Inputs removidos: ahora la adición se realiza desde la lista de productos disponibles -->
-                    </div>
-
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-                        <div>
-                            <span class="small-muted">Total:</span>
-                            <strong id="edit-total">$0.00</strong>
-                        </div>
-                        <div style="display:flex;gap:8px;">
-                            <button id="saveEditBtn" class="btn-apply" type="submit">Guardar</button>
-                            <button id="cancelEditBtn" class="btn btn-suspender" type="button">Cancelar</button>
-                        </div>
-                    </div>
-                </form>
+            <div class="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                <button onclick="closeEditModal()"
+                    class="px-6 py-2.5 rounded-xl text-gray-500 font-bold hover:bg-gray-200 transition-all">Cancelar</button>
+                <button onclick="saveOrderChanges()"
+                    class="px-8 py-2.5 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 transition-all">Guardar
+                    Cambios</button>
             </div>
         </div>
     </div>
 
-    <!-- PAYMENT Modal: modificado para múltiples métodos y conversiones -->
-    <div id="paymentModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true"
-        aria-labelledby="paymentModalTitle">
-        <div class="modal-content" role="document" style="max-width:520px; width:95%; padding:12px 18px;">
-            <div class="modal-header">
-                <h2 id="paymentModalTitle">Registrar cobranza</h2>
-                <button class="close-btn" id="paymentModalClose" aria-label="Cerrar">×</button>
+    <div id="productSelectorModal" class="fixed inset-0 bg-black/40 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl">
+            <h4 class="font-bold mb-4">Agregar Producto</h4>
+            <input type="text" id="productSearch" oninput="filterProducts()" placeholder="Buscar producto..."
+                class="w-full p-2 mb-4 border rounded-lg text-sm">
+            <div id="productList" class="max-h-60 overflow-y-auto space-y-2"></div>
+            <button onclick="closeProductSelector()" class="w-full mt-4 py-2 text-gray-400 text-sm">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="postponeModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl overflow-hidden">
+            <div class="text-center mb-6">
+                <div
+                    class="w-16 h-16 bg-yellow-100 text-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fa-regular fa-clock"></i>
+                </div>
+                <h3 class="text-xl font-black text-gray-800">Postergar Entrega</h3>
+                <p class="text-gray-400 text-xs">Selecciona la nueva fecha y hora de entrega</p>
             </div>
 
-            <div class="modal-body" id="paymentModalBody" style="padding:12px 0;">
-                <div class="card" style="padding:12px; margin-bottom:12px;">
-                    <div style="display:flex; justify-content:space-between; gap:12px;">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Fecha</label>
+                    <input type="date" id="postponeDate"
+                        class="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora</label>
+                    <input type="time" id="postponeTime"
+                        class="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Comentario / Motivo</label>
+                    <textarea id="postponeComment" placeholder="Ej: Cliente no se encontraba en casa..."
+                        class="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm h-24 resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-8">
+                <button onclick="closePostponeModal()"
+                    class="flex-1 py-4 rounded-2xl font-bold text-gray-400 hover:bg-gray-100 transition-all">
+                    Cancelar
+                </button>
+                <button id="savePostponeBtn" onclick="savePostpone()"
+                    class="flex-[2] py-4 rounded-2xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
+                    Confirmar Postergación
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="orderModal"
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            <div class="p-6 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="text-xl font-bold text-gray-800">Detalles de la Orden</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <div id="modalBody" class="p-6 overflow-y-auto">
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl transform transition-all text-center">
+            <div id="confirmIcon" class="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl">
+            </div>
+            <h3 id="confirmTitle" class="text-xl font-black text-gray-800 mb-2"></h3>
+            <p id="confirmMessage" class="text-gray-500 text-sm mb-8 leading-relaxed"></p>
+
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()"
+                    class="flex-1 py-3 rounded-xl font-bold text-gray-400 hover:bg-gray-100 transition-all">
+                    Cancelar
+                </button>
+                <button id="confirmBtnAction"
+                    class="flex-1 py-3 rounded-xl font-bold text-white shadow-lg transform active:scale-95 transition-all">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="paymentModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] hidden flex items-center justify-center p-4">
+        <div
+            class="bg-white w-full max-w-lg max-h-[95vh] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col transform transition-all border border-gray-100">
+
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 tracking-tight">Registrar Cobranza</h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Transacción en curso
+                        </p>
+                    </div>
+                </div>
+                <button id="paymentModalClose"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
+
+                <div class="bg-slate-50 rounded-3xl p-5 border border-slate-100 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-100">
+                            <i class="fa-solid fa-file-invoice-dollar text-lg"></i>
+                        </div>
                         <div>
-                            <div style="font-size:13px; color:var(--muted);">Cliente:</div>
-                            <div id="pmCustomerName" style="font-weight:600;"></div>
+                            <p class="text-[10px] text-gray-500 font-medium">Cobranza al Cliente:</p>
+                            <p id="pmCustomerName" class="text-sm font-bold text-gray-800 leading-tight"></p>
                         </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:13px; color:var(--muted);">Monto a cobrar (USD):</div>
-                            <div id="pmTotal" style="font-weight:700; font-size:16px;">$. 0.00</div>
-                            <div id="pmTotalBs" style="font-size:12px; color:var(--muted); margin-top:4px;"></div>
-                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p id="pmTotal" class="text-2xl font-black text-gray-900 leading-none">$ 0.00</p>
+                        <p id="pmTotalBs" class="text-[11px] font-bold text-blue-500 mt-1"></p>
                     </div>
                 </div>
 
@@ -356,17 +468,57 @@
                 </form>
             </div>
 
-            <div class="modal-footer" style="display:flex; flex-direction:column; gap:8px; padding-top:12px;">
-                <button id="pmConfirmBtn" class="btn-primary" style="width:100%;">Confirmar cobranza</button>
-                <button id="pmCancelBtn" class="btn-secondary" style="width:100%;">Cancelar</button>
+            <div class="p-6 bg-gray-50/50 flex flex-col gap-3">
+                <button id="pmConfirmBtn"
+                    class="w-full py-4 rounded-2xl bg-blue-600 text-white font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-[0.98] text-sm uppercase tracking-widest">
+                    Confirmar Cobranza
+                </button>
+                <button id="pmCancelBtn"
+                    class="w-full py-3 rounded-2xl bg-transparent text-gray-400 font-bold hover:bg-gray-100 transition-all text-sm">
+                    Cancelar y Salir
+                </button>
             </div>
         </div>
     </div>
 
+    <div id="contactModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
+            <div
+                class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl">
+                <i class="fa-solid fa-comments"></i>
+            </div>
+            <h3 class="text-xl font-black text-gray-800 mb-2">Contactar Cliente</h3>
+            <p class="text-gray-500 text-sm mb-8">Selecciona la vía de comunicación preferida:</p>
+
+            <div class="flex flex-col gap-3">
+                <a id="contactCallBtn" href="#"
+                    class="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-white bg-emerald-500 shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all">
+                    <i class="fa-solid fa-phone"></i>
+                    Llamar ahora
+                </a>
+
+                <button id="contactChatBtn"
+                    class="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
+                    <i class="fa-solid fa-message"></i>
+                    Ir al Chat
+                </button>
+
+                <button onclick="closeContactModal()"
+                    class="mt-2 py-3 text-gray-400 font-bold hover:text-gray-600 transition-all text-sm">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script type="module" src="../assets/js/bank-select.js"></script>
+    <script type="module" src="../assets/js/orders.admin.js"></script>
     <script type="module" src="../assets/js/sidebar-loader.js"></script>
-    <script type="module" src="../assets/js/orders.js"></script>
     <script type="module" src="../assets/js/session-timeout.js"></script>
+
 </body>
 
 </html>
-
