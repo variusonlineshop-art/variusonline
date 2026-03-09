@@ -943,7 +943,8 @@ export async function openPaymentModal(orderObj) {
                         payment: paymentObj,
                         paymentUpdatedAt: serverTimestamp(),
                         shippingStatus: 'entregado',
-                        shippingUpdatedAt: serverTimestamp()
+                        shippingUpdatedAt: serverTimestamp(),
+                        status: 'Pagado'
                     });
                 });
             } catch (txErr) {
