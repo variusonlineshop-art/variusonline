@@ -14,11 +14,27 @@
     }
   ],
   "hosting": {
+<<<<<<< HEAD
     "public": ".",
+=======
+    "public": "./",
+>>>>>>> d2f19fa0b0b836456b14c5e230525c756803ef9e
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+<<<<<<< HEAD
     ]
   }
 }
+=======
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
+>>>>>>> d2f19fa0b0b836456b14c5e230525c756803ef9e
