@@ -1,0 +1,190 @@
+/* assets/css/orders.css
+   Actualización: asegura que la columna lateral (chatColumn) se oculta en mobile y
+   que la lista se restaura correctamente al volver desde una conversación en desktop.
+   Incluye estilos de chat/burbujas y responsive.
+*/
+
+/* Variables (si ya están en app.css, estas son seguras como fallback) */
+:root {
+  --border: #e6e8eb;
+  --muted: #6b7280;
+  --accent-2: #7c3aed;
+}
+
+/* Table */
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+.orders-table thead th {
+  padding: 14px 18px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.orders-table tbody td {
+  padding: 14px 18px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+/* Cards */
+#ordersCards {
+  display: none;
+}
+
+.order-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 7px rgba(0, 0, 0, 0.04);
+  border: 1px solid #ececec;
+  margin-bottom: 16px;
+  padding: 16px;
+  font-size: 14px;
+}
+
+/* Chat column */
+.chat-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+  padding: 8px;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.chat-column h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.chat-list .chat-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  align-items: center;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: #fff;
+  margin-bottom: 8px;
+}
+
+.chat-item .thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e6e9ed;
+}
+
+/* Chat modal */
+#chat-modal .modal-content {
+  width: 420px;
+  max-width: 96%;
+  padding: 12px;
+}
+
+#chat-modal #chat-messages {
+  padding: 8px;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+/* Message bubbles */
+.msg-bubble {
+  box-shadow: 0 3px 10px rgba(11, 15, 34, 0.06);
+  line-height: 1.25;
+}
+
+.msg-own {
+  background: linear-gradient(180deg, #7c3aed, #5b21b6);
+  color: white;
+  border-radius: 14px 14px 6px 14px;
+}
+
+.msg-other {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-radius: 14px 14px 14px 6px;
+}
+
+/* Input */
+#chat-modal input#chat-input {
+  box-sizing: border-box;
+  border-radius: 20px;
+  padding: 10px;
+  border: 1px solid var(--border);
+}
+
+#chat-modal .btn-apply {
+  min-width: 78px;
+}
+
+/* Floating chat button */
+#floatingChatBtn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  right: 18px;
+  bottom: 88px;
+  z-index: 1600;
+  background: var(--accent-2);
+  color: #fff;
+  border: none;
+  box-shadow: 0 6px 20px rgba(12, 15, 20, 0.12);
+}
+
+/* Small responsive behavior */
+@media (max-width: 700px) {
+  #ordersCards {
+    display: block;
+  }
+
+  #ordersTable,
+  .orders-table {
+    display: none !important;
+  }
+
+  .chat-column {
+    display: none !important;
+  }
+
+  /* hide sidebar on mobile always */
+  #floatingChatBtn {
+    display: block;
+  }
+}
+
+@media (min-width:701px) {
+  #floatingChatBtn {
+    display: none;
+  }
+
+  .chat-column {
+    display: block;
+  }
+
+  /* sidebar visible on desktop */
+}
+
+/* Utility */
+.small-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.state-badge {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+}
