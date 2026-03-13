@@ -1,0 +1,12 @@
+{
+  "name": "variusonline",
+  "version": "1.0.0",
+  "description": "Tienda VariusOnline",
+  "scripts": {
+    "build": "echo 'Mi Tienda esta Online'",
+    "serve": "npx serve -s ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
