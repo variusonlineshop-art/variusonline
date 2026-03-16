@@ -195,7 +195,8 @@ async function cargarProductosFirebase() {
                 price: data.price || 0,
                 stock: data.stock || 0,
                 status: (data.status || "Activo").toUpperCase(),
-                offer: data.offer || data.discount || 0,
+                onOffer: data.onOffer === true, // asegúrate de booleano
+                discount: data.discount || 0,
                 images: (data.imageUrls && data.imageUrls.length > 0) ? data.imageUrls : ["https://via.placeholder.com/400x300"],
                 description: data.description || ""
             });
@@ -303,7 +304,7 @@ function renderizarTabla(datos = productos) {
                 <td class="px-6 py-4 text-slate-500 text-sm font-medium">${p.category}</td>
                 <td class="px-6 py-4">
                     <div class="font-bold text-slate-800">$ ${(typeof p.price === 'number' ? p.price : 0).toLocaleString('de-DE', { minimumFractionDigits: 2 })}</div>
-                    ${p.offer ? `<span class="text-[10px] font-bold text-emerald-500">-${p.offer}% Rebajado</span>` : ''}
+                    ${p.onOffer ? `<span class="text-[10px] font-bold text-emerald-500">-${p.discount}% Rebajado</span>` : ''}
                 </td>
                 <td class="px-6 py-4">
                     <span class="font-bold ${p.stock === 0 ? 'text-red-500' : 'text-slate-700'}">${p.stock} Und</span>
@@ -387,14 +388,15 @@ function abrirModal(tipo, id = null) {
             form.sku.value = p.sku;
             form.price.value = p.price.toLocaleString('de-DE', { minimumFractionDigits: 2 });
             form.stock.value = p.stock;
-            if (p.offer > 0) {
-                form.isOffer.checked = true;
-                document.getElementById('offerInputContainer').style.display = 'block';
-                form.discount.value = p.offer;
+            form.isOffer.checked = !!p.onOffer;
+            if (p.onOffer) {
+                document.getElementById('offerInputContainer').classList.remove('hidden');
+                document.getElementById('discountInput').disabled = false;
+                document.getElementById('discountInput').value = p.discount || "0";
             } else {
-                form.isOffer.checked = false;
-                document.getElementById('offerInputContainer').style.display = 'none';
-                form.discount.value = '';
+                document.getElementById('offerInputContainer').classList.add('hidden');
+                document.getElementById('discountInput').disabled = true;
+                document.getElementById('discountInput').value = "0";
             }
             if (p.images && p.images.length > 0) {
                 for (let imgUrl of p.images) {
@@ -430,14 +432,15 @@ document.getElementById('productForm').onsubmit = async function (e) {
     // SKU SIEMPRE del input (así no se pierde)
     data.sku = document.getElementById('skuInput').value;
 
-    // Campo oferta
-    data.offer = form.isOffer?.checked ? parseInt(data.discount || "0") : 0;
-    delete data.isOffer;
-    delete data.discount;
+    // Oferta
+    data.onOffer = form.isOffer?.checked ? true : false;
+    data.discount = data.onOffer ? parseInt(data.discount || "0") : 0;
 
-    // Numéricos bien
-    data.stock = parseInt(data.stock || "0");
+    // El campo offer antiguo ya no se usa
+    delete data.isOffer;
+    // El campo price siempre debe ser float
     data.price = parseFloat((data.price || "0").replace(/\./g, "").replace(",", "."));
+    data.stock = parseInt(data.stock || "0");
 
     let productId = data.sku || (Math.random() + '').slice(2);
     let imageUrls = await subirTodasLasImagenes(productId);
@@ -509,7 +512,19 @@ function formatearPrecio(input) {
 }
 
 function toggleOferta(check) {
-    document.getElementById('offerInputContainer').style.display = check.checked ? 'block' : 'none';
+    const offerContainer = document.getElementById('offerInputContainer');
+    const discountInput = document.getElementById('discountInput');
+    if (check.checked) {
+        offerContainer.classList.remove('hidden');
+        offerContainer.style.display = 'block';
+        discountInput.disabled = false;
+        discountInput.focus();
+    } else {
+        offerContainer.classList.add('hidden');
+        offerContainer.style.display = '';
+        discountInput.value = "0";
+        discountInput.disabled = true;
+    }
 }
 
 function suspender(id) {
