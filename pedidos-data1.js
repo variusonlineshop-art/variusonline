@@ -853,7 +853,9 @@ async function handleUrlAddParams() {
 }
 
 // --- GELOCACIÓN MEJORADA ---
-const GOOGLE_API_KEY = "AIzaSyCHl0E0UvFmyLJooH2e1tHZLr7DDt7C3WA";
+//const GOOGLE_API_KEY = "AIzaSyCHl0E0UvFmyLJooH2e1tHZLr7DDt7C3WA"; Vieja
+const GOOGLE_API_KEY = "AIzaSyAZw9mb2oBWaK2UjRCHNT5fS-irOCUIq_Q";
+
 
 function geoError(msg) {
   const geoErr = document.getElementById('geo_error');
