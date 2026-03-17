@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Tienda - Varius</title>  
+  <title>Tienda - Varius</title>
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="stylesheet" href="assets/css/carrito.css">
   <!-- Meta Pixel Code -->
@@ -26,6 +26,29 @@
   <noscript><img height="1" width="1" style="display:none"
       src="https://www.facebook.com/tr?id=959500979748263&ev=PageView&noscript=1" /></noscript>
   <!-- End Meta Pixel Code -->
+  <style>
+    .field-inline-wrapper {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #cust_operator {
+      width: 90px;
+      min-width: 75px;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #e6eef6;
+    }
+
+    #cust_phone {
+      flex: 1;
+      min-width: 110px;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #e6eef6;
+    }
+  </style>
 </head>
 
 <body>
@@ -90,11 +113,16 @@
             <div id="cust_name_err" class="field-err" aria-live="polite"></div>
           </div>
 
-          <div class="form-row">
-            <label for="cust_phone">Teléfono <span class="req">*</span></label>
-            <input id="cust_phone" name="phone" type="text" placeholder="Ej: 1234567" required autocomplete="tel"
-              inputmode="numeric" pattern="\d*" maxlength="7">
-            <div id="cust_phone_err" class="field-err" aria-live="polite"></div>
+          <div class="field-inline-wrapper">
+            <select id="cust_operator" name="operator">
+              <option value="0414">0414</option>
+              <option value="0424">0424</option>
+              <option value="0412">0412</option>
+              <option value="0422">0422</option>
+              <option value="0416">0416</option>
+              <option value="0426">0426</option>
+            </select>
+            <input id="cust_phone" type="text" placeholder="Ej: 1234567" maxlength="7" />
           </div>
 
           <div class="form-row" style="position:relative;">
@@ -186,7 +214,6 @@
   </footer>
 
   <script type="module" src="assets/js/pedidos-data.js"></script>
-  <script type="module" src="assets/js/contact-layout.js"></script>
   <script type="module" src="assets/js/ui-animations.js"></script>
   <script type="module" src="assets/js/visits.js"></script>
 </body>
