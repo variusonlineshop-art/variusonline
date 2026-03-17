@@ -9,15 +9,16 @@ import './presence.js';
 
 /** Catálogo de páginas soportadas **/
 const PAGE_CATALOG = {
-    panel:      { name: 'Panel',         icon: '🏠',    url: './' },
-    usuarios:   { name: 'Usuarios',      icon: '👥',    url: 'usuarios.html' },
-    productos:  { name: 'Productos',     icon: '📦',    url: './product.html' },
-    categoria:  { name: 'Categoría',     icon: '🔖',    url: './category.html' },
-    pedidos:    { name: 'Pedidos',       icon: '📋',    url: 'orders.html' },
-    cierre_caja:{ name: 'Cierre de Caja',icon: '💰',    url: 'cierre-caja.html' },
-    crm:        { name: 'CRM',           icon: '🖥️',   url: 'crm.html' },
-    chat:       { name: 'Chat',          icon: '💬',    url: 'chats.html' },
-    visitas:    { name: 'Visitas',       icon: '👁️',    url: './visits.html' }
+    panel: { name: 'Panel', icon: '🏠', url: './' },
+    usuarios: { name: 'Usuarios', icon: '👥', url: './usuarios.html' },
+    productos: { name: 'Productos', icon: '📦', url: './product.html' },
+    categoria: { name: 'Categoría', icon: '🔖', url: './category.html' },
+    pedidos: { name: 'Pedidos', icon: '📋', url: './orders.html' },
+    cierre_caja: { name: 'Cierre de Caja', icon: '💰', url: './cierre-caja.html' },
+    crm: { name: 'CRM', icon: '🖥️', url: './crm.html' },
+    chat: { name: 'Chat', icon: '💬', url: './chats.html' },
+    visitas: { name: 'Visitas', icon: '👁️', url: './visits.html' },
+    routes: { name: 'Mis Rutas', icon: '📍', url: './routes.html' }
 };
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
