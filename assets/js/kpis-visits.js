@@ -18,8 +18,18 @@ function listenGlobalVisits() {
             allVisits.push({ id: doc.id, ...doc.data() });
         });
         
+        // Actualizar el número (KPI)
         const kpiElement = document.getElementById("kpi-visitas-carrito-value");
         if (kpiElement) kpiElement.textContent = allVisits.length;
+        
+        // --- NUEVA LÓGICA PARA LA BARRA ---
+        const progressBar = document.getElementById("kpi-visitas-bar");
+        if (progressBar) {
+            // Ejemplo: la barra llega al 100% si hay 100 visitas (ajusta el límite según tu meta)
+            const metaVisitas = 1000; 
+            const porcentaje = Math.min((allVisits.length / metaVisitas) * 100, 100);
+            progressBar.style.width = `${porcentaje}%`;
+        }
         
         const modal = document.getElementById("modal-visitas-carrito");
         if (modal && !modal.classList.contains("hidden")) {
