@@ -363,94 +363,95 @@ function renderTable() {
 }
 
 const PAGES = [
-  { key: 'panel', label: 'Panel', icon: '🏠' },
-  { key: 'usuarios', label: 'Usuarios', icon: '👥' },
-  { key: 'productos', label: 'Productos', icon: '📦' },
-  { key: 'categoria', label: 'Categoría', icon: '🏷️' },
-  { key: 'pedidos', label: 'Pedidos', icon: '📝' },
-  { key: 'cierre_caja', label: 'Cierre de Caja', icon: '💰' },
-  { key: 'crm', label: 'CRM', icon: '🖥️' },
-  { key: 'chat', label: 'Chat', icon: '💬' },
-  { key: 'visitas', label: 'Visitas', icon: '👁️' }
+    { key: 'panel', label: 'Panel', icon: '🏠' },
+    { key: 'usuarios', label: 'Usuarios', icon: '👥' },
+    { key: 'productos', label: 'Productos', icon: '📦' },
+    { key: 'categoria', label: 'Categoría', icon: '🏷️' },
+    { key: 'pedidos', label: 'Pedidos', icon: '📝' },
+    { key: 'cierre_caja', label: 'Cierre de Caja', icon: '💰' },
+    { key: 'crm', label: 'CRM', icon: '🖥️' },
+    { key: 'chat', label: 'Chat', icon: '💬' },
+    { key: 'visitas', label: 'Visitas', icon: '👁️' },
+    { key: 'routes', label: 'Rutas', icon: '📍' }
 ];
 
 async function openPermissionsModal(userId) {
-  const modal = document.getElementById('modalPermissions');
-  const grid = document.getElementById('permissionsPagesGrid');
-  const countEl = document.getElementById('permissionsSelectedCount');
-  const selectAllEl = document.getElementById('permissionsSelectAll');
-  if (!modal || !grid || !countEl || !selectAllEl) return;
-  
-  const userObj = allUsers.find(u => u.id === userId);
-  const current = Array.isArray(userObj?.allowedPages) ? userObj.allowedPages : [];
-  let selected = [...current];
+    const modal = document.getElementById('modalPermissions');
+    const grid = document.getElementById('permissionsPagesGrid');
+    const countEl = document.getElementById('permissionsSelectedCount');
+    const selectAllEl = document.getElementById('permissionsSelectAll');
+    if (!modal || !grid || !countEl || !selectAllEl) return;
 
-  // Renderiza tarjetas
-  grid.innerHTML = '';
-  PAGES.forEach(pg => {
-    const card = document.createElement('div');
-    card.className = 'perm-card' + (selected.includes(pg.key) ? ' selected' : '');
-    card.setAttribute('data-key', pg.key);
-    card.innerHTML = `
+    const userObj = allUsers.find(u => u.id === userId);
+    const current = Array.isArray(userObj?.allowedPages) ? userObj.allowedPages : [];
+    let selected = [...current];
+
+    // Renderiza tarjetas
+    grid.innerHTML = '';
+    PAGES.forEach(pg => {
+        const card = document.createElement('div');
+        card.className = 'perm-card' + (selected.includes(pg.key) ? ' selected' : '');
+        card.setAttribute('data-key', pg.key);
+        card.innerHTML = `
       <div class="icon">${pg.icon}</div>
       <div style="font-size:.96em;">${pg.label}</div>
       <span class="checkmark" aria-hidden="true">
         <svg viewBox="0 0 16 16"><path fill="#7c3aed" d="M6.173 12.067a.75.75 0 0 1-1.06 0l-2.18-2.215a.75.75 0 1 1 1.067-1.055l1.646 1.67 4.345-4.345a.75.75 0 0 1 1.06 1.06l-4.878 4.885z"/></svg>
       </span>
     `;
-    card.addEventListener('click', () => {
-      if (selected.includes(pg.key)) {
-        selected = selected.filter(k => k !== pg.key);
-        card.classList.remove('selected');
-      } else {
-        selected.push(pg.key);
-        card.classList.add('selected');
-      }
-      updatePermissionsCount();
-      selectAllEl.checked = selected.length === PAGES.length;
+        card.addEventListener('click', () => {
+            if (selected.includes(pg.key)) {
+                selected = selected.filter(k => k !== pg.key);
+                card.classList.remove('selected');
+            } else {
+                selected.push(pg.key);
+                card.classList.add('selected');
+            }
+            updatePermissionsCount();
+            selectAllEl.checked = selected.length === PAGES.length;
+        });
+        grid.appendChild(card);
     });
-    grid.appendChild(card);
-  });
-  // Función para actualizar cantidad
-  function updatePermissionsCount() {
-    countEl.textContent = selected.length;
-    // Reflejar visual en tarjetas
-    grid.querySelectorAll('.perm-card').forEach(cardEl => {
-      const key = cardEl.getAttribute('data-key');
-      if (selected.includes(key)) cardEl.classList.add('selected');
-      else cardEl.classList.remove('selected');
-    });
-  }
-  updatePermissionsCount();
-  selectAllEl.checked = selected.length === PAGES.length;
-
-  // Checkbox "Seleccionar todas"
-  selectAllEl.onchange = () => {
-    if (selectAllEl.checked) {
-      selected = PAGES.map(pg => pg.key);
-    } else {
-      selected = [];
+    // Función para actualizar cantidad
+    function updatePermissionsCount() {
+        countEl.textContent = selected.length;
+        // Reflejar visual en tarjetas
+        grid.querySelectorAll('.perm-card').forEach(cardEl => {
+            const key = cardEl.getAttribute('data-key');
+            if (selected.includes(key)) cardEl.classList.add('selected');
+            else cardEl.classList.remove('selected');
+        });
     }
     updatePermissionsCount();
-  };
+    selectAllEl.checked = selected.length === PAGES.length;
 
-  modal.style.display = 'flex'; modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false');
-  document.getElementById('cancelPermissionsBtn').onclick = () => {
-    modal.style.display = 'none'; modal.classList.add('hidden');
-  };
-  document.getElementById('savePermissionsBtn').onclick = async () => {
-    try {
-      showLoading('Actualizando permisos...');
-      await updateDoc(doc(db, 'users', userId), { allowedPages: selected });
-      showToast('Permisos guardados');
-      modal.style.display = 'none'; modal.classList.add('hidden');
-      await loadUsers();
-    } catch (err) {
-      showToast('Error guardando permisos');
-    } finally {
-      hideLoading();
-    }
-  };
+    // Checkbox "Seleccionar todas"
+    selectAllEl.onchange = () => {
+        if (selectAllEl.checked) {
+            selected = PAGES.map(pg => pg.key);
+        } else {
+            selected = [];
+        }
+        updatePermissionsCount();
+    };
+
+    modal.style.display = 'flex'; modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('cancelPermissionsBtn').onclick = () => {
+        modal.style.display = 'none'; modal.classList.add('hidden');
+    };
+    document.getElementById('savePermissionsBtn').onclick = async () => {
+        try {
+            showLoading('Actualizando permisos...');
+            await updateDoc(doc(db, 'users', userId), { allowedPages: selected });
+            showToast('Permisos guardados');
+            modal.style.display = 'none'; modal.classList.add('hidden');
+            await loadUsers();
+        } catch (err) {
+            showToast('Error guardando permisos');
+        } finally {
+            hideLoading();
+        }
+    };
 }
 
 // ---------- MODAL CAMBIO CONTRASEÑA ----------
