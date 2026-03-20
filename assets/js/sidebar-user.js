@@ -59,6 +59,49 @@ function buildSidebarMenu(allowedPages) {
     navList.innerHTML = html;
 }
 
+document.addEventListener('click', async (e) => {
+    const logoutBtn = e.target.closest('.logout-btn, #logout, .sidebar-user .logout-btn');
+    if (!logoutBtn) return;
+
+    e.preventDefault();
+    console.log("Cerrando sesión...");
+
+    try {
+        // 1. Notificar presencia antes de matar la sesión
+        if (window.__presence && typeof window.__presence.setUserOfflineImmediately === 'function') {
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                await window.__presence.setUserOfflineImmediately(currentUser.uid);
+            }
+        }
+
+        // 2. Ejecutar el logout importado de auth.js
+        await logout();
+
+        // 3. Redirección manual si auth.js no lo hace
+        window.location.href = '../index.html';
+    } catch (err) {
+        console.error('Error al cerrar sesión:', err);
+    }
+});
+
+function updatePresenceIndicator(state) {
+    const indicator = ensurePresenceIndicator();
+    if (!indicator) return;
+
+    const label = topSearch.querySelector('.presence-label');
+    indicator.classList.remove('online', 'offline', 'error');
+
+    // Mapeo de estados para consistencia con presence.js
+    if (state === 'online') {
+        indicator.classList.add('online');
+        if (label) label.textContent = 'En línea';
+    } else {
+        indicator.classList.add('offline');
+        if (label) label.textContent = 'Desconectado';
+    }
+}
+
 // --- EL CAMBIO CRÍTICO: Escuchar Auth de forma eficiente ---
 onAuthStateChanged(auth, async (user) => {
     const sidebarEl = document.querySelector('aside.sidebar');
@@ -99,4 +142,8 @@ onAuthStateChanged(auth, async (user) => {
     } finally {
         if (sidebarEl) sidebarEl.classList.remove('sidebar-loading');
     }
+});
+window.addEventListener('presence:me', (e) => {
+    const { state } = e.detail || {};
+    updatePresenceIndicator(state);
 });
