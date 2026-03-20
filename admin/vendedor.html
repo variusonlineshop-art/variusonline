@@ -60,6 +60,14 @@
                 <span class="dot"></span>
                 <span class="label">Desconectado</span>
             </div>
+
+            <div class="ticker-container">
+                <div class="ticker-wrapper">
+                    <div id="rate-usd" class="ticker-item">$ Bs/USD ...</div>
+                    <div id="rate-eur" class="ticker-item">€ Bs./EUR ...</div>
+                    <div id="rate-usd-clone" class="ticker-item">$ Bs/USD ...</div>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -71,7 +79,7 @@
             <!---**KPIS CARD**--->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
 
-               
+
                 <div
                     class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group">
                     <div class="flex justify-between items-start mb-4">
@@ -119,7 +127,7 @@
                         </div>
                     </div>
                 </div>
-              
+
             </div>
             <!---**ACCIONES RAPIDAS**--->
             <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-6">
@@ -131,16 +139,17 @@
                 <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
                     <a href="product.html"
                         class="flex flex-col items-center justify-center p-4 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all group">
-                        <i class="fa-solid fa-map-location-dot text-xl mb-2 group-hover:scale-110 transition-transform"></i>
+                        <i
+                            class="fa-solid fa-map-location-dot text-xl mb-2 group-hover:scale-110 transition-transform"></i>
                         <span class="text-[10px] font-bold uppercase tracking-tight text-center">Productos</span>
-                    </a>                   
+                    </a>
 
                     <a href="crm.html"
                         class="flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all group">
                         <i class="fa-solid fa-address-card text-xl mb-2 group-hover:scale-110 transition-transform"></i>
                         <span class="text-[10px] font-bold uppercase tracking-tight text-center">CRM</span>
                     </a>
-                    
+
                     <a href="chats.html"
                         class="flex flex-col items-center justify-center p-4 rounded-2xl bg-cyan-50 text-cyan-600 hover:bg-cyan-600 hover:text-white transition-all group">
                         <i class="fa-solid fa-comments text-xl mb-2 group-hover:scale-110 transition-transform"></i>
@@ -214,7 +223,7 @@
             </div>
     </main>
 
-    
+
     <!-- MODAL VENTAS DEL DIA -->
     <div id="modal-ventas-dia" class="fixed inset-0 z-[1500] hidden items-center justify-center p-4">
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="cerrarModalVentasDia()"></div>
@@ -240,7 +249,7 @@
             </div>
         </div>
     </div>
-  
+
 
     <div id="editOrderModal"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
@@ -634,6 +643,7 @@
     <script type="module" src="../assets/js/kpis.js"></script>
     <script type="module" src="../assets/js/kpis-visits.js"></script>
     <script type="module" src="../assets/js/kpis-ventas-dia.js"></script>
+    <script type="module" src="../assets/js/money.cash.js"></script>
 
 </body>
 
