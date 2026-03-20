@@ -115,12 +115,12 @@
 
           <div class="field-inline-wrapper">
             <select id="cust_operator" name="operator">
-              <option value="0414">0414</option>
-              <option value="0424">0424</option>
-              <option value="0412">0412</option>
-              <option value="0422">0422</option>
-              <option value="0416">0416</option>
-              <option value="0426">0426</option>
+              <option value="58414">0414</option>
+              <option value="58424">0424</option>
+              <option value="58412">0412</option>
+              <option value="58422">0422</option>
+              <option value="58416">0416</option>
+              <option value="58426">0426</option>
             </select>
             <input id="cust_phone" type="text" placeholder="Ej: 1234567" maxlength="7" />
           </div>
@@ -205,6 +205,24 @@
     </div>
   </div>
 
+  <div id="vpnModal" class="product-modal" style="display: none;">
+    <div class="product-modal-panel" style="max-width: 500px; text-align: center;">
+      <div class="product-modal-body">
+        <div style="width: 100%;">
+          <span style="font-size: 3rem;">🌐</span>
+          <h2 style="margin-top: 1rem; color: var(--text);">VPN Detectado</h2>
+          <p style="color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6;">
+            Hemos detectado que estás utilizando una conexión VPN o Proxy. Por motivos de seguridad y para procesar tu
+            compra correctamente, por favor <strong>desactiva el VPN</strong> y recarga la página.
+          </p>
+          <button onclick="window.location.reload()" class="btn-primary" style="width: 100%;">
+            Recargar Página
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" aria-live="polite"></div>
 
   <footer class="site-footer">
@@ -216,6 +234,7 @@
   <script type="module" src="assets/js/pedidos-data.js"></script>
   <script type="module" src="assets/js/ui-animations.js"></script>
   <script type="module" src="assets/js/visits.js"></script>
+  <script type="module" src="assets/js/anti-vpn.js"></script>
 </body>
 
 </html>
