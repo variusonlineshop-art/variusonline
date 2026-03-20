@@ -626,9 +626,14 @@ function removePasswordToggles() {
         pwdConfirmInput.value = '';
     }
 }
+
 function showPasswordTogglesIfNeeded() {
     if (!pwdInput || !pwdConfirmInput) return;
     const bothHaveText = (pwdInput.value && pwdInput.value.length > 0) && (pwdConfirmInput.value && pwdConfirmInput.value.length > 0);
+    // Usa el contenedor nuevo en vez de parentNode directo
+    const pwdParent = pwdInput.closest('.pwd-input-wrapper') || pwdInput.parentNode;
+    const pwdConfirmParent = pwdConfirmInput.closest('.pwd-input-wrapper') || pwdConfirmInput.parentNode;
+
     if (bothHaveText) {
         if (!pwdToggle) {
             pwdToggle = createToggleBtn();
@@ -638,7 +643,7 @@ function showPasswordTogglesIfNeeded() {
                 pwdToggle.textContent = isPwd ? '🙈' : '👁️';
                 pwdToggle.setAttribute('aria-pressed', String(!isPwd));
             });
-            pwdInput.parentNode.appendChild(pwdToggle);
+            pwdParent.appendChild(pwdToggle);
         }
         if (!pwdConfirmToggle) {
             pwdConfirmToggle = createToggleBtn();
@@ -648,7 +653,7 @@ function showPasswordTogglesIfNeeded() {
                 pwdConfirmToggle.textContent = isPwd ? '🙈' : '👁️';
                 pwdConfirmToggle.setAttribute('aria-pressed', String(!isPwd));
             });
-            pwdConfirmInput.parentNode.appendChild(pwdConfirmToggle);
+            pwdConfirmParent.appendChild(pwdConfirmToggle);
         }
     } else {
         if (pwdToggle) { pwdToggle.remove(); pwdToggle = null; }
@@ -657,6 +662,7 @@ function showPasswordTogglesIfNeeded() {
         if (pwdConfirmInput) pwdConfirmInput.type = 'password';
     }
 }
+
 if (pwdInput && pwdConfirmInput) {
     pwdInput.addEventListener('input', showPasswordTogglesIfNeeded);
     pwdConfirmInput.addEventListener('input', showPasswordTogglesIfNeeded);
