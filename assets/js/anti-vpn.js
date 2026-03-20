@@ -1,24 +1,36 @@
 async function checkVPN() {
+    console.log("Iniciando verificación de conexión...");
+    
     try {
-        // 1. Verificación básica por inconsistencia de Zona Horaria
-        // Si el usuario tiene una zona horaria que no coincide con su IP, es sospechoso
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-        // 2. Consulta a API de geolocalización e integridad de IP
+        // Método 1: Detección por discrepancia de Zona Horaria (Muy efectivo y rápido)
+        // Compara la zona horaria del navegador con la que reporta la IP
         const response = await fetch('https://ipapi.co/json/');
         const data = await response.json();
+        
+        const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const ipTimezone = data.timezone;
 
-        // Lista de flags comunes que indican VPN/Proxy
-        const isProxy = data.proxy === true;
+        console.log("Zona Navegador:", browserTimezone);
+        console.log("Zona IP:", ipTimezone);
 
-        // Comparación simple de país (Opcional: puedes bloquear si el país no es el tuyo)
-        // Ejemplo: if (data.country_name !== 'Venezuela') ...
+        // Si hay una discrepancia o la API marca explícitamente proxy/vpn
+        // Nota: Algunas extensiones de VPN no cambian la zona horaria del sistema, 
+        // pero la IP sí cambia, creando una inconsistencia.
+        if (data.proxy === true || data.vpn === true || (ipTimezone && browserTimezone !== ipTimezone)) {
+            console.warn("VPN/Proxy Detectado");
+            showVPNModal();
+            return;
+        }
 
-        if (isProxy) {
+        // Método 2: Verificación de WebRTC (Opcional/Avanzado)
+        // Algunos VPNs filtran IPs reales, si no podemos obtener una IP local clara, podría ser VPN
+        if (data.org && (data.org.toLowerCase().includes("hosting") || data.org.toLowerCase().includes("google llc") || data.org.toLowerCase().includes("amazon"))) {
+            // Si la organización de la IP es un centro de datos (Hosting), es un VPN
             showVPNModal();
         }
+
     } catch (error) {
-        console.log("Error verificando conexión:", error);
+        console.error("Error en la verificación:", error);
     }
 }
 
@@ -26,10 +38,9 @@ function showVPNModal() {
     const modal = document.getElementById('vpnModal');
     if (modal) {
         modal.style.display = 'flex';
-        // Bloquear scroll del cuerpo para forzar la atención en el modal
-        document.body.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden'; // Bloquea el scroll
     }
 }
 
-// Ejecutar la comprobación al cargar la página
-window.addEventListener('load', checkVPN);
+// Ejecutar
+checkVPN();
