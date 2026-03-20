@@ -15,7 +15,7 @@ const API_SOURCES = [
     {
         name: 'Exchangerr API (Fallback)',
         // Usamos una alternativa común o tu propio endpoint de respaldo
-        url: 'https://api.exchangerr.com/v1/latest?base=USD&symbols=VES', 
+        url: 'https://api.exchangerr.com/v1/latest?base=USD&symbols=VES',
         parser: (data) => ({
             usd: data?.rates?.VES,
             eur: null // Dependerá de la estructura de la API secundaria
@@ -31,15 +31,18 @@ async function updateTopbarRates() {
     for (const source of API_SOURCES) {
         try {
             console.debug(`Intentando obtener tasas de: ${source.name}`);
-            
+
             // Cache-busting para evitar datos viejos
             const fetchUrl = `${source.url}${source.url.includes('?') ? '&' : '?'}_=${Date.now()}`;
-            
+
             const response = await fetch(fetchUrl, {
                 method: 'GET',
-                mode: 'cors',
-                headers: { 'Accept': 'application/json' },
-                signal: AbortSignal.timeout(5000) // Timeout de 5s para no bloquear el slider
+                mode: 'cors', // Crucial para peticiones entre dominios
+                headers: {
+                    'Accept': 'application/json',
+                    // Evita enviar cabeceras personalizadas que disparen un "Preflight" (OPTIONS) innecesario
+                },
+                signal: AbortSignal.timeout(5000)
             });
 
             if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
@@ -61,9 +64,9 @@ async function updateTopbarRates() {
     if (ratesFound) {
         // Formateo usando tu estándar local (coma para decimales)
         const usdStr = Number(ratesFound.usd).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        
+
         if (usdElement) usdElement.textContent = `$ Bs/USD ${usdStr}`;
-        
+
         if (ratesFound.eur && eurElement) {
             const eurStr = Number(ratesFound.eur).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             eurElement.textContent = `€ Bs./EUR ${eurStr}`;
