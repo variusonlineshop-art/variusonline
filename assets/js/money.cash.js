@@ -1,48 +1,78 @@
 /**
- * Script para actualizar las tasas en la Topbar
- * Basado en la lógica de fetchRates de payment-modal.js
+ * Script de Topbar con redundancia (Failover)
+ * Intenta obtener la tasa de dos fuentes distintas.
  */
 
-const EXCHANGE_API_URL = 'https://api.dolarvzla.com/public/exchange-rate';
+const API_SOURCES = [
+    {
+        name: 'DolarVzla API',
+        url: 'https://api.dolarvzla.com/public/exchange-rate',
+        parser: (data) => ({
+            usd: data?.current?.usd,
+            eur: data?.current?.eur
+        })
+    },
+    {
+        name: 'Exchangerr API (Fallback)',
+        // Usamos una alternativa común o tu propio endpoint de respaldo
+        url: 'https://api.exchangerr.com/v1/latest?base=USD&symbols=VES', 
+        parser: (data) => ({
+            usd: data?.rates?.VES,
+            eur: null // Dependerá de la estructura de la API secundaria
+        })
+    }
+];
 
 async function updateTopbarRates() {
     const usdElement = document.getElementById('rate-usd');
     const eurElement = document.getElementById('rate-eur');
+    let ratesFound = null;
 
-    try {
-        // Añadimos cache-busting igual que en tu archivo de referencia
-        const url = `${EXCHANGE_API_URL}?_=${Date.now()}`;
+    for (const source of API_SOURCES) {
+        try {
+            console.debug(`Intentando obtener tasas de: ${source.name}`);
+            
+            // Cache-busting para evitar datos viejos
+            const fetchUrl = `${source.url}${source.url.includes('?') ? '&' : '?'}_=${Date.now()}`;
+            
+            const response = await fetch(fetchUrl, {
+                method: 'GET',
+                mode: 'cors',
+                headers: { 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(5000) // Timeout de 5s para no bloquear el slider
+            });
 
-        const response = await fetch(url, {
-            method: 'GET',
-            mode: 'cors',
-            headers: { 'Accept': 'application/json' }
-        });
+            if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
 
-        if (!response.ok) throw new Error('Error en API');
+            const data = await response.json();
+            const parsed = source.parser(data);
 
-        const data = await response.json();
-        const current = data?.current;
-
-        if (current) {
-            // Extraemos y formateamos (usando tu lógica de 2 decimales con coma)
-            const usd = Number(current.usd).toLocaleString('es-ES', { minimumFractionDigits: 2 });
-            const eur = Number(current.eur).toLocaleString('es-ES', { minimumFractionDigits: 2 });
-
-            // Actualizamos el texto del slider
-            if (usdElement) usdElement.textContent = `$ Bs/USD ${usd}`;
-            if (eurElement) eurElement.textContent = `€ Bs./EUR ${eur}`;
-
-            console.log("Topbar: Tasas actualizadas correctamente.");
+            if (parsed.usd) {
+                ratesFound = parsed;
+                console.log(`✅ Tasas obtenidas con éxito desde ${source.name}`);
+                break; // Salimos del bucle si tenemos éxito
+            }
+        } catch (error) {
+            console.warn(`❌ Error en ${source.name}:`, error.message);
+            // El bucle continuará con la siguiente fuente
         }
-    } catch (error) {
-        console.warn('No se pudieron cargar las tasas para la topbar:', error);
-        // Opcional: Mostrar un valor fijo o "Cargando..." si falla
+    }
+
+    if (ratesFound) {
+        // Formateo usando tu estándar local (coma para decimales)
+        const usdStr = Number(ratesFound.usd).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        if (usdElement) usdElement.textContent = `$ Bs/USD ${usdStr}`;
+        
+        if (ratesFound.eur && eurElement) {
+            const eurStr = Number(ratesFound.eur).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            eurElement.textContent = `€ Bs./EUR ${eurStr}`;
+        }
+    } else {
+        console.error("No se pudo obtener la tasa de ninguna de las fuentes configuradas.");
     }
 }
 
-// Ejecutar al cargar la página
+// Iniciar al cargar y refrescar cada 30 min
 document.addEventListener('DOMContentLoaded', updateTopbarRates);
-
-// Opcional: Actualizar cada 30 minutos
 setInterval(updateTopbarRates, 30 * 60 * 1000);
