@@ -11,7 +11,7 @@ const registrosPorPagina = 5;
 
 // --- Escucha de datos en tiempo real ---
 function listenGlobalVisits() {
-    const q = query(collection(db, "visits"), orderBy("fecha_registro", "desc"), limit(100));
+    const q = query(collection(db, "visits"), orderBy("fecha_registro", "desc"));
     onSnapshot(q, (querySnapshot) => {
         allVisits = [];
         querySnapshot.forEach((doc) => {
