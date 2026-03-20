@@ -319,8 +319,14 @@ function renderizarTabla(datos = productos) {
                 <td class="px-6 py-4">
                     <div class="flex justify-center gap-2">
                         <button onclick="copyProductLink('${p.id}')" title="Copiar enlace" class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all"><i class="fas fa-link text-xs"></i></button>
+                        ${currentUserRole === 'administrador'
+                        ?
+                        `
                         <button onclick="abrirModal('edit', '${p.id}')" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white transition-all"><i class="fas fa-pen text-xs"></i></button>
                         <button onclick="suspender('${p.id}')" class="w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all"><i class="fas fa-ban text-xs"></i></button>
+                            `
+                        : ''
+                    }
                     </div>
                 </td>
             </tr>
