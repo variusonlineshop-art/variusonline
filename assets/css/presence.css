@@ -630,3 +630,44 @@
   0% { background-position: -150px 0; }
   100% { background-position: 300px 0; }
 }
+
+
+/* Contenedor principal: define el área visible */
+.ticker-container {
+    display: inline-block;
+    height: 24px; /* Ajusta según el alto de tu topbar */
+    overflow: hidden;
+    vertical-align: middle;
+    margin-left: 15px;
+    font-family: sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* El grupo que se desplaza */
+.ticker-wrapper {
+    display: flex;
+    flex-direction: column;
+    animation: slide-up 6s cubic-bezier(0.645, 0.045, 0.355, 1) infinite;
+}
+
+/* Cada divisa individual */
+.ticker-item {
+    height: 24px;
+    line-height: 24px;
+    white-space: nowrap;
+}
+
+/* Animación del movimiento */
+@keyframes slide-up {
+    0%, 45% { transform: translateY(0); }         /* Muestra USD */
+    50%, 95% { transform: translateY(-24px); }    /* Muestra EUR */
+    100% { transform: translateY(-48px); }        /* Vuelve al inicio rápido */
+}
+
+/* Ajuste opcional para el contenedor de la derecha */
+.top-search {
+    display: flex;
+    align-items: center;
+}
