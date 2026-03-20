@@ -8,6 +8,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+let currentUserRole = null;
+
 const auth = getAuth(app);
 signInAnonymously(auth)
     .then(() => {
@@ -388,15 +390,14 @@ function abrirModal(tipo, id = null) {
             form.sku.value = p.sku;
             form.price.value = p.price.toLocaleString('de-DE', { minimumFractionDigits: 2 });
             form.stock.value = p.stock;
-            form.isOffer.checked = !!p.onOffer;
-            if (p.onOffer) {
-                document.getElementById('offerInputContainer').classList.remove('hidden');
-                document.getElementById('discountInput').disabled = false;
-                document.getElementById('discountInput').value = p.discount || "0";
+            if (p.offer > 0) {
+                form.isOffer.checked = true;
+                document.getElementById('offerInputContainer').style.display = 'block';
+                form.discount.value = p.offer;
             } else {
-                document.getElementById('offerInputContainer').classList.add('hidden');
-                document.getElementById('discountInput').disabled = true;
-                document.getElementById('discountInput').value = "0";
+                form.isOffer.checked = false;
+                document.getElementById('offerInputContainer').style.display = 'none';
+                form.discount.value = '';
             }
             if (p.images && p.images.length > 0) {
                 for (let imgUrl of p.images) {
@@ -602,4 +603,9 @@ window.onload = async () => {
     const categoryFilter = document.getElementById('categoryFilter');
     if (searchInput) searchInput.addEventListener('input', aplicarFiltros);
     if (categoryFilter) categoryFilter.addEventListener('change', aplicarFiltros);
+
+    if (currentUserRole !== "administrador") {
+        const btn = document.getElementById('btnNuevoProducto');
+        if (btn) btn.style.display = 'none';
+    }
 };
