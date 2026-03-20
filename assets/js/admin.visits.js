@@ -189,7 +189,7 @@ function applyFilter(newFilter) {
 
 // --- Firestore listener principal ---
 function listenVisits() {
-    const q = query(collection(db, "visits"), orderBy("fecha_registro", "desc"), limit(100));
+    const q = query(collection(db, "visits"), orderBy("fecha_registro", "desc"));
     onSnapshot(q, (querySnapshot) => {
         allVisits = [];
         querySnapshot.forEach((doc) => allVisits.push(doc.data()));
