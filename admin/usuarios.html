@@ -9,6 +9,29 @@
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
     <link rel="stylesheet" href="assets/css/admin-users.css">
+    <style>
+        .pwd-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .pwd-input-wrapper input[type="password"],
+        .pwd-input-wrapper input[type="text"] {
+            flex: 1;
+        }
+
+        .pwd-toggle {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+        }
+    </style>
 </head>
 
 <body>
@@ -209,14 +232,18 @@
                             <div class="grid-fixed-2" style="margin-top:12px;">
                                 <div class="form-group">
                                     <label for="u_password">Contraseña <span class="required">*</span></label>
-                                    <input id="u_password" type="password" minlength="6" maxlength="8"
-                                        placeholder="6 a 8 caracteres" />
+                                    <div class="pwd-input-wrapper">
+                                        <input id="u_password" type="password" minlength="6" maxlength="8"
+                                            placeholder="6 a 8 caracteres" />
+                                    </div>
                                     <div id="u_password_alert" class="input-alert"></div>
                                 </div>
                                 <div class="form-group">
                                     <label for="u_password_confirm">Confirmar <span class="required">*</span></label>
-                                    <input id="u_password_confirm" type="password" minlength="6" maxlength="8"
-                                        placeholder="Repite la contraseña" />
+                                    <div class="pwd-input-wrapper">
+                                        <input id="u_password_confirm" type="password" minlength="6" maxlength="8"
+                                            placeholder="Repite la contraseña" />
+                                    </div>
                                     <div id="u_password_confirm_alert" class="input-alert"></div>
                                 </div>
                             </div>
