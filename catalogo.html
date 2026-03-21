@@ -26,35 +26,47 @@
     </nav>
   </header>
 
-    <main class="max-w-7xl mx-auto p-6 md:p-10">
-    <div class="catalog-controls-row">
-      <div>
-        <label>Mostrar
-          <select id="catalogPageSize" class="catalog-select">
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="250">250</option>
-          </select>
-          por página
-        </label>
+  <main class="max-w-7xl mx-auto p-6 md:p-10">
+
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+
+      <div class="flex flex-wrap items-center gap-3">
+        <label class="text-sm text-slate-500">Mostrar</label>
+        <select id="catalogPageSize"
+          class="border rounded-full px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-cyan-300">
+          <option value="20">20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="250">250</option>
+        </select>
+        <label class="text-sm text-slate-500">por página</label>
       </div>
-    </div>
-    <div class="catalog-filters-row">
-      <div class="catalog-categories" id="catalogCategories"></div>
-      <div class="search-offer-row">
-        <div class="catalog-search-wrapper">
-          <input type="text" id="catalogSearch" class="catalog-search" placeholder="Buscar producto..."
-            autocomplete="off" aria-label="Buscar producto" tabindex="0" />
-          <span class="search-shortcut-inside">Ctrl + K</span>
+
+      <div class="flex flex-wrap items-center gap-2 bg-white p-1 rounded-full shadow-inner border border-slate-100">
+        <div id="catalogCategories"></div>
+      </div>
+
+      <div class="flex items-center gap-4">
+
+        <div class="relative">
+          <input type="text" id="catalogSearch"
+            class="pl-4 pr-10 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          placeholder="Buscar producto..."
+          autocomplete="off" aria-label="Buscar producto" tabindex="0" />
+          <span class="absolute right-3 top-2 text-[10px] text-slate-300 border px-1 rounded">Ctrl + K</span>
         </div>
-        <label class="offer-toggle-label" for="offerToggle">
-          <input type="checkbox" id="offerToggle">
-          <span class="offer-toggle-switch" tabindex="0"><span></span></span>
-          <span class="offer-switch-text">Solo ofertas</span>
-        </label>
+        <div class="flex items-center gap-2">
+          <label class="offer-toggle-label" for="offerToggle">
+            <input type="checkbox" id="offerToggle">
+            <span class="offer-toggle-switch" tabindex="0"><span></span></span>
+            <span class="offer-switch-text">Ofertas</span>
+          </label>
+        </div>
+
       </div>
+
     </div>
+
     <div class="section-divider">
       <span>Catalogo de Productos</span>
     </div>
