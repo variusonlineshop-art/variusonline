@@ -314,10 +314,10 @@ function renderTable() {
     usersBody.querySelectorAll('.btn-suspender').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const id = e.currentTarget.getAttribute('data-id');
-            if (!confirm('¿Suspender usuario? Esto marcará su estado como "Suspendido".')) return;
+            if (!confirm('¿Suspender usuario? Esto marcará su estado como "suspendido".')) return;
             try {
                 showLoading('Suspendiendo usuario...');
-                await updateDoc(doc(db, 'users', id), { status: 'Suspendido', updatedAt: serverTimestamp() });
+                await updateDoc(doc(db, 'users', id), { status: 'suspendido', updatedAt: serverTimestamp() });
                 showToast('Usuario suspendido.');
                 await loadUsers();
             } catch (err) {
