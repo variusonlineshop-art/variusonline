@@ -755,36 +755,82 @@ function setupCatalogSearch() {
 /* ------------------- Product cards + slider ------------------- */
 function createProductCardHtml(p, resolvedImages = []) {
   const isOffer = !!(p.isOnSale || (p.discountPrice && p.discountPrice < p.price));
+  
+  // 1. Lógica de Precios con Tailwind
   let priceHtml = '';
   if (isOffer) {
     priceHtml = `
-      <span class="price-old" aria-hidden="true" style="font-size:0.9rem;color:#9aa1ab;text-decoration:line-through;margin-right:6px;">
-        ${formatCurrency(p.price)}
-      </span>
-      <span style="color:#9aa1ab;margin-right:6px;">→</span>
-      <span class="price-new" style="font-size:1.05rem;color:#111;font-weight:700;">
-        ${formatCurrency(p.discountPrice)}
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-400 line-through" aria-hidden="true">
+          ${formatCurrency(p.price)}
+        </span>
+        <span class="text-gray-400 text-xs">→</span>
+        <span class="text-lg font-bold text-gray-900">
+          ${formatCurrency(p.discountPrice)}
+        </span>
+      </div>
     `;
   } else {
-    priceHtml = `<span class="price-new" style="font-size:1.03rem;color:#111;font-weight:700;">${formatCurrency(p.price)}</span>`;
+    priceHtml = `<span class="text-lg font-bold text-gray-900">${formatCurrency(p.price)}</span>`;
   }
-  const sliderHtml = `<div class="card-slider" role="img" aria-label="${escapeHtml(p.name)}">${resolvedImages.length ? resolvedImages.map((u, i) => `<img src="${escapeHtml(u)}" alt="${escapeHtml(p.name)} ${i + 1}" style="opacity:${i === 0 ? 1 : 0}">`).join('') : `<img src="${escapeHtml(p.image || '')}" alt="${escapeHtml(p.name)}">`}</div>`;
+
+  // 2. Slider / Imagen con Tailwind
+  // Nota: He añadido 'aspect-square' para que todas las fotos midan lo mismo
+  const imagesHtml = resolvedImages.length 
+    ? resolvedImages.map((u, i) => `
+        <img src="${escapeHtml(u)}" 
+             alt="${escapeHtml(p.name)} ${i + 1}" 
+             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i === 0 ? 'opacity-100' : 'opacity-0'}">
+      `).join('')
+    : `<img src="${escapeHtml(p.image || '')}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover">`;
+
+  const sliderHtml = `
+    <div class="relative w-full aspect-square overflow-hidden bg-gray-100" role="img" aria-label="${escapeHtml(p.name)}">
+      ${imagesHtml}
+    </div>
+  `;
+
+  // 3. Retorno del HTML completo
   return `
-    ${isOffer ? `<div class="offer-badge" aria-hidden="true">Oferta</div>` : ''}
-    ${sliderHtml}
-    <div class="product-info">
-      <div class="product-title">${escapeHtml(p.name)}</div>
-      <div class="product-meta">${escapeHtml(p.category || '')}</div>
-      <div class="product-price">${priceHtml}</div>
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-        <button class="btn-secondary view-btn" data-id="${escapeHtml(p.id)}" style="margin-right:8px" aria-label="Ver producto ${escapeHtml(p.name)}">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
-              <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
-              <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
-          </svg>
-        </button>
-        <button class="btn-primary add-btn" data-id="${escapeHtml(p.id)}" aria-label="Agregar ${escapeHtml(p.name)}">Agregar</button>
+    <div class="relative group flex flex-col h-full bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+      
+      ${isOffer ? `
+        <div class="absolute top-3 left-3 z-10 bg-red-500 text-white text-[10px] font-bold uppercase px-2 py-1 rounded-lg shadow-sm" aria-hidden="true">
+          Oferta
+        </div>
+      ` : ''}
+
+      ${sliderHtml}
+
+      <div class="p-4 flex flex-col flex-grow">
+        <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
+          ${escapeHtml(p.category || 'General')}
+        </span>
+        
+        <h3 class="text-gray-800 font-semibold text-base mb-2 line-clamp-2 min-h-[3rem]">
+          ${escapeHtml(p.name)}
+        </h3>
+
+        <div class="mt-auto mb-4">
+          ${priceHtml}
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button class="view-btn flex items-center justify-center p-2.5 text-cyan-600 bg-cyan-100 hover:bg-cyan-200 rounded-xl transition-colors" 
+                  data-id="${escapeHtml(p.id)}" 
+                  aria-label="Ver producto ${escapeHtml(p.name)}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+          
+          <button class="add-btn flex-1 bg-green-200 hover:bg-green-300 hover:text-green-600 text-green-600 font-bold py-2.5 px-4 rounded-xl transition-all active:scale-95 shadow-sm hover:shadow-indigo-200" 
+                  data-id="${escapeHtml(p.id)}" 
+                  aria-label="Agregar ${escapeHtml(p.name)}">
+            Agregar
+          </button>
+        </div>
       </div>
     </div>
   `;
