@@ -638,7 +638,7 @@ async function renderProductsGridFiltered() {
   for (const p of paginatedProducts) {
     const resolved = p.__resolvedImages && p.__resolvedImages.length ? p.__resolvedImages : (p.image ? [p.image] : []);
     const card = document.createElement('article');
-    card.className = 'product-card';
+
     card.innerHTML = createProductCardHtml(p, resolved);
     el.appendChild(card);
     initCardSliderDOM(card);
@@ -782,7 +782,7 @@ function createProductCardHtml(p, resolvedImages = []) {
              alt="${escapeHtml(p.name)} ${i + 1}" 
              class="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i === 0 ? 'opacity-100' : 'opacity-0'}">
       `).join('')
-    : `<img src="${escapeHtml(p.image || '')}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover">`;
+    : `<img src="${escapeHtml(p.image || '')}" alt="${escapeHtml(p.name)}" class="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-110">`;
 
   const sliderHtml = `
     <div class="relative w-full aspect-square overflow-hidden bg-gray-100" role="img" aria-label="${escapeHtml(p.name)}">
@@ -835,6 +835,7 @@ function createProductCardHtml(p, resolvedImages = []) {
     </div>
   `;
 }
+
 function initCardSliderDOM(cardEl) {
   const imgs = Array.from(cardEl.querySelectorAll('.card-slider img'));
   if (!imgs.length) return;
