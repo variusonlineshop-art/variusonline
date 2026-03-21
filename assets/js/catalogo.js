@@ -583,7 +583,7 @@ function renderCategoryButtons() {
   catEl.innerHTML = "";
   cats.forEach(cat => {
     const btn = document.createElement('button');
-    btn.className = "catalog-category-btn" + (CURRENT_CATEGORY === cat ? " active" : "");
+    btn.className = "px-6 py-2 rounded-full hover:bg-green-50 text-slate-500 text-sm" + (CURRENT_CATEGORY === cat ? " bg-green-100" : "");
     btn.textContent = cat;
     btn.setAttribute("data-cat", cat);
     btn.onclick = () => {
