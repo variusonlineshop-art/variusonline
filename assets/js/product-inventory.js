@@ -65,6 +65,7 @@ async function processFiles(fileList) {
     renderPreviewImages();
 }
 
+
 function renderPreviewImages() {
     previewContainer.innerHTML = '';
     currentImages.forEach((imgObj, idx) => {
@@ -320,7 +321,7 @@ function renderPrevisualizacionVideo() {
             videoId = matchShort[1];
         }
         if (videoId) {
-            embedHtml = `<iframe width="100%" height="230" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen class="rounded-xl"></iframe>`;
+            embedHtml = `<iframe width="100%" height="520" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen class="rounded-xl"></iframe>`;
         }
     } else if (red === 'facebook') {
         embedHtml = `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=0&width=560" width="100%" height="230" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen class="rounded-xl"></iframe>`;
@@ -424,11 +425,14 @@ function renderizarTabla(datos = productos) {
                 <td class="px-6 py-4">
                     <div class="flex justify-center gap-2">
                         <button onclick="copyProductLink('${p.id}')" title="Copiar enlace" class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all"><i class="fas fa-link text-xs"></i></button>
-                        <button onclick="abrirModal('edit', '${p.id}')" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white transition-all"><i class="fas fa-pen text-xs"></i></button>                        
-                        <button onclick="abrirModalCompartir('${p.id}')" class="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-500 hover:bg-yellow-400 hover:text-white transition-all" title="Compartir producto">
+
+                        <button onclick="abrirModal('edit', '${p.id}')" class="admin-only w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white transition-all"><i class="fas fa-pen text-xs"></i></button>                        
+                        
+                        <button onclick="abrirModalCompartir('${p.id}')" class="admin-only w-8 h-8 rounded-lg bg-yellow-50 text-yellow-500 hover:bg-yellow-400 hover:text-white transition-all" title="Compartir producto">
                             <i class="fas fa-share-alt text-xs"></i>
                         </button>
-                        <button onclick="suspender('${p.id}')" class="w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all"><i class="fas fa-ban text-xs"></i></button>
+                        
+                        <button onclick="suspender('${p.id}')" class="admin-only w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all"><i class="fas fa-ban text-xs"></i></button>
                     </div>
                 </td>
             </tr>
