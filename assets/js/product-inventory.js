@@ -342,28 +342,53 @@ document.getElementById('selectRedSocial').addEventListener('change', renderPrev
 document.getElementById('inputUrlVideo').addEventListener('input', renderPrevisualizacionVideo);
 
 // Guardar la red y url elegida en el producto correspondiente en Firestore
-document.getElementById('formCompartir').onsubmit = async function (e) {
+document.getElementById('productForm').onsubmit = async function (e) {
     e.preventDefault();
-    const red = document.getElementById('selectRedSocial').value;
-    const url = document.getElementById('inputUrlVideo').value.trim();
+    const form = e.target;
+    const isEdit = form.getAttribute('data-type') === 'edit';
+    const idExistente = form.getAttribute('data-id');
 
-    if (!red || !url) return;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    // Asegurar SKU y Tipos de datos
+    data.sku = document.getElementById('skuInput').value;
+    data.onOffer = form.isOffer?.checked || false;
+    data.discount = data.onOffer ? parseInt(data.discount || "0") : 0;
+    data.price = parseFloat((data.price || "0").replace(/\./g, "").replace(",", "."));
+    data.stock = parseInt(data.stock || "0");
+
+    // El campo 'status' a veces viene del select, aseguramos que exista
+    data.status = data.status || 'ACTIVE';
+
+    // Subir imágenes usando el SKU como carpeta
+    let imageUrls = await subirTodasLasImagenes(data.sku);
+    data.imageUrls = imageUrls;
 
     try {
-        await updateDoc(doc(db, "product", compartirProductoId), {
-            sharedVideo: { network: red, url: url }
-        });
+        if (isEdit && idExistente) {
+            // ACTUALIZACIÓN
+            await updateDoc(doc(db, "product", idExistente), data);
+            mostrarModalExito("¡Actualización exitosa!", "El producto se ha actualizado correctamente.");
+        } else {
+            // CREACIÓN NUEVA
+            await addDoc(collection(db, "product"), data);
+            mostrarModalExito("¡Guardado exitoso!", "El producto se ha guardado correctamente.");
+        }
 
-        mostrarModalExito("¡Enlace guardado!", `Video de ${red.charAt(0).toUpperCase() + red.slice(1)} guardado correctamente.`);
+        cerrarModal();
 
-        cerrarModalCompartir();
+        // Limpieza crítica para evitar duplicidad visual por persistencia de variables
+        form.removeAttribute('data-type');
+        form.removeAttribute('data-id');
 
-        // Actualiza productos y la tabla sin recargar toda la página
+        // Recargar datos frescos de la DB
         productos = await cargarProductosFirebase();
         renderizarTabla();
 
     } catch (err) {
-        alert("Error guardando enlace: " + (err?.message ?? err));
+        console.error("Error en el guardado:", err);
+        alert("Error guardando producto: " + (err?.message ?? err));
     }
 };
 
@@ -482,50 +507,80 @@ function limpiarFiltros() {
 
 // --- FUNCIONES DE MODAL ---
 function abrirModal(tipo, id = null) {
-    const m = document.getElementById('productModal');
+    const modal = document.getElementById('productModal');
     const form = document.getElementById('productForm');
+    const titulo = document.getElementById('modalTitle');
+    const skuInput = document.getElementById('skuInput');
+    
+    // Selectores basados en tu HTML
+    const isOfferCheckbox = form.querySelector('input[name="isOffer"]');
+    const discountInput = form.querySelector('input[name="discount"]');
+
+    // 1. Limpieza total antes de empezar
     form.reset();
     currentImages = [];
-    renderPreviewImages();
+    if (typeof renderPreviewImages === 'function') renderPreviewImages();
+    
+    // Quitar rastros de ediciones anteriores
     form.removeAttribute('data-type');
     form.removeAttribute('data-id');
-    document.getElementById('previewContainer').innerHTML = '';
-    m.classList.remove('hidden');
-    poblarCategorias().then(() => {
-        if (tipo === 'edit' && id) {
-            const p = productos.find(pr => pr.id === id);
-            if (!p) return;
-            form.name.value = p.name;
-            form.description.value = p.description;
-            form.category.value = p.category;
-            form.status.value = p.status || 'ACTIVE';
-            form.sku.value = p.sku;
-            form.price.value = p.price.toLocaleString('de-DE', { minimumFractionDigits: 2 });
-            form.stock.value = p.stock;
-            form.isOffer.checked = !!p.onOffer;
-            if (p.onOffer) {
-                document.getElementById('offerInputContainer').classList.remove('hidden');
-                document.getElementById('discountInput').disabled = false;
-                document.getElementById('discountInput').value = p.discount || "0";
-            } else {
-                document.getElementById('offerInputContainer').classList.add('hidden');
-                document.getElementById('discountInput').disabled = true;
-                document.getElementById('discountInput').value = "0";
-            }
-            if (p.images && p.images.length > 0) {
-                for (let imgUrl of p.images) {
-                    currentImages.push({ file: null, url: imgUrl, isUploaded: true, progress: 100, storageUrl: imgUrl });
-                }
-                renderPreviewImages();
-            }
+
+    if (tipo === 'edit' && id) {
+        // --- MODO EDICIÓN ---
+        const p = productos.find(prod => prod.id === id);
+        
+        if (p) {
+            titulo.innerText = "Editar Producto";
             form.setAttribute('data-type', 'edit');
             form.setAttribute('data-id', id);
-            document.getElementById('modalTitle').innerText = "Editar este producto";
-        } else {
-            actualizarSKU(); // genera SKU sólo en modo "add"
-            document.getElementById('modalTitle').innerText = "Meter Producto Nuevo";
+
+            // Rellenar campos básicos
+            form.name.value = p.name || "";
+            if (skuInput) skuInput.value = p.sku || "";
+            form.category.value = p.category || "";
+            form.price.value = p.price || 0;
+            form.stock.value = p.stock || 0;
+            form.description.value = p.description || "";
+            
+            if (form.status) form.status.value = p.status || 'ACTIVE';
+
+            // Lógica de Oferta
+            if (isOfferCheckbox) {
+                // p.onOffer es como se suele guardar en Firebase en tu lógica anterior
+                isOfferCheckbox.checked = p.onOffer || false; 
+                if (discountInput) discountInput.value = p.discount || "";
+                
+                // IMPORTANTE: Llamar a toggleOferta para que aparezca el input si hay oferta
+                toggleOferta(); 
+            }
+
+            // Cargar imágenes existentes para edición
+            if (p.images && Array.isArray(p.images)) {
+                currentImages = p.images.map(url => ({
+                    url: url,
+                    isUploaded: true,
+                    progress: 100,
+                    storageUrl: url
+                }));
+                if (typeof renderPreviewImages === 'function') renderPreviewImages();
+            }
         }
-    });
+    } else {
+        // --- MODO NUEVO ---
+        titulo.innerText = "Nuevo Producto";
+        form.setAttribute('data-type', 'new');
+        
+        if (skuInput) skuInput.value = "";
+        
+        // Asegurarnos que el contenedor de oferta esté oculto al iniciar
+        if (isOfferCheckbox) {
+            isOfferCheckbox.checked = false;
+            toggleOferta();
+        }
+    }
+
+    // Mostrar el modal
+    modal.classList.remove('hidden');
 }
 
 function cerrarModal() {
@@ -541,42 +596,71 @@ function cerrarModal() {
 document.getElementById('productForm').onsubmit = async function (e) {
     e.preventDefault();
     const form = e.target;
-    const data = Object.fromEntries(new FormData(form).entries());
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Identificar si es edición o nuevo
+    const isEdit = form.getAttribute('data-type') === 'edit';
+    const idExistente = form.getAttribute('data-id');
 
-    // SKU SIEMPRE del input (así no se pierde)
+    // Bloquear botón para evitar múltiples clics
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Guardando...";
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    // 1. Procesamiento de datos y formatos
     data.sku = document.getElementById('skuInput').value;
-
-    // Oferta
-    data.onOffer = form.isOffer?.checked ? true : false;
-    data.discount = data.onOffer ? parseInt(data.discount || "0") : 0;
-
-    // El campo offer antiguo ya no se usa
-    delete data.isOffer;
-    // El campo price siempre debe ser float
-    data.price = parseFloat((data.price || "0").replace(/\./g, "").replace(",", "."));
-    data.stock = parseInt(data.stock || "0");
-
-    let productId = data.sku || (Math.random() + '').slice(2);
-    let imageUrls = await subirTodasLasImagenes(productId);
-    data.imageUrls = imageUrls;
+    data.onOffer = form.isOffer ? form.isOffer.checked : false;
+    data.discount = data.onOffer ? (parseInt(data.discount) || 0) : 0;
+    
+    // Limpiar precio de puntos/comas para guardar como número puro
+    data.price = parseFloat(String(data.price).replace(/\./g, "").replace(",", ".")) || 0;
+    data.stock = parseInt(data.stock) || 0;
+    data.status = data.status || 'ACTIVE';
 
     try {
-        if (form.getAttribute('data-type') === 'edit') {
-            const id = form.getAttribute('data-id');
-            await updateDoc(doc(db, "product", id), data);
-            mostrarModalExito("¡Actualización exitosa!", "El producto se ha actualizado correctamente.");
+        // 2. Manejo de Imágenes
+        // Subimos las nuevas y mantenemos las que ya estaban (storageUrl)
+        let imageUrls = await subirTodasLasImagenes(data.sku);
+        data.images = imageUrls;
+
+        // 3. Operación en Firebase
+        if (isEdit && idExistente) {
+            // MODO EDICIÓN: updateDoc garantiza que se sobreescriba el mismo registro
+            const docRef = doc(db, "product", idExistente);
+            await updateDoc(docRef, data);
+            console.log("Producto actualizado:", idExistente);
         } else {
-            await addDoc(collection(db, "product"), data);
-            mostrarModalExito("¡Guardado exitoso!", "El producto se ha guardado correctamente.");
+            // MODO NUEVO: addDoc crea un registro único
+            const docRef = await addDoc(collection(db, "product"), data);
+            console.log("Producto creado con ID:", docRef.id);
         }
+
+        // 4. Limpieza Total del Estado (Evita Duplicados)
         cerrarModal();
+        form.reset();
+        form.removeAttribute('data-type');
+        form.removeAttribute('data-id');
+        currentImages = []; // Limpiar array global de imágenes
+        
+        // 5. Notificación y Refresco
+        mostrarModalExito(
+            isEdit ? "¡Actualización Exitosa!" : "¡Producto Guardado!", 
+            isEdit ? "Los cambios se aplicaron correctamente." : "El producto ya está en tu inventario."
+        );
+
+        // Recargar la lista desde Firebase para asegurar sincronización
         productos = await cargarProductosFirebase();
-        await poblarCategorias();
         renderizarTabla();
-        currentImages = [];
-        renderPreviewImages();
+
     } catch (err) {
-        alert("Error guardando producto: " + (err?.message ?? err));
+        console.error("Error en onsubmit:", err);
+        alert("Hubo un error al procesar la solicitud: " + err.message);
+    } finally {
+        // Restaurar botón
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Guardar";
     }
 };
 
@@ -625,21 +709,28 @@ function formatearPrecio(input) {
     input.value = n.toLocaleString('de-DE', { minimumFractionDigits: 2 });
 }
 
-function toggleOferta(check) {
+function toggleOferta() {
+    // Buscamos los elementos por el ID exacto de tu HTML
+    const isOfferCheckbox = document.querySelector('input[name="isOffer"]');
     const offerContainer = document.getElementById('offerInputContainer');
-    const discountInput = document.getElementById('discountInput');
-    if (check.checked) {
-        offerContainer.classList.remove('hidden');
-        offerContainer.style.display = 'block';
-        discountInput.disabled = false;
-        discountInput.focus();
-    } else {
-        offerContainer.classList.add('hidden');
-        offerContainer.style.display = '';
-        discountInput.value = "0";
-        discountInput.disabled = true;
+    const discountInput = document.querySelector('input[name="discount"]');
+
+    if (isOfferCheckbox && offerContainer) {
+        if (isOfferCheckbox.checked) {
+            // Mostrar el input de descuento
+            offerContainer.classList.remove('hidden');
+            if (discountInput) discountInput.required = true;
+        } else {
+            // Ocultar el input de descuento
+            offerContainer.classList.add('hidden');
+            if (discountInput) {
+                discountInput.required = false;
+                discountInput.value = ""; // Limpiar el valor si se desactiva
+            }
+        }
     }
 }
+
 
 function suspender(id) {
     const p = productos.find(x => x.id === id);
