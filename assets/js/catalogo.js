@@ -16,8 +16,10 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // ----- NUEVAS VARIABLES PARA PAGINACION -----
-let CATALOG_PAGE_SIZE = 20;
+let SHOW_ONLY_OFFERS = false;
+let SEARCH_QUERY = ''; // Esta es la que te faltaba
 let CATALOG_CURRENT_PAGE = 1;
+let CATALOG_PAGE_SIZE = 20;
 
 // Helpers cookies/cart
 function generateCartToken() {
@@ -172,12 +174,16 @@ function renderCartPanel() {
   const inCartIds = new Set(CART.items.map(i => i.productId));
 
   // MODIFICACIÓN CRÍTICA: aquí filtramos únicamente productos en oferta
-  const availProducts = PRODUCTS.filter(p =>
-    isProductVisible(p) &&
-    (typeof p.stock !== 'number' || p.stock > 0) &&
-    !inCartIds.has(p.id) &&
-    (p.isOnSale || (p.discountPrice && Number(p.discountPrice) < Number(p.price)))
-  );
+  const availProducts = PRODUCTS.filter(p => {
+    const visible = isProductVisible(p) && (typeof p.stock !== 'number' || p.stock > 0) && !inCartIds.has(p.id);
+
+    if (SHOW_ONLY_OFFERS) {
+      // Si el checkbox está marcado, aplicamos el filtro de oferta
+      return visible && (p.isOnSale || (p.discountPrice && Number(p.discountPrice) < Number(p.price)));
+    }
+    // Si no está marcado, mostramos todos los visibles
+    return visible;
+  });
 
   availProducts.sort((a, b) => {
     const aOffer = (a.isOnSale || (a.discountPrice && a.discountPrice < a.price)) ? 1 : 0;
@@ -568,12 +574,12 @@ function showConfirm(message = '¿Estás seguro?') {
 
 
 /* ------------------- RENDER: filtro, grid y categorías ------------------- */
-let CURRENT_CATEGORY = "All";
+let CURRENT_CATEGORY = "TODOS";
 let CURRENT_SEARCH = "";
 
 function getCategories() {
   const cats = new Set(PRODUCTS.map(p => toTitleCase(p.category || '')).filter(Boolean));
-  return ["All", ...Array.from(cats)];
+  return ["TODOS", ...Array.from(cats)];
 }
 
 function renderCategoryButtons() {
@@ -598,11 +604,25 @@ function renderCategoryButtons() {
 
 function filterProducts() {
   return PRODUCTS.filter(p => {
-    if (CURRENT_CATEGORY !== "All" && toTitleCase(p.category) !== CURRENT_CATEGORY) return false;
-    if (CURRENT_SEARCH && !((p.name || "").toLowerCase().includes(CURRENT_SEARCH.toLowerCase())
-      || (p.category || "").toLowerCase().includes(CURRENT_SEARCH.toLowerCase())
-      || (p.description || "").toLowerCase().includes(CURRENT_SEARCH.toLowerCase()))) return false;
-    return isProductVisible(p);
+    // 1. Validar Categoría (Si no existe o es 'TODOS', pasa)
+    const category = (typeof CURRENT_CATEGORY !== 'undefined') ? CURRENT_CATEGORY : 'TODOS';
+    const matchesCategory = (category === 'TODOS' || p.category === category);
+    
+    // 2. Validar Búsqueda (Si no hay búsqueda, pasa)
+    const search = (typeof SEARCH_QUERY !== 'undefined') ? SEARCH_QUERY.toLowerCase() : '';
+    const productName = (p.name || "").toLowerCase();
+    const matchesSearch = productName.includes(search);
+    
+    // 3. Validar Ofertas
+    let matchesOffer = true;
+    if (typeof SHOW_ONLY_OFFERS !== 'undefined' && SHOW_ONLY_OFFERS) {
+      // Verifica si tiene precio de oferta o el flag activo
+      const hasDiscount = p.discountPrice && Number(p.discountPrice) < Number(p.price);
+      matchesOffer = (p.isOnSale === true || hasDiscount);
+    }
+
+    // El producto debe cumplir las 3 condiciones
+    return matchesCategory && matchesSearch && matchesOffer;
   });
 }
 
@@ -611,61 +631,66 @@ async function renderProductsGridFiltered() {
   const el = document.getElementById('productsGrid');
   if (!el) return;
 
-  // FILTRADO y orden según categoria/filtros búsqueda
+  // Mostramos un estado de carga visual opcional
+  el.innerHTML = '<div class="spinner">Cargando productos...</div>';
+
+  // FILTRADO
   const visibleProducts = filterProducts();
 
   // PAGINADO
   const totalProducts = visibleProducts.length;
-  const totalPages = Math.ceil(totalProducts / CATALOG_PAGE_SIZE);
+  const totalPages = Math.ceil(totalProducts / CATALOG_PAGE_SIZE) || 1;
 
-  // Ajusta CATALOG_CURRENT_PAGE por si alguien cambió el filtro y quedaron menos páginas
-  if (CATALOG_CURRENT_PAGE > totalPages) CATALOG_CURRENT_PAGE = totalPages > 0 ? totalPages : 1;
+  if (CATALOG_CURRENT_PAGE > totalPages) CATALOG_CURRENT_PAGE = totalPages;
   if (CATALOG_CURRENT_PAGE < 1) CATALOG_CURRENT_PAGE = 1;
 
   const startIdx = (CATALOG_CURRENT_PAGE - 1) * CATALOG_PAGE_SIZE;
   const paginatedProducts = visibleProducts.slice(startIdx, startIdx + CATALOG_PAGE_SIZE);
 
   el.innerHTML = '';
-  if (!paginatedProducts.length) {
-    el.innerHTML = '<div class="spinner">No hay productos para mostrar.</div>';
+
+  if (paginatedProducts.length === 0) {
+    el.innerHTML = '<div class="no-results">No se encontraron productos con estos filtros.</div>';
     renderCatalogPagination(totalPages);
     return;
   }
 
+  // Resolver imágenes antes de renderizar
   await Promise.all(paginatedProducts.map(async (p) => {
-    try { await resolveProductImages(p); } catch (err) { }
+    try { await resolveProductImages(p); } catch (err) { console.warn("Error imagen:", p.id); }
   }));
+
+  // Renderizado de tarjetas
   for (const p of paginatedProducts) {
     const resolved = p.__resolvedImages && p.__resolvedImages.length ? p.__resolvedImages : (p.image ? [p.image] : []);
     const card = document.createElement('article');
-
     card.innerHTML = createProductCardHtml(p, resolved);
     el.appendChild(card);
-    initCardSliderDOM(card);
+    if (typeof initCardSliderDOM === 'function') initCardSliderDOM(card);
   }
-  // Add listeners as antes...
+
+  // Eventos de botones
   el.querySelectorAll('.add-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = e.currentTarget.dataset.id;
-      const p = PRODUCTS_BY_ID.get(id);
-      if (!p || !isProductVisible(p)) { showToast('Producto no disponible'); return; }
       addToCart(id, 1);
-      renderCartPanel();
+      if (typeof renderCartPanel === 'function') renderCartPanel();
     });
   });
+
   el.querySelectorAll('.view-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const id = e.currentTarget.dataset.id;
       let p = PRODUCTS_BY_ID.get(id);
-      if (!p) p = await fetchProductByIdOrSlug(id);
-      if (!p) { showToast('Producto no encontrado'); return; }
-      await resolveProductImages(p);
-      openProductModal(p);
+      if (!p && typeof fetchProductByIdOrSlug === 'function') p = await fetchProductByIdOrSlug(id);
+      if (p) {
+        await resolveProductImages(p);
+        openProductModal(p);
+      }
     });
   });
 
   renderCatalogPagination(totalPages);
-  try { el.style.display = ''; } catch (e) { }
 }
 
 function renderCatalogPagination(totalPages) {
@@ -755,7 +780,7 @@ function setupCatalogSearch() {
 /* ------------------- Product cards + slider ------------------- */
 function createProductCardHtml(p, resolvedImages = []) {
   const isOffer = !!(p.isOnSale || (p.discountPrice && p.discountPrice < p.price));
-  
+
   // 1. Lógica de Precios con Tailwind
   let priceHtml = '';
   if (isOffer) {
@@ -776,7 +801,7 @@ function createProductCardHtml(p, resolvedImages = []) {
 
   // 2. Slider / Imagen con Tailwind
   // Nota: He añadido 'aspect-square' para que todas las fotos midan lo mismo
-  const imagesHtml = resolvedImages.length 
+  const imagesHtml = resolvedImages.length
     ? resolvedImages.map((u, i) => `
         <img src="${escapeHtml(u)}" 
              alt="${escapeHtml(p.name)} ${i + 1}" 
@@ -1103,21 +1128,60 @@ function onProductModalKeydown(e) {
 
 /* ------------------- Boot ------------------- */
 async function boot() {
+  // 1. Cargar datos persistentes (Carrito)
   loadCartFromCookie();
   renderCartCount();
+
+  // 2. Configurar el Filtro de Ofertas (Checkbox)
+  const offerToggle = document.getElementById('offerToggle');
+  if (offerToggle) {
+    // Sincronizamos el estado inicial por si el navegador recordó el check
+    SHOW_ONLY_OFFERS = offerToggle.checked;
+
+    offerToggle.addEventListener('change', (e) => {
+      SHOW_ONLY_OFFERS = e.target.checked;
+      
+      // Resetear a la primera página para evitar que quede en blanco 
+      // si en la página actual no hay ofertas
+      CATALOG_CURRENT_PAGE = 1; 
+      
+      // Refrescar la cuadrícula de productos
+      renderProductsGridFiltered();
+    });
+  }
+
+  // 3. Cargar productos desde Firebase
   try {
-    await fetchAllProductsFromFirestore();
-    renderCategoryButtons();
-    setupCatalogSearch();
-    setupCatalogPageSizeSelector(); // <-- importante
-    await Promise.all(PRODUCTS.map(p => resolveProductImages(p)));
-    renderProductsGridFiltered();
-  } catch (err) {
+    // Mostramos un mensaje de carga inicial
     const productsGrid = document.getElementById('productsGrid');
     if (productsGrid) {
-      productsGrid.innerHTML = `<div style="padding:16px;color:#ef4444">No se pudieron cargar los productos. Revisa la conexión o la colección "product" en Firestore.</div>`;
+      productsGrid.innerHTML = '<div class="spinner">Cargando catálogo...</div>';
     }
-    showToast('Error cargando productos (ver consola).', 4000);
+
+    await fetchAllProductsFromFirestore();
+    
+    // Inicializar componentes de la interfaz
+    renderCategoryButtons();
+    setupCatalogSearch();
+    setupCatalogPageSizeSelector(); 
+
+    // Resolver imágenes de todos los productos (opcional hacerlo aquí o por página)
+    await Promise.all(PRODUCTS.map(p => resolveProductImages(p)));
+
+    // Primera renderización con los filtros iniciales
+    renderProductsGridFiltered();
+
+  } catch (err) {
+    console.error("Error en el arranque del catálogo:", err);
+    const productsGrid = document.getElementById('productsGrid');
+    if (productsGrid) {
+      productsGrid.innerHTML = `
+        <div style="padding:16px; color:#ef4444; text-align:center;">
+          <p>No se pudieron cargar los productos.</p>
+          <small>Error: ${err.message}</small>
+        </div>`;
+    }
+    showToast('Error cargando productos. Revisa la consola.', 4000);
   }
 }
 
