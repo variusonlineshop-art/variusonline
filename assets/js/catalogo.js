@@ -574,12 +574,12 @@ function showConfirm(message = '¿Estás seguro?') {
 
 
 /* ------------------- RENDER: filtro, grid y categorías ------------------- */
-let CURRENT_CATEGORY = "TODOS";
+let CURRENT_CATEGORY = "Todos";
 let CURRENT_SEARCH = "";
 
 function getCategories() {
   const cats = new Set(PRODUCTS.map(p => toTitleCase(p.category || '')).filter(Boolean));
-  return ["TODOS", ...Array.from(cats)];
+  return ["Todos", ...Array.from(cats)];
 }
 
 function renderCategoryButtons() {
@@ -605,8 +605,8 @@ function renderCategoryButtons() {
 function filterProducts() {
   return PRODUCTS.filter(p => {
     // 1. Validar Categoría (Si no existe o es 'TODOS', pasa)
-    const category = (typeof CURRENT_CATEGORY !== 'undefined') ? CURRENT_CATEGORY : 'TODOS';
-    const matchesCategory = (category === 'TODOS' || p.category === category);
+    const category = (typeof CURRENT_CATEGORY !== 'undefined') ? CURRENT_CATEGORY : 'Todos';
+    const matchesCategory = (category === 'Todos' || p.category === category);
     
     // 2. Validar Búsqueda (Si no hay búsqueda, pasa)
     const search = (typeof SEARCH_QUERY !== 'undefined') ? SEARCH_QUERY.toLowerCase() : '';
@@ -761,18 +761,26 @@ function setupCatalogPageSizeSelector() {
 
 
 function setupCatalogSearch() {
-  const searchEl = document.getElementById('catalogSearch');
-  if (!searchEl) return;
-  searchEl.value = CURRENT_SEARCH;
-  searchEl.oninput = function (e) {
-    CURRENT_SEARCH = e.target.value;
-    CATALOG_CURRENT_PAGE = 1; // <-- vuelve a página 1
+  const searchInput = document.getElementById('catalogSearch');
+  if (!searchInput) return;
+
+  // Evento 'input' se dispara en tiempo real mientras escribes
+  searchInput.addEventListener('input', (e) => {
+    // 1. Actualizamos la variable global con el texto actual
+    SEARCH_QUERY = e.target.value.toLowerCase().trim();
+
+    // 2. Siempre que buscamos, volvemos a la página 1 para no perder resultados
+    CATALOG_CURRENT_PAGE = 1;
+
+    // 3. Ejecutamos el renderizado que ya tiene la lógica de filterProducts()
     renderProductsGridFiltered();
-  };
-  document.addEventListener('keydown', function (ev) {
-    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
-      searchEl.focus();
-      ev.preventDefault();
+  });
+
+  // Shortcut opcional: Ctrl+K para ir al buscador
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput.focus();
     }
   });
 }
