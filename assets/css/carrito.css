@@ -2418,3 +2418,96 @@ a:focus-visible {
         padding: 10px 0;
       }
     }
+
+
+/* Card principal con efecto Glass */
+.promo-card-glass {
+  width: 100%;
+  margin-bottom: 15px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 12px 18px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+/* Hover con elevación */
+.promo-card-glass:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.1);
+}
+
+.promo-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px; /* Espacio mínimo para que no se peguen */
+}
+
+.promo-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1; /* Permite que el texto tome el espacio sobrante */
+}
+
+.promo-gif {
+  width: 45px;
+  height: 45px;
+  object-fit: contain;
+}
+
+.promo-text h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.promo-text p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.btn-promo {
+  background: #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap; /* Evita que el texto del botón se parta */
+  transition: background 0.2s;
+}
+
+/* REGLAS PARA RESPONSIVE (Mantiene horizontal) */
+@media (max-width: 600px) {
+  .promo-card-glass {
+    padding: 10px 12px; /* Reducimos padding interno */
+  }
+  
+  .promo-text h4 {
+    font-size: 0.85rem; /* Título más pequeño */
+  }
+  
+  .promo-text p {
+    display: none; /* Opcional: ocultamos el subtítulo en móviles muy pequeños para ahorrar espacio */
+  }
+
+  .promo-gif {
+    width: 35px; /* GIF más pequeño */
+    height: 35px;
+  }
+
+  .btn-promo {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+}
