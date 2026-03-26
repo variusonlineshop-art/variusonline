@@ -48,6 +48,29 @@
       border-radius: 8px;
       border: 1px solid #e6eef6;
     }
+        /* Forzamos que el contenedor sea una columna siempre */
+.cart-page {
+  display: flex;
+  flex-direction: column; /* Esto evita que se pongan a los lados */
+  align-items: center;    /* Centra ambos cards */
+  max-width: 500px;       /* Ajusta este ancho al de tu carrito */
+  margin: 0 auto;         /* Centra todo el bloque en la página */
+  gap: 15px;              /* Espacio entre el card promo y el carrito */
+}
+
+/* Aseguramos que el card promocional no supere el ancho del carrito */
+.promo-card-glass {
+  width: 100%;
+  box-sizing: border-box; /* Para que el padding no afecte el ancho total */
+}
+
+/* Mantenemos el diseño horizontal interno del card */
+.promo-content {
+  display: flex;
+  flex-direction: row;    /* Siempre horizontal */
+  align-items: center;
+  justify-content: space-between;
+}
   </style>
 </head>
 
@@ -83,6 +106,18 @@
 
     <!-- Página de carrito: dividida en panel izquierdo (carrito) y derecho (checkout) -->
     <section id="cartPage" class="cart-page">
+      <div class="promo-card-glass">
+        <div class="promo-content">
+          <div class="promo-info">
+            <img src="assets/img/revista-de-moda.gif" width="100%" alt="Catálogo" class="promo-gif">
+            <div class="promo-text">
+              <h4>Conoce todo nuestro catálogo</h4>
+              <p>Descubre las mejores ofertas</p>
+            </div>
+          </div>
+          <a href="catalogo.html" class="btn-promo">Ver Catálogo</a>
+        </div>
+      </div>
       <!-- Panel carrito (ahora inline, puede minimizarse) -->
       <aside id="cartPanel" class="cart-panel" role="region" aria-label="Carrito">
         <header class="cart-header">
