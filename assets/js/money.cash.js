@@ -1,81 +1,105 @@
 /**
- * Script de Topbar con redundancia (Failover)
- * Intenta obtener la tasa de dos fuentes distintas.
+ * Monitor de Divisas con Failover y Protección de DOM
  */
 
 const API_SOURCES = [
     {
-        name: 'DolarVzla API',
-        url: 'https://api.dolarvzla.com/public/exchange-rate',
-        parser: (data) => ({
-            usd: data?.current?.usd,
-            eur: data?.current?.eur
-        })
+        name: 'DolarApi (Principal)',
+        async fetcher() {
+            const [resUsd, resEur] = await Promise.all([
+                fetch('https://ve.dolarapi.com/v1/dolares'),
+                fetch('https://ve.dolarapi.com/v1/euros')
+            ]);
+            if (!resUsd.ok || !resEur.ok) throw new Error("Error en respuesta de red");
+            
+            const dataUsd = await resUsd.json();
+            const dataEur = await resEur.json();
+
+            // Filtramos por fuente 'oficial' para cumplir con tus reglas de negocio
+            return {
+                usd: dataUsd.find(i => i.fuente === 'oficial')?.promedio,
+                eur: dataEur.find(i => i.fuente === 'oficial')?.promedio
+            };
+        }
     },
     {
-        name: 'Exchangerr API (Fallback)',
-        // Usamos una alternativa común o tu propio endpoint de respaldo
-        url: 'https://api.exchangerr.com/v1/latest?base=USD&symbols=VES',
-        parser: (data) => ({
-            usd: data?.rates?.VES,
-            eur: null // Dependerá de la estructura de la API secundaria
-        })
+        name: 'PyDolar (Respaldo)',
+        url: 'https://pydolarve.org/api/v1/dollar?page=bcv',
+        async fetcher() {
+            const res = await fetch(this.url);
+            if (!res.ok) throw new Error("Error en PyDolar");
+            const data = await res.json();
+            return {
+                usd: data.monitors?.usd?.price,
+                eur: data.monitors?.eur?.price
+            };
+        }
     }
 ];
+
+let globalTasaUsd = 0;
 
 async function updateTopbarRates() {
     const usdElement = document.getElementById('rate-usd');
     const eurElement = document.getElementById('rate-eur');
+    const cloneElement = document.getElementById('rate-usd-clone');
     let ratesFound = null;
 
     for (const source of API_SOURCES) {
         try {
-            console.debug(`Intentando obtener tasas de: ${source.name}`);
+            console.debug(`Consultando: ${source.name}`);
+            const result = await source.fetcher();
 
-            // Cache-busting para evitar datos viejos
-            const fetchUrl = `${source.url}${source.url.includes('?') ? '&' : '?'}_=${Date.now()}`;
-
-            const response = await fetch(fetchUrl, {
-                method: 'GET',
-                mode: 'cors', // Crucial para peticiones entre dominios
-                headers: {
-                    'Accept': 'application/json',
-                    // Evita enviar cabeceras personalizadas que disparen un "Preflight" (OPTIONS) innecesario
-                },
-                signal: AbortSignal.timeout(5000)
-            });
-
-            if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-
-            const data = await response.json();
-            const parsed = source.parser(data);
-
-            if (parsed.usd) {
-                ratesFound = parsed;
-                console.log(`✅ Tasas obtenidas con éxito desde ${source.name}`);
-                break; // Salimos del bucle si tenemos éxito
+            if (result.usd) {
+                ratesFound = result;
+                console.log(`✅ Datos obtenidos desde ${source.name}`);
+                break; 
             }
         } catch (error) {
-            console.warn(`❌ Error en ${source.name}:`, error.message);
-            // El bucle continuará con la siguiente fuente
+            console.warn(`⚠️ ${source.name} no disponible:`, error.message);
         }
     }
 
     if (ratesFound) {
-        // Formateo usando tu estándar local (coma para decimales)
-        const usdStr = Number(ratesFound.usd).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        globalTasaUsd = ratesFound.usd;
+        
+        // Formateo según estándar local (coma para decimales)
+        const usdStr = ratesFound.usd.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const eurStr = ratesFound.eur ? ratesFound.eur.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A';
 
         if (usdElement) usdElement.textContent = `$ Bs/USD ${usdStr}`;
-
-        if (ratesFound.eur && eurElement) {
-            const eurStr = Number(ratesFound.eur).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            eurElement.textContent = `€ Bs./EUR ${eurStr}`;
-        }
-    } else {
-        console.error("No se pudo obtener la tasa de ninguna de las fuentes configuradas.");
+        if (cloneElement) cloneElement.textContent = `$ Bs/USD ${usdStr}`;
+        if (eurElement) eurElement.textContent = `€ Bs./EUR ${eurStr}`;
     }
 }
 
-// Iniciar al cargar y refrescar cada 30 min
-document.addEventListener('DOMContentLoaded', updateTopbarRates);
+// Inicialización segura para evitar errores de "null" al cargar el DOM
+function initFinanceModule() {
+    const inputBs = document.getElementById('input-bs');
+    const resultUsd = document.getElementById('result-usd');
+
+    // Solo añade el listener si el elemento de la calculadora existe en la página
+    if (inputBs) {
+        inputBs.addEventListener('input', (e) => {
+            const monto = parseFloat(e.target.value);
+            if (monto > 0 && globalTasaUsd > 0) {
+                const total = monto / globalTasaUsd;
+                if (resultUsd) resultUsd.innerText = `$ ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            } else if (resultUsd) {
+                resultUsd.innerText = `$ 0.00`;
+            }
+        });
+    }
+
+    updateTopbarRates();
+}
+
+// Ejecución controlada
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFinanceModule);
+} else {
+    initFinanceModule();
+}
+
+// Sincronización automática cada 30 min para Varius y Tasty Station
 setInterval(updateTopbarRates, 30 * 60 * 1000);
