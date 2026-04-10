@@ -54,11 +54,21 @@ const pmMobileRef = document.getElementById('pmMobileRef');
 let currentOrder = null;
 let currentUser = null;
 
+/*
 let rates = {
     usd_bcv: null,
     eur_bcv: null,
     date: null,
     apiSource: null,
+    apiRaw: null,
+    isTomorrow: false
+};
+*/
+let rates = {
+    usd_bcv: null,
+    eur_bcv: null,
+    date: null,
+    apiSource: 'DolarApi',
     apiRaw: null,
     isTomorrow: false
 };
@@ -192,7 +202,9 @@ function cleanup() {
 
 /* ---------------- Conversion / Rates ---------------- */
 
-const EXCHANGE_API = 'https://api.dolarvzla.com/public/exchange-rate';
+//const EXCHANGE_API = 'https://api.dolarvzla.com/public/exchange-rate';
+const API_USD = 'https://ve.dolarapi.com/v1/dolares/official'; // Usamos /official para tasa BCV
+const API_EUR = 'https://ve.dolarapi.com/v1/euros/official';
 
 function todayString(offsetDays = 0) {
     const d = new Date();
