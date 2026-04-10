@@ -1001,12 +1001,31 @@ function openConfirmInline(msg) {
 async function submitOrder(customerData) {
     if (!CART.items.length) { showToast('El carrito está vacío'); return; }
     if (IS_SUBMITTING) { console.warn('Intento de envío duplicado bloqueado'); return; }
+    
     IS_SUBMITTING = true;
+    
     const checkoutForm = document.getElementById('checkoutForm');
     const submitBtn = document.getElementById('checkoutSubmitBtn') || (checkoutForm ? checkoutForm.querySelector('button[type="submit"]') : null);
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.setAttribute('aria-disabled', 'true'); }
+    
+    if (submitBtn) { 
+        submitBtn.disabled = true; 
+        submitBtn.setAttribute('aria-disabled', 'true'); 
+    }
+    
     const msgEl = document.getElementById('checkoutMsg');
-    if (msgEl) { msgEl.textContent = 'Enviando pedido…'; msgEl.style.color = '#64748b'; }
+    if (msgEl) { 
+        msgEl.textContent = 'Enviando pedido…'; 
+        msgEl.style.color = '#64748b'; 
+    }
+
+    // --- LÓGICA DE FECHA LOCAL ---
+    const ahora = new Date();
+    const year = ahora.getFullYear();
+    const month = String(ahora.getMonth() + 1).padStart(2, '0');
+    const day = String(ahora.getDate()).padStart(2, '0');
+    const fechaFormateada = `${year}-${month}-${day}`; 
+    // Resultado: "2026-04-09" (si hoy es 9 de abril en tu PC)
+
     const orderData = {
         cartToken: CART.cartToken,
         customerData: {
@@ -1017,12 +1036,19 @@ async function submitOrder(customerData) {
             lng: customerData.lng || "",
             readable_address: customerData.address
         },
-        items: CART.items.map(i => ({ productId: i.productId, name: i.name, price: i.price, quantity: i.quantity, subtotal: i.subtotal })),
+        items: CART.items.map(i => ({ 
+            productId: i.productId, 
+            name: i.name, 
+            price: i.price, 
+            quantity: i.quantity, 
+            subtotal: i.subtotal 
+        })),
         total: CART.total,
         status: "pendiente",
-        timestamp: serverTimestamp(),
-        orderDate: new Date().toISOString()
+        timestamp: serverTimestamp(), // Mantiene la marca de tiempo exacta de Firebase
+        orderDate: fechaFormateada    // Nueva estructura YYYY-MM-DD local
     };
+
     try {
         const ordersCol = collection(db, 'orders');
         const docRef = await addDoc(ordersCol, orderData);
@@ -1036,10 +1062,16 @@ async function submitOrder(customerData) {
         renderCartPanel();
     } catch (err) {
         console.error('Error guardando pedido:', err);
-        if (msgEl) { msgEl.textContent = 'Error al enviar pedido. Intente nuevamente.'; msgEl.style.color = '#ef4444'; }
+        if (msgEl) { 
+            msgEl.textContent = 'Error al enviar pedido. Intente nuevamente.'; 
+            msgEl.style.color = '#ef4444'; 
+        }
         showToast('Error guardando pedido en servidor');
     } finally {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.removeAttribute('aria-disabled'); }
+        if (submitBtn) { 
+            submitBtn.disabled = false; 
+            submitBtn.removeAttribute('aria-disabled'); 
+        }
         IS_SUBMITTING = false;
     }
 }
