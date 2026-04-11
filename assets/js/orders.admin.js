@@ -230,7 +230,7 @@ async function fetchAndRenderOrders(filters = {}) {
                     <div class="flex justify-between items-center mb-5">
                         <div class="flex items-center gap-2 text-gray-400">
                             <i class="fa-regular fa-calendar text-sm"></i>
-                            <span class="text-xs font-medium text-gray-500">${order.orderDate ? new Date(order.orderDate).toLocaleString() : '-'}</span>
+                            <span class="text-xs font-medium text-gray-500">${order.orderDate}</span>
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="text-gray-400 text-sm">$</span>
