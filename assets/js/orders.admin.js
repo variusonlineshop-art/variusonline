@@ -174,10 +174,11 @@ async function fetchAndRenderOrders(filters = {}) {
             });
         }
         // Cronología
-        if (filters.sort === "oldest") {
-            ordersArr.sort((a, b) => (a.orderDate||0) - (b.orderDate||0));
+         if (filters.sort === "oldest") {
+            ordersArr.sort((a, b) => new Date(a.orderDate) - new Date(b.orderDate));
         } else {
-            ordersArr.sort((a, b) => (b.orderDate||0) - (a.orderDate||0));
+            // Por defecto: Del más reciente al más viejo
+            ordersArr.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
         }
 
         // Render tarjetas de órdenes
