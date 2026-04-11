@@ -361,7 +361,7 @@ window.applyAllFilters = async function() {
     const search = document.getElementById("globalSearch").value?.trim().toLowerCase() || "";
     const seller = document.getElementById("filterSeller").value || "all";
     const motorized = document.getElementById("filterMotorized").value || "all";
-    const sort = document.getElementById("filterSort").value || "newest";
+    const sort = document.getElementById("filterSort").value || "newest"; // Asegura el default
     await fetchAndRenderOrders({
         search,
         seller,
