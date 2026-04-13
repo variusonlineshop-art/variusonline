@@ -112,7 +112,7 @@
                             Gestion de Productos
                         </h1>
                     </div>
-                    <button id="btnNuevoProducto" onclick="abrirModal('add')"
+                    <button id="btnNuevoProducto" onclick="variusInventory.abrirModal('edit', '123')"
                         class="admin-only bg-[#10b981] hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-emerald-100 flex items-center gap-2">
                         <i class="fas fa-plus"></i> Producto Nuevo
                     </button>
@@ -382,6 +382,8 @@
             </form>
         </div>
     </div>
+
+    <div id="img-upload-spinner" class="hidden">Subiendo imagen, por favor espera...</div>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
