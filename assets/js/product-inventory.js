@@ -21,6 +21,7 @@ let productos = [];
 let paginaActual = 1;
 const itemsPorPagina = 20;
 let sliderInterval;
+let sortableObj = null; // fuera de la función
 
 import { query, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
 
@@ -105,57 +106,73 @@ function renderPreviewImages() {
         previewContainer.appendChild(div);
     });
 
-    // Drag & drop para reorganizar
-    if (currentImages.length > 1 && !previewContainer.classList.contains('sortable-initialized')) {
-        Sortable.create(previewContainer, {
+    // ---- GESTIÓN SINGLETON SORTABLE ----
+    if (sortableObj) {
+        sortableObj.destroy(); // Destruye cualquier instancia previa
+        sortableObj = null;
+    }
+    if (currentImages.length > 1) {
+        sortableObj = Sortable.create(previewContainer, {
             animation: 180,
             onEnd: (e) => {
-                // Actualiza el array de imágenes
                 const moved = currentImages.splice(e.oldIndex, 1)[0];
                 currentImages.splice(e.newIndex, 0, moved);
-                // ¡NO LLAMES renderPreviewImages() AQUÍ!
+                // No vuelvas a renderizar aquí
             }
         });
-        previewContainer.classList.add('sortable-initialized');
     }
 }
 
 async function subirTodasLasImagenes(productSkuOrId) {
-    let urlsFinales = [];
+    let urlsOrdenadas = [];
     const spinner = document.getElementById('img-upload-spinner');
     if (spinner) spinner.classList.remove('hidden');
+
     try {
         if (!auth.currentUser) {
             await signInAnonymously(auth);
         }
+
+        // Iteramos sobre currentImages que YA están en el orden que pusiste en el UI
         for (let i = 0; i < currentImages.length; i++) {
             let imgObj = currentImages[i];
+
             if (!imgObj.isUploaded) {
+                // Es una imagen nueva (archivo local)
                 const imgRef = storageRef(storage, `products/${productSkuOrId}/${Date.now()}_${i}.jpg`);
+
                 await new Promise((resolve, reject) => {
                     const uploadTask = uploadBytesResumable(imgRef, imgObj.file);
-                    uploadTask.on('state_changed', (snap) => {
-                        imgObj.progress = Math.floor((snap.bytesTransferred / snap.totalBytes) * 100);
-                        renderPreviewImages();
-                    }, reject, async () => {
-                        imgObj.isUploaded = true;
-                        imgObj.progress = 100;
-                        imgObj.storageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                        urlsFinales[i] = imgObj.storageUrl;
-                        renderPreviewImages();
-                        resolve();
-                    });
+
+                    uploadTask.on('state_changed',
+                        (snap) => {
+                            imgObj.progress = Math.floor((snap.bytesTransferred / snap.totalBytes) * 100);
+                            renderPreviewImages();
+                        },
+                        reject,
+                        async () => {
+                            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                            imgObj.isUploaded = true;
+                            imgObj.storageUrl = downloadUrl;
+                            urlsOrdenadas.push(downloadUrl); // Guardamos en el orden actual
+                            resolve();
+                        }
+                    );
                 });
             } else {
-                urlsFinales[i] = imgObj.storageUrl || imgObj.url;
+                // Es una imagen que ya estaba en Firebase o ya se subió
+                // Usamos storageUrl que es la URL real de Firebase
+                urlsOrdenadas.push(imgObj.storageUrl);
             }
         }
     } catch (e) {
+        console.error("Error subiendo imágenes:", e);
         alert("Error subiendo imágenes: " + e.message);
     } finally {
         if (spinner) spinner.classList.add('hidden');
     }
-    return urlsFinales;
+
+    return urlsOrdenadas; // Retorna las URLs en el orden exacto del array currentImages
 }
 
 // --- FUNCIONES DE COPIADO ---
@@ -664,19 +681,16 @@ document.getElementById('productForm').onsubmit = async function (e) {
     try {
         // 2. Manejo de Imágenes
         // Subimos las nuevas y mantenemos las que ya estaban (storageUrl)
-        let imageUrls = await subirTodasLasImagenes(data.sku);
-        data.images = imageUrls;
+        let urlsFinales = await subirTodasLasImagenes(data.sku);
+        data.imageUrls = urlsFinales;
+        delete data.images;
 
         // 3. Operación en Firebase
         if (isEdit && idExistente) {
-            // MODO EDICIÓN: updateDoc garantiza que se sobreescriba el mismo registro
             const docRef = doc(db, "product", idExistente);
             await updateDoc(docRef, data);
-            console.log("Producto actualizado:", idExistente);
         } else {
-            // MODO NUEVO: addDoc crea un registro único
-            const docRef = await addDoc(collection(db, "product"), data);
-            console.log("Producto creado con ID:", docRef.id);
+            await addDoc(collection(db, "product"), data);
         }
 
         // 4. Limpieza Total del Estado (Evita Duplicados)
@@ -747,7 +761,7 @@ function getEstiloEstado(est) {
 function formatearPrecio(input) {
     // Elimina cualquier carácter que no sea dígito
     let valor = input.value.replace(/[^\d]/g, "");
-    if(valor === "") valor = "0";
+    if (valor === "") valor = "0";
     let n = parseFloat(valor) / 100;
     // Actualiza el valor del input usando formato europeo
     input.value = n.toLocaleString('de-DE', { minimumFractionDigits: 2 });
