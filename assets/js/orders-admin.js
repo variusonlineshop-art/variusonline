@@ -375,6 +375,57 @@ window.applyAllFilters = async function () {
 /**
  * Muestra el modal con detalles. 
  */
+
+function completeVenezuelaAddress(address, order) {
+    // Siempre fuerza "Venezuela" al final
+    let completed = address || "";
+    completed = completed.trim();
+
+    // Si falta el país, lo agrega
+    if (!/venezuela/i.test(completed)) {
+        // Intenta agregar estado: busca en datos del cliente o fallback
+        let state = "";
+        let city = "";
+        if (order.customerData && order.customerData.state) {
+            state = order.customerData.state;
+        } else if (order.state) {
+            state = order.state;
+        }
+        if (order.customerData && order.customerData.city) {
+            city = order.customerData.city;
+        } else if (order.city) {
+            city = order.city;
+        }
+        // Si la dirección ya NO tiene el estado ni la ciudad, lo agrega antes de "Venezuela"
+        if (state && !new RegExp(state, 'i').test(completed)) {
+            completed += ", " + state;
+        } else if (city && !new RegExp(city, 'i').test(completed)) {
+            completed += ", " + city;
+        }
+        completed += ", Venezuela";
+    }
+    return completed;
+}
+
+async function geocodeAddress(address) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Accept-Language': 'es'
+            }
+        });
+        const data = await response.json();
+        if (data && data.length > 0) {
+            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+    } catch (e) {
+        console.error("Error geocodificando dirección:", e);
+    }
+    return null;
+}
+
+
 window.showOrderDetails = async function (orderId) {
     const order = window.ordersCache[orderId];
     if (!order) return;
@@ -463,18 +514,39 @@ window.showOrderDetails = async function (orderId) {
         </div>
     `;
 
+    // Obtén lat/lng y dirección
     const lat = order.customerData?.lat || order.lat;
     const lng = order.customerData?.lng || order.lng;
+    let rawAddress = order.customerData?.address || order.readable_address || "";
+    const address = completeVenezuelaAddress(rawAddress, order) || "Caracas, Venezuela";
 
-    if (lat && lng) {
+    function drawMap(lat, lng) {
         setTimeout(() => {
+            // Evita error de múltiples instancias de Leaflet
             const mapContainer = L.DomUtil.get('map');
             if (mapContainer != null) { mapContainer._leaflet_id = null; }
-            const map = L.map('map').setView([parseFloat(lat), parseFloat(lng)], 16);
+            const map = L.map('map').setView([lat, lng], 16);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.marker([parseFloat(lat), parseFloat(lng)]).addTo(map);
+            L.marker([lat, lng]).addTo(map);
         }, 300);
     }
+
+    // El mapa SIEMPRE se dibuja: con coordenadas, con dirección, o valor por defecto
+    (async () => {
+        if (lat && lng) {
+            drawMap(parseFloat(lat), parseFloat(lng));
+        } else if (address) {
+            const coords = await geocodeAddress(address);
+            if (coords) {
+                drawMap(coords.lat, coords.lng);
+            } else {
+                // Fallback absoluto: centro de Cabudare
+                drawMap(10.03717, -69.22458);
+            }
+        } else {
+            drawMap(10.03717, -69.22458);
+        }
+    })();
 }
 
 window.closeModal = function () {
