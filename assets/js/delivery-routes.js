@@ -1,7 +1,7 @@
 import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { 
-    getFirestore, collection, getDocs, query, where, doc, getDoc 
+import {
+    getFirestore, collection, getDocs, query, where, doc, getDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
@@ -12,6 +12,45 @@ const auth = getAuth();
 let map;
 let markersLayer;
 let allOrders = []; // Cache local para filtrado rápido
+
+// Completa la dirección para asegurar que sea en Venezuela y tener mejor geocodificación
+function completeVenezuelaAddress(order) {
+    let address = order.customerData?.address || order.readable_address || '';
+
+    address = address.trim();
+    if (!/venezuela/i.test(address)) {
+        let state = order.customerData?.state || order.state || "";
+        let city = order.customerData?.city || order.city || "";
+
+        if (state && !new RegExp(state, 'i').test(address)) {
+            address += (address ? ", " : "") + state;
+        } else if (city && !new RegExp(city, 'i').test(address)) {
+            address += (address ? ", " : "") + city;
+        }
+        address += (address ? ", " : "") + "Venezuela";
+    }
+
+    return address || "Venezuela";
+}
+
+// Geocodifica usando Nominatim
+async function geocodeAddress(address) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Accept-Language': 'es'
+            }
+        });
+        const data = await response.json();
+        if (data && data.length > 0) {
+            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+    } catch (e) {
+        console.error("Error geocodificando dirección:", e);
+    }
+    return null;
+}
 
 function initMap() {
     map = L.map('delivery-map').setView([10.4806, -66.8983], 12);
@@ -33,28 +72,42 @@ function renderCustomerList(ordersToRender) {
         return;
     }
 
-    ordersToRender.forEach(order => {
-        const lat = order.customerData?.lat || order.lat;
-        const lng = order.customerData?.lng || order.lng;
+    ordersToRender.forEach(async order => {
+        let lat = order.customerData?.lat || order.lat;
+        let lng = order.customerData?.lng || order.lng;
         const name = order.customerData?.Customname || "Cliente Sin Nombre";
         const phone = order.customerData?.phone || order.phone || "Sin Teléfono";
+
+        // Si NO hay lat/lng, geocodifica usando dirección completada
+        if (!lat || !lng) {
+            const address = completeVenezuelaAddress(order);
+            const coords = await geocodeAddress(address);
+            if (coords) {
+                lat = coords.lat;
+                lng = coords.lng;
+            } else {
+                // Fallback: Cabudare centro (puedes personalizar)
+                lat = 10.03717;
+                lng = -69.22458;
+            }
+        }
 
         const card = document.createElement('div');
         card.className = "p-3 rounded-xl border border-gray-50 hover:border-blue-200 hover:bg-blue-50/50 cursor-pointer transition-all group animate-fade-in";
         card.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                        <i class="fa-solid fa-user text-xs"></i>
-                    </div>
-                    <div class="overflow-hidden">
-                        <p class="text-[11px] font-bold text-gray-800 truncate">${name}</p>
-                        <p class="text-[10px] text-gray-500">${phone}</p>
-                    </div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                    <i class="fa-solid fa-user text-xs"></i>
                 </div>
-                <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-blue-500 pr-2"></i>
+                <div class="overflow-hidden">
+                    <p class="text-[11px] font-bold text-gray-800 truncate">${name}</p>
+                    <p class="text-[10px] text-gray-500">${phone}</p>
+                </div>
             </div>
-        `;
+            <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-blue-500 pr-2"></i>
+        </div>
+    `;
 
         card.onclick = () => {
             if (lat && lng) {
@@ -70,15 +123,15 @@ function renderCustomerList(ordersToRender) {
 
         if (lat && lng) {
             const marker = L.marker([lat, lng]).bindPopup(`
-                <div class="p-1">
-                    <p class="text-xs font-bold mb-1">${name}</p>
-                    <p class="text-[10px] text-gray-600 mb-2"><i class="fa-solid fa-phone mr-1"></i>${phone}</p>
-                    <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" 
-                       class="block text-center bg-blue-500 text-white text-[9px] py-1 px-2 rounded-lg hover:bg-blue-600 transition-colors">
-                       Ver en Google Maps
-                    </a>
-                </div>
-            `);
+            <div class="p-1">
+                <p class="text-xs font-bold mb-1">${name}</p>
+                <p class="text-[10px] text-gray-600 mb-2"><i class="fa-solid fa-phone mr-1"></i>${phone}</p>
+                <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" 
+                   class="block text-center bg-blue-500 text-white text-[9px] py-1 px-2 rounded-lg hover:bg-blue-600 transition-colors">
+                   Ver en Google Maps
+                </a>
+            </div>
+        `);
             markersLayer.addLayer(marker);
             bounds.push([lat, lng]);
         }
