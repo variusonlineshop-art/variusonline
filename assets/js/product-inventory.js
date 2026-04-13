@@ -22,6 +22,10 @@ let paginaActual = 1;
 const itemsPorPagina = 20;
 let sliderInterval;
 
+import { query, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+let lastVisible = null;
+
 // --- DROPZONE MANEJO DE IMÁGENES ---
 let currentImages = []; // {file, url, isUploaded, progress, storageUrl}
 
@@ -102,44 +106,54 @@ function renderPreviewImages() {
     });
 
     // Drag & drop para reorganizar
-    if (currentImages.length > 1) {
+    if (currentImages.length > 1 && !previewContainer.classList.contains('sortable-initialized')) {
         Sortable.create(previewContainer, {
             animation: 180,
             onEnd: (e) => {
+                // Actualiza el array de imágenes
                 const moved = currentImages.splice(e.oldIndex, 1)[0];
                 currentImages.splice(e.newIndex, 0, moved);
-                renderPreviewImages();
+                // ¡NO LLAMES renderPreviewImages() AQUÍ!
             }
         });
+        previewContainer.classList.add('sortable-initialized');
     }
 }
 
 async function subirTodasLasImagenes(productSkuOrId) {
     let urlsFinales = [];
-    if (!auth.currentUser) {
-        await signInAnonymously(auth);
-    }
-    for (let i = 0; i < currentImages.length; i++) {
-        let imgObj = currentImages[i];
-        if (!imgObj.isUploaded) {
-            const imgRef = storageRef(storage, `products/${productSkuOrId}/${Date.now()}_${i}.jpg`);
-            await new Promise((resolve, reject) => {
-                const uploadTask = uploadBytesResumable(imgRef, imgObj.file);
-                uploadTask.on('state_changed', (snap) => {
-                    imgObj.progress = Math.floor((snap.bytesTransferred / snap.totalBytes) * 100);
-                    renderPreviewImages();
-                }, reject, async () => {
-                    imgObj.isUploaded = true;
-                    imgObj.progress = 100;
-                    imgObj.storageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                    urlsFinales[i] = imgObj.storageUrl;
-                    renderPreviewImages();
-                    resolve();
-                });
-            });
-        } else {
-            urlsFinales[i] = imgObj.storageUrl || imgObj.url;
+    const spinner = document.getElementById('img-upload-spinner');
+    if (spinner) spinner.classList.remove('hidden');
+    try {
+        if (!auth.currentUser) {
+            await signInAnonymously(auth);
         }
+        for (let i = 0; i < currentImages.length; i++) {
+            let imgObj = currentImages[i];
+            if (!imgObj.isUploaded) {
+                const imgRef = storageRef(storage, `products/${productSkuOrId}/${Date.now()}_${i}.jpg`);
+                await new Promise((resolve, reject) => {
+                    const uploadTask = uploadBytesResumable(imgRef, imgObj.file);
+                    uploadTask.on('state_changed', (snap) => {
+                        imgObj.progress = Math.floor((snap.bytesTransferred / snap.totalBytes) * 100);
+                        renderPreviewImages();
+                    }, reject, async () => {
+                        imgObj.isUploaded = true;
+                        imgObj.progress = 100;
+                        imgObj.storageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                        urlsFinales[i] = imgObj.storageUrl;
+                        renderPreviewImages();
+                        resolve();
+                    });
+                });
+            } else {
+                urlsFinales[i] = imgObj.storageUrl || imgObj.url;
+            }
+        }
+    } catch (e) {
+        alert("Error subiendo imágenes: " + e.message);
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
     }
     return urlsFinales;
 }
@@ -181,10 +195,22 @@ async function copyProductLink(id) {
 }
 
 // Obtiene productos desde Firestore
-async function cargarProductosFirebase() {
+async function cargarProductosFirebase(itemsPorPagina = 20, ultimoDoc = null) {
     try {
-        const col = collection(db, "product");
-        const snapshot = await getDocs(col);
+        let q = query(
+            collection(db, "product"),
+            orderBy("name"), // Puedes cambiar a otra propiedad si prefieres
+            limit(itemsPorPagina)
+        );
+        if (ultimoDoc) {
+            q = query(
+                collection(db, "product"),
+                orderBy("name"),
+                startAfter(ultimoDoc),
+                limit(itemsPorPagina)
+            );
+        }
+        const snapshot = await getDocs(q);
         const productosData = [];
         snapshot.forEach(doc => {
             const data = doc.data();
@@ -196,13 +222,14 @@ async function cargarProductosFirebase() {
                 price: data.price || 0,
                 stock: data.stock || 0,
                 status: (data.status || "Activo").toUpperCase(),
-                onOffer: data.onOffer === true, // asegúrate de booleano
+                onOffer: data.onOffer === true,
                 discount: data.discount || 0,
                 images: (data.imageUrls && data.imageUrls.length > 0) ? data.imageUrls : ["https://via.placeholder.com/400x300"],
                 description: data.description || "",
                 sharedVideo: data.sharedVideo || null
             });
         });
+        lastVisible = snapshot.docs[snapshot.docs.length - 1];
         return productosData;
     } catch (error) {
         console.error("Error cargando Firebase:", error);
@@ -305,36 +332,37 @@ function renderPrevisualizacionVideo() {
     const red = document.getElementById('selectRedSocial').value;
     const url = document.getElementById('inputUrlVideo').value.trim();
     const cont = document.getElementById('previewVideoContainer');
-    cont.innerHTML = '<span class="text-slate-400">Previsualización del video...</span>';
+    cont.innerHTML = '<span class="text-slate-400">Cargando previsualización...</span>';
     if (!url || !red) return;
 
     let embedHtml = '';
-    if (red === 'youtube') {
-        // Soporta normal y shorts
-        let videoId = null;
-        let matchNormal = url.match(/(?:youtube\.com.*(?:\?|&)v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
-        let matchShort = url.match(/(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/i);
+    try {
+        if (red === 'youtube') {
+            let videoId = null;
+            let matchNormal = url.match(/(?:youtube\.com.*(?:\?|&)v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+            let matchShort = url.match(/(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/i);
 
-        if (matchNormal && matchNormal[1]) {
-            videoId = matchNormal[1];
-        } else if (matchShort && matchShort[1]) {
-            videoId = matchShort[1];
+            if (matchNormal && matchNormal[1]) videoId = matchNormal[1];
+            else if (matchShort && matchShort[1]) videoId = matchShort[1];
+
+            if (videoId) {
+                embedHtml = `<iframe width="100%" height="520" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen class="rounded-xl"></iframe>`;
+            }
+        } else if (red === 'facebook') {
+            embedHtml = `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=0&width=560" width="100%" height="230" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen class="rounded-xl"></iframe>`;
+        } else if (red === 'instagram') {
+            embedHtml = `
+            <blockquote class="instagram-media" data-instgrm-permalink="${url}" data-instgrm-version="14" style="width:100%; min-width:200px; max-width:500px; margin:auto;">
+                <a href="${url}" target="_blank" rel="noopener">Ver en Instagram</a>
+            </blockquote>
+            `;
+            if (window.instgrm) setTimeout(() => window.instgrm.Embeds.process(), 100);
         }
-        if (videoId) {
-            embedHtml = `<iframe width="100%" height="520" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen class="rounded-xl"></iframe>`;
-        }
-    } else if (red === 'facebook') {
-        embedHtml = `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=0&width=560" width="100%" height="230" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen class="rounded-xl"></iframe>`;
-    } else if (red === 'instagram') {
-        // Instagram: el embed solo funcionará si es público y tienes el script de instagram embebido (ver comentario)
-        embedHtml = `
-        <blockquote class="instagram-media" data-instgrm-permalink="${url}" data-instgrm-version="14" style="width:100%; min-width:200px; max-width:500px; margin:auto;">
-            <a href="${url}" target="_blank" rel="noopener">Ver en Instagram</a>
-        </blockquote>
-        `;
-        if (window.instgrm) setTimeout(() => window.instgrm.Embeds.process(), 100);
+        cont.innerHTML = embedHtml || '<span class="text-slate-400">No se pudo previsualizar el video</span>';
+    } catch (err) {
+        cont.innerHTML = '<span class="text-red-500">Error al cargar previsualización.</span>';
+        console.error('Error renderizando video:', err);
     }
-    cont.innerHTML = embedHtml || '<span class="text-slate-400">No se pudo previsualizar el video</span>';
 }
 
 // Listeners para actualizar el preview en tiempo real
@@ -511,7 +539,7 @@ function abrirModal(tipo, id = null) {
     const form = document.getElementById('productForm');
     const titulo = document.getElementById('modalTitle');
     const skuInput = document.getElementById('skuInput');
-    
+
     // Selectores basados en tu HTML
     const isOfferCheckbox = form.querySelector('input[name="isOffer"]');
     const discountInput = form.querySelector('input[name="discount"]');
@@ -520,7 +548,7 @@ function abrirModal(tipo, id = null) {
     form.reset();
     currentImages = [];
     if (typeof renderPreviewImages === 'function') renderPreviewImages();
-    
+
     // Quitar rastros de ediciones anteriores
     form.removeAttribute('data-type');
     form.removeAttribute('data-id');
@@ -528,7 +556,7 @@ function abrirModal(tipo, id = null) {
     if (tipo === 'edit' && id) {
         // --- MODO EDICIÓN ---
         const p = productos.find(prod => prod.id === id);
-        
+
         if (p) {
             titulo.innerText = "Editar Producto";
             form.setAttribute('data-type', 'edit');
@@ -541,17 +569,17 @@ function abrirModal(tipo, id = null) {
             form.price.value = p.price || 0;
             form.stock.value = p.stock || 0;
             form.description.value = p.description || "";
-            
+
             if (form.status) form.status.value = p.status || 'ACTIVE';
 
             // Lógica de Oferta
             if (isOfferCheckbox) {
                 // p.onOffer es como se suele guardar en Firebase en tu lógica anterior
-                isOfferCheckbox.checked = p.onOffer || false; 
+                isOfferCheckbox.checked = p.onOffer || false;
                 if (discountInput) discountInput.value = p.discount || "";
-                
+
                 // IMPORTANTE: Llamar a toggleOferta para que aparezca el input si hay oferta
-                toggleOferta(); 
+                toggleOferta();
             }
 
             // Cargar imágenes existentes para edición
@@ -569,9 +597,9 @@ function abrirModal(tipo, id = null) {
         // --- MODO NUEVO ---
         titulo.innerText = "Nuevo Producto";
         form.setAttribute('data-type', 'new');
-        
+
         if (skuInput) skuInput.value = "";
-        
+
         // Asegurarnos que el contenedor de oferta esté oculto al iniciar
         if (isOfferCheckbox) {
             isOfferCheckbox.checked = false;
@@ -585,19 +613,33 @@ function abrirModal(tipo, id = null) {
 
 function cerrarModal() {
     document.getElementById('productModal').classList.add('hidden');
-    currentImages.forEach(img => img.file && URL.revokeObjectURL(img.url));
+    currentImages.forEach(img => {
+        if (img.url && !img.isUploaded) URL.revokeObjectURL(img.url);
+    });
     currentImages = [];
     renderPreviewImages();
     document.getElementById('productForm').reset();
     document.getElementById('offerInputContainer').style.display = 'none';
 }
 
+function parsePrecio(valor) {
+    // Quita símbolos y espacios 
+    valor = String(valor).replace(/[^\d.,]/g, '').trim();
+    // Si es "2.999,50", elimina los puntos de miles y cambia la coma por punto
+    if (valor.includes(",") && valor.includes(".")) {
+        valor = valor.replace(/\./g, ""); // quita puntos de miles
+        valor = valor.replace(",", ".");  // cambia decimal
+    } else if (valor.includes(",")) {
+        valor = valor.replace(",", ".");
+    }
+    return parseFloat(valor) || 0;
+}
 // Guardar producto (Nuevo + Editar) ★★★★★
 document.getElementById('productForm').onsubmit = async function (e) {
     e.preventDefault();
     const form = e.target;
     const submitBtn = form.querySelector('button[type="submit"]');
-    
+
     // Identificar si es edición o nuevo
     const isEdit = form.getAttribute('data-type') === 'edit';
     const idExistente = form.getAttribute('data-id');
@@ -613,9 +655,9 @@ document.getElementById('productForm').onsubmit = async function (e) {
     data.sku = document.getElementById('skuInput').value;
     data.onOffer = form.isOffer ? form.isOffer.checked : false;
     data.discount = data.onOffer ? (parseInt(data.discount) || 0) : 0;
-    
+
     // Limpiar precio de puntos/comas para guardar como número puro
-    data.price = parseFloat(String(data.price).replace(/\./g, "").replace(",", ".")) || 0;
+    data.price = parsePrecio(data.price);
     data.stock = parseInt(data.stock) || 0;
     data.status = data.status || 'ACTIVE';
 
@@ -643,10 +685,10 @@ document.getElementById('productForm').onsubmit = async function (e) {
         form.removeAttribute('data-type');
         form.removeAttribute('data-id');
         currentImages = []; // Limpiar array global de imágenes
-        
+
         // 5. Notificación y Refresco
         mostrarModalExito(
-            isEdit ? "¡Actualización Exitosa!" : "¡Producto Guardado!", 
+            isEdit ? "¡Actualización Exitosa!" : "¡Producto Guardado!",
             isEdit ? "Los cambios se aplicaron correctamente." : "El producto ya está en tu inventario."
         );
 
@@ -703,9 +745,11 @@ function getEstiloEstado(est) {
 }
 
 function formatearPrecio(input) {
-    let valor = input.value.replace(/\D/g, "");
+    // Elimina cualquier carácter que no sea dígito
+    let valor = input.value.replace(/[^\d]/g, "");
+    if(valor === "") valor = "0";
     let n = parseFloat(valor) / 100;
-    if (isNaN(n)) n = 0;
+    // Actualiza el valor del input usando formato europeo
     input.value = n.toLocaleString('de-DE', { minimumFractionDigits: 2 });
 }
 
@@ -768,7 +812,7 @@ function cambiarPagina(p) { paginaActual = p; aplicarFiltros(); }
 function actualizarMetricas(data = productos) {
     document.getElementById('kpi-total').innerText = data.length;
     document.getElementById('kpi-active').innerText = data.filter(p => ['ACTIVE', 'ACTIVO'].includes(p.status.toUpperCase())).length;
-    document.getElementById('kpi-offer').innerText = data.filter(p => p.offer > 0).length;
+    document.getElementById('kpi-offer').innerText = data.filter(p => p.onOffer && p.discount > 0).length;
     document.getElementById('kpi-stock').innerText = data.filter(p => p.stock === 0).length;
 }
 
