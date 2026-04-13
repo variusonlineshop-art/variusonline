@@ -520,28 +520,41 @@ window.showOrderDetails = async function (orderId) {
     let rawAddress = order.customerData?.address || order.readable_address || "";
     const address = completeVenezuelaAddress(rawAddress, order) || "Caracas, Venezuela";
 
-    function drawMap(lat, lng) {
+    const name = order.customerData?.Customname || 'Cliente';
+    const phone = order.customerData?.phone || order.phone || '';
+
+    function drawMap(lat, lng, name, phone) {
         setTimeout(() => {
-            // Evita error de múltiples instancias de Leaflet
             const mapContainer = L.DomUtil.get('map');
             if (mapContainer != null) { mapContainer._leaflet_id = null; }
             const map = L.map('map').setView([lat, lng], 16);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.marker([lat, lng]).addTo(map);
+
+            const popupContent = `
+            <div style="min-width:140px;">
+                <strong style="font-size:13px">${name || 'Cliente'}</strong><br>
+                <span style="font-size:12px;color:#333;">&#128222; ${phone || ''}</span><br>
+                <a href="https://www.google.com/maps?q=${lat},${lng}" 
+                   target="_blank"
+                   style="display:inline-block;margin-top:7px;background:#4285F4;color:white;padding:4px 10px;border-radius:6px;font-size:12px;text-align:center;text-decoration:none;">
+                    Ver en Google Maps
+                </a>
+            </div>
+        `;
+            L.marker([lat, lng]).addTo(map).bindPopup(popupContent).openPopup();
         }, 300);
     }
 
     // El mapa SIEMPRE se dibuja: con coordenadas, con dirección, o valor por defecto
     (async () => {
         if (lat && lng) {
-            drawMap(parseFloat(lat), parseFloat(lng));
+            drawMap(parseFloat(lat), parseFloat(lng), name, phone);
         } else if (address) {
             const coords = await geocodeAddress(address);
             if (coords) {
-                drawMap(coords.lat, coords.lng);
+                drawMap(coords.lat, coords.lng, name, phone);
             } else {
-                // Fallback absoluto: centro de Cabudare
-                drawMap(10.03717, -69.22458);
+                drawMap(10.03717, -69.22458, name, phone);
             }
         } else {
             drawMap(10.03717, -69.22458);
