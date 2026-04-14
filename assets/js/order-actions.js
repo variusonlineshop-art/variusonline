@@ -300,7 +300,10 @@ function renderEditingItems() {
             <img src="${item.img || 'https://via.placeholder.com/150'}" class="w-12 h-12 rounded-lg object-cover border">
             <div class="flex-1">
                 <p class="text-sm font-bold text-gray-800">${item.name}</p>
-                <p class="text-xs text-blue-600 font-bold">$${item.price}</p>
+                <p class="text-xs ${prodOnOffer(item.productId) ? 'text-yellow-600 font-bold' : 'text-blue-600'}">
+                    $${item.price}
+                    ${prodOnOffer(item.productId) ? '<span class="ml-1 text-amber-600 italic">¡En oferta!</span>' : ''}
+                </p>
             </div>
             <div class="flex items-center gap-2 bg-gray-50 border rounded-xl p-1">
                 <button onclick="updateQty(${index}, -1)" class="w-8 h-8 hover:bg-white hover:shadow-sm rounded-lg transition-all">-</button>
@@ -315,6 +318,12 @@ function renderEditingItems() {
 
     document.getElementById('editTotal').innerText = `$${total.toFixed(2)}`;
     document.getElementById('editSubtotal').innerText = `$${total.toFixed(2)}`;
+}
+
+// Auxiliar para saber si está en oferta
+function prodOnOffer(productId) {
+    const prod = allActiveProducts.find(p => p.id === productId);
+    return prod?.onOffer === true || prod?.isOffer === "on";
 }
 
 window.updateQty = (index, delta) => {
@@ -341,16 +350,37 @@ window.handleMotorizedChange = () => {
 window.showProductSelector = () => {
     const modal = document.getElementById('productSelectorModal');
     const list = document.getElementById('productList');
-    list.innerHTML = allActiveProducts.map(p => `
-        <div onclick="addProductToOrder('${p.id}')" class="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer rounded-xl transition-all border-b border-gray-50">
-            <img src="${p.imageUrls ? p.imageUrls[0] : 'https://via.placeholder.com/50'}" class="w-10 h-10 rounded-md object-cover">
-            <div class="flex-1">
-                <p class="text-xs font-bold text-gray-700">${p.name}</p>
-                <p class="text-[10px] text-blue-500">$${p.price}</p>
-            </div>
-            <i class="fa-solid fa-plus text-gray-300 text-xs"></i>
-        </div>
-    `).join('');
+    // Asegúrate que el buscador tenga id="productSearchInput"
+    const searchInput = document.getElementById('productSearchInput');
+
+    // Renderiza el listado con filtro
+    function renderList(filter = "") {
+        const filtered = allActiveProducts.filter(p =>
+            p.name?.toLowerCase().includes(filter.toLowerCase())
+        );
+        list.innerHTML = filtered.map(p => {
+            const offer = p.onOffer === true || p.isOffer === "on";
+            return `
+                <div onclick="addProductToOrder('${p.id}')" class="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer rounded-xl transition-all border-b border-gray-50 ${offer ? 'bg-yellow-50 border-amber-200' : ''}">
+                    <img src="${p.imageUrls ? p.imageUrls[0] : 'https://via.placeholder.com/50'}" class="w-10 h-10 rounded-md object-cover">
+                    <div class="flex-1">
+                        <p class="text-xs font-bold text-gray-700">${p.name}</p>
+                        <p class="text-[11px] ${offer ? 'text-yellow-600 font-extrabold' : 'text-blue-500'}">$${p.price} ${offer ? '<span class="ml-2 text-xs bg-yellow-400/50 text-yellow-700 px-2 py-0.5 rounded">OFERTA</span>' : ''}</p>
+                    </div>
+                    <i class="fa-solid fa-plus text-gray-300 text-xs"></i>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Inicializa lista y escucha input de búsqueda
+    renderList();
+
+    if (!searchInput.dataset.hasListener) {
+        searchInput.addEventListener("input", (e) => renderList(e.target.value));
+        searchInput.dataset.hasListener = "1";
+    }
+
     modal.classList.remove('hidden');
 };
 
@@ -358,18 +388,29 @@ window.closeProductSelector = () => document.getElementById('productSelectorModa
 
 window.addProductToOrder = (productId) => {
     const prod = allActiveProducts.find(p => p.id === productId);
-    if (prod) {
+    if (!prod) return;
+
+    // ¿Ya existe este producto en el pedido actual?
+    const existing = editingItems.find(item => item.productId === prod.id);
+
+    // El precio correcto SIEMPRE es .price (según tu Firestore)
+    const price = parseFloat(prod.price);
+
+    if (existing) {
+        existing.quantity += 1;
+        existing.subtotal = (existing.quantity * price).toFixed(2);
+    } else {
         editingItems.push({
             productId: prod.id,
             name: prod.name,
-            price: prod.price,
+            price: price,
             quantity: 1,
-            subtotal: prod.price,
+            subtotal: price,
             img: prod.imageUrls ? prod.imageUrls[0] : ''
         });
-        renderEditingItems();
-        closeProductSelector();
     }
+    renderEditingItems();
+    closeProductSelector();
 };
 
 window.saveOrderChanges = async function () {
