@@ -1,17 +1,3 @@
-// assets/js/payment-modal.js
-// Modal de cobro — soporta múltiples métodos y conversión USD/EUR <> Bs
-// Actualizaciones:
-// - Formato numérico en inputs: "." = separador de miles, "," = separador decimal.
-// - Al activar un método de pago el input correspondiente recibe foco y selecciona todo.
-// - El checkbox USD (BCV) queda seleccionado por defecto al abrir el modal.
-// - Los montos resultantes de la conversión (pmTotalBs) se muestran en negrita.
-// - Forzar coma como separador decimal en inputs (reemplaza '.' por ',' mientras escribe).
-// - Resalta en negrita las tasas dentro de pmConvInfo.
-// - Soporta selección de múltiples métodos: cuando hay un faltante, se fracciona
-//   automáticamente entre los métodos seleccionados (respetando campos editados por el usuario).
-// - Distribución en tiempo real: al seleccionar/desmarcar métodos o al editar cualquier campo
-//   se recalcula y redistribuye el faltante entre los campos elegibles (no marcados como userEdited).
-
 import { firebaseConfig } from './firebase-config.js';
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
@@ -51,19 +37,13 @@ const pmMobileDetails = document.getElementById('pmMobileDetails');
 const pmMobileBank = document.getElementById('pmMobileBank');
 const pmMobileRef = document.getElementById('pmMobileRef');
 
+//const EXCHANGE_API = 'https://api.dolarvzla.com/public/exchange-rate';
+const API_USD = 'https://ve.dolarapi.com/v1/dolares/official';
+const API_EUR = 'https://ve.dolarapi.com/v1/euros/official';
+
 let currentOrder = null;
 let currentUser = null;
 
-/*
-let rates = {
-    usd_bcv: null,
-    eur_bcv: null,
-    date: null,
-    apiSource: null,
-    apiRaw: null,
-    isTomorrow: false
-};
-*/
 let rates = {
     usd_bcv: null,
     eur_bcv: null,
@@ -202,9 +182,6 @@ function cleanup() {
 
 /* ---------------- Conversion / Rates ---------------- */
 
-//const EXCHANGE_API = 'https://api.dolarvzla.com/public/exchange-rate';
-const API_USD = 'https://ve.dolarapi.com/v1/dolares/official'; // Usamos /official para tasa BCV
-const API_EUR = 'https://ve.dolarapi.com/v1/euros/official';
 
 function todayString(offsetDays = 0) {
     const d = new Date();
@@ -212,119 +189,59 @@ function todayString(offsetDays = 0) {
     return d.toISOString().slice(0, 10);
 }
 
-// Reemplazar la función fetchRates por esta versión más robusta y con logging visible en UI
-
-// Reemplazar la función fetchRates por esta versión de debug + manejo 401
 async function fetchRates() {
     const showUiInfo = (msg) => {
         try { if (pmConvInfo) pmConvInfo.textContent = msg; } catch (e) { /* ignore */ }
     };
 
-    const controller = new AbortController();
-    const timeoutMs = 8000;
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    // Cache-busting para evitar respuestas en cache distintas entre sesiones
-    const url = EXCHANGE_API + '?_=' + Date.now();
+    rates.usd_bcv = null;
+    rates.eur_bcv = null;
+    rates.date = null;
+    rates.apiSource = 'DolarApi';
+    rates.apiRaw = {};
+    rates.isTomorrow = false;
 
     try {
-        console.debug('fetchRates: solicitando API de tasas a', url);
-        const resp = await fetch(url, { method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' }, signal: controller.signal });
-        clearTimeout(timer);
+        // Igual que money.cash.js (v1/dolares y v1/euros)
+        const [respUsd, respEur] = await Promise.all([
+            fetch('https://ve.dolarapi.com/v1/dolares'),
+            fetch('https://ve.dolarapi.com/v1/euros')
+        ]);
+        const dataUsdArr = await respUsd.json();
+        const dataEurArr = await respEur.json();
 
-        // Si no OK, intentar leer body para diagnosticar (por ejemplo 401 con mensaje)
-        if (!resp.ok) {
-            const text = await resp.text().catch(() => '');
-            console.warn('fetchRates: respuesta no OK', resp.status, resp.statusText, text);
-            showUiInfo(`Error obteniendo tasa: ${resp.status} ${resp.statusText}. ${text ? 'Detalle: ' + text : ''}`);
+        // Busca fuente oficial
+        const usdObj = dataUsdArr.find(x => x.fuente === 'oficial');
+        const eurObj = dataEurArr.find(x => x.fuente === 'oficial');
 
-            // si es 401 -> indicar claramente que la API requiere autorización
-            if (resp.status === 401) {
-                console.warn('fetchRates: 401 Unauthorized — la API requiere autenticación o la clave no es válida.');
-                // Dejar rates en null de forma explícita
-                rates.usd_bcv = null; rates.eur_bcv = null; rates.date = null; rates.apiRaw = null; rates.apiSource = EXCHANGE_API; rates.isTomorrow = false;
-                return;
-            }
-
-            // reintento simple (sin query param) por si algún proxy falla con querystring
-            try {
-                const resp2 = await fetch(EXCHANGE_API, { method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' } });
-                if (resp2.ok) {
-                    const j2 = await resp2.json();
-                    rates.apiRaw = j2; rates.apiSource = EXCHANGE_API;
-                    const current2 = j2?.current;
-                    if (current2) {
-                        const apiDate2 = String(current2.date || '').slice(0,10);
-                        const usd2 = Number(current2.usd);
-                        const eur2 = Number(current2.eur);
-                        const today = todayString(0);
-                        const tomorrow = todayString(1);
-                        if (apiDate2 === today || apiDate2 === tomorrow) {
-                            rates.usd_bcv = (usd2 && !isNaN(usd2)) ? usd2 : null;
-                            rates.eur_bcv = (eur2 && !isNaN(eur2)) ? eur2 : null;
-                            rates.date = apiDate2;
-                            rates.isTomorrow = (apiDate2 === tomorrow);
-                            console.debug('fetchRates: retry OK, tasas asignadas', rates);
-                            return;
-                        }
-                    }
-                } else {
-                    const t2 = await resp2.text().catch(()=>'');
-                    console.warn('fetchRates retry no OK', resp2.status, t2);
-                    showUiInfo(`Retry: ${resp2.status} ${resp2.statusText}. ${t2}`);
-                }
-            } catch (retryErr) {
-                console.warn('fetchRates retry error', retryErr);
-            }
-
-            // fallback: dejar tasas null y mostrar mensaje (para que la UI no rompa)
-            rates.usd_bcv = null; rates.eur_bcv = null; rates.date = null; rates.apiRaw = null; rates.apiSource = EXCHANGE_API; rates.isTomorrow = false;
-            return;
+        if (usdObj && typeof usdObj.promedio === 'number') {
+            rates.usd_bcv = usdObj.promedio;
+            rates.date = usdObj.fecha_actualizacion;
+            rates.apiRaw.usd = usdObj;
+        }
+        if (eurObj && typeof eurObj.promedio === 'number') {
+            rates.eur_bcv = eurObj.promedio;
+            if (!rates.date) rates.date = eurObj.fecha_actualizacion;
+            rates.apiRaw.eur = eurObj;
         }
 
-        // OK path
-        const j = await resp.json();
-        console.debug('fetchRates: payload recibido', j);
-        rates.apiRaw = j; rates.apiSource = EXCHANGE_API;
-        const current = j?.current;
-        if (!current) {
-            showUiInfo('Formato inesperado de la API de tasas.');
-            rates.usd_bcv = null; rates.eur_bcv = null; rates.date = null; rates.isTomorrow = false;
-            return;
-        }
-
-        const apiDate = String(current.date || '').slice(0,10);
-        const usd = Number(current.usd);
-        const eur = Number(current.eur);
+        // Marca como "mañana" si es el caso
         const today = todayString(0);
-        const tomorrow = todayString(1);
+        const apiDate = (rates.date || '').slice(0, 10);
+        rates.isTomorrow = (apiDate !== today);
 
-        if (apiDate === today) {
-            rates.usd_bcv = (usd && !isNaN(usd)) ? usd : null;
-            rates.eur_bcv = (eur && !isNaN(eur)) ? eur : null;
-            rates.date = apiDate;
-            rates.isTomorrow = false;
-            console.debug('fetchRates: usando tasa para hoy', rates);
-            return;
+        // Mensaje de status
+        if (!rates.usd_bcv && !rates.eur_bcv) {
+            showUiInfo('Tasa no disponible. Asigna manualmente o revisa la API.');
+        } else {
+            showUiInfo(`Tasa BCV actualizada: $1 = Bs.${rates.usd_bcv || '-'} | €1 = Bs.${rates.eur_bcv || '-'}`);
         }
-        if (apiDate === tomorrow) {
-            rates.usd_bcv = (usd && !isNaN(usd)) ? usd : null;
-            rates.eur_bcv = (eur && !isNaN(eur)) ? eur : null;
-            rates.date = apiDate;
-            rates.isTomorrow = true;
-            console.debug('fetchRates: usando tasa para mañana', rates);
-            return;
-        }
-
-        console.warn(`fetchRates: tasa API con fecha ${apiDate} no es hoy ni mañana`);
-        showUiInfo('Tasa API fuera de rango de fecha.');
-        rates.usd_bcv = null; rates.eur_bcv = null; rates.date = apiDate || null; rates.isTomorrow = false;
     } catch (e) {
-        clearTimeout(timer);
-        console.warn('fetchRates error', e);
-        rates.usd_bcv = null; rates.eur_bcv = null; rates.date = null; rates.apiRaw = null; rates.apiSource = EXCHANGE_API; rates.isTomorrow = false;
-        if (e && e.name === 'AbortError') showUiInfo('Timeout obteniendo tasa. Reintenta.');
-        else showUiInfo('Error obteniendo tasa: ' + (e && e.message ? e.message : String(e)));
+        showUiInfo(`Error obteniendo tasa DolarApi: ${e.message || e}`);
+        rates.usd_bcv = null;
+        rates.eur_bcv = null;
+        rates.date = null;
+        rates.apiRaw = null;
     }
 }
 
