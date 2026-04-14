@@ -818,9 +818,11 @@ function createProductCardHtml(p, resolvedImages = []) {
     : `<img src="${escapeHtml(p.image || '')}" alt="${escapeHtml(p.name)}" class="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-110">`;
 
   const sliderHtml = `
-    <div class="relative w-full aspect-square overflow-hidden bg-gray-100" role="img" aria-label="${escapeHtml(p.name)}">
+    <button class="view-btn relative w-full aspect-square overflow-hidden bg-gray-100 block" 
+            data-id="${escapeHtml(p.id)}" 
+            aria-label="Ver detalles de ${escapeHtml(p.name)}">
       ${imagesHtml}
-    </div>
+    </button>
   `;
 
   // 3. Retorno del HTML completo
