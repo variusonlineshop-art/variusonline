@@ -3,8 +3,8 @@ const urlsToCache = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png"
+  "/web-app-manifest-192x192.png",
+  "/web-app-manifest-512x512.png"
   // Agrega aquí tus assets JS, CSS, imágenes adicionales si es necesario
 ];
 
