@@ -1,11 +1,11 @@
 {
   "name": "Varius Online",
   "short_name": "Varius",
+  "description": "CRM Y CONTROL DE ORDENES ONLINE",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1976d2",
-  "description": "CRM Y CONTROL DE ORDENES ONLINE",
   "icons": [
     {
       "src": "icon-192.png",
@@ -17,5 +17,6 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "lang": "es"
 }

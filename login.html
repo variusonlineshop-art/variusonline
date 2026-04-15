@@ -7,8 +7,10 @@
     <title>Iniciar sesión | Varius Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="assets/img/favicon.png">
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1976d2">
+
     <style>
         /* Animación del Fondo Mesh */
         @keyframes gradient-move {
@@ -52,14 +54,12 @@
         }
     </style>
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(function (registration) {
-                        console.log('ServiceWorker registrado:', registration);
-                    }, function (err) {
-                        console.log('Error al registrar ServiceWorker:', err);
-                    });
+        // Ejemplo en src/index.js o main.js
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("/service-worker.js")
+                    .then(reg => console.log("ServiceWorker registrado:", reg.scope))
+                    .catch(err => console.log("Error al registrar ServiceWorker:", err));
             });
         }
     </script>
