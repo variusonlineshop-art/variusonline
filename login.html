@@ -1,18 +1,28 @@
 <!doctype html>
 <html lang="es">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Iniciar sesión | Varius Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="assets/img/favicon.png">
-    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1976d2">
     <style>
         /* Animación del Fondo Mesh */
         @keyframes gradient-move {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
         }
 
         .animated-bg {
@@ -41,6 +51,18 @@
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
     </style>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(function (registration) {
+                        console.log('ServiceWorker registrado:', registration);
+                    }, function (err) {
+                        console.log('Error al registrar ServiceWorker:', err);
+                    });
+            });
+        }
+    </script>
 </head>
 
 <body class="animated-bg min-h-screen flex items-center justify-center p-4">
@@ -52,20 +74,22 @@
 
             <form id="login-form" class="space-y-5" novalidate>
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-1.5" for="login-email">Correo electrónico</label>
-                    <input id="login-email" 
-                        class="w-full h-11 px-4 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#90d9d0] focus:border-transparent transition-all" 
+                    <label class="block text-sm font-medium text-gray-600 mb-1.5" for="login-email">Correo
+                        electrónico</label>
+                    <input id="login-email"
+                        class="w-full h-11 px-4 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#90d9d0] focus:border-transparent transition-all"
                         type="email" placeholder="ejemplo@correo.com" required>
                     <div id="login-email-alert" class="text-xs text-red-500 mt-1 min-h-[1.25rem]"></div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-1.5" for="login-password">Contraseña</label>
+                    <label class="block text-sm font-medium text-gray-600 mb-1.5"
+                        for="login-password">Contraseña</label>
                     <div class="relative">
-                        <input id="login-password" 
-                            class="w-full h-11 px-4 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#90d9d0] focus:border-transparent transition-all" 
+                        <input id="login-password"
+                            class="w-full h-11 px-4 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#90d9d0] focus:border-transparent transition-all"
                             type="password" placeholder="••••••••" required>
-                        <button id="login-toggle-password" type="button" 
+                        <button id="login-toggle-password" type="button"
                             class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                             👁️
                         </button>
@@ -74,7 +98,7 @@
                 </div>
 
                 <div class="pt-2">
-                    <button type="submit" 
+                    <button type="submit"
                         class="w-full bg-[#90d9d0] hover:bg-[#7bc4bc] text-[#2c4744] font-bold py-3 rounded-xl shadow-lg shadow-[#90d9d0]/30 transform transition-all active:scale-[0.98] hover:-translate-y-0.5">
                         Iniciar sesión
                     </button>
@@ -83,13 +107,16 @@
         </section>
     </main>
 
-    <div id="app-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="app-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
         <div class="bg-white rounded-2xl p-6 max-w-sm w-[90%] shadow-2xl scale-95 transition-transform">
             <h3 id="modal-title" class="text-lg font-bold text-gray-900 mb-2">Aviso</h3>
             <p id="modal-body" class="text-gray-600 mb-6 text-sm leading-relaxed">Mensaje...</p>
             <div class="flex gap-3 justify-end">
-                <button id="modal-close" class="px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">Cerrar</button>
-                <button id="modal-ok" class="px-5 py-2 text-sm font-semibold bg-[#90d9d0] text-[#2c4744] rounded-lg hover:bg-[#7bc4bc] transition-colors">Aceptar</button>
+                <button id="modal-close"
+                    class="px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">Cerrar</button>
+                <button id="modal-ok"
+                    class="px-5 py-2 text-sm font-semibold bg-[#90d9d0] text-[#2c4744] rounded-lg hover:bg-[#7bc4bc] transition-colors">Aceptar</button>
             </div>
         </div>
     </div>
@@ -99,7 +126,7 @@
         // Script básico para mostrar/ocultar modal (puedes moverlo a auth.js)
         const modal = document.getElementById('app-modal');
         function toggleModal(show) {
-            if(show) {
+            if (show) {
                 modal.classList.remove('opacity-0', 'pointer-events-none');
                 modal.children[0].classList.remove('scale-95');
             } else {
@@ -109,4 +136,5 @@
         }
     </script>
 </body>
+
 </html>
