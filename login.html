@@ -7,8 +7,7 @@
     <title>Iniciar sesión | Varius Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="assets/img/favicon.png">
-
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1976d2">
 
     <style>
@@ -54,7 +53,7 @@
         }
     </style>
     <script>
-        // Ejemplo en src/index.js o main.js
+        // Registro de Service Worker
         if ("serviceWorker" in navigator) {
             window.addEventListener("load", function () {
                 navigator.serviceWorker.register("/service-worker.js")
@@ -105,6 +104,12 @@
                 </div>
             </form>
         </section>
+        <!-- BOTÓN INSTALAR APP (PWA) -->
+        <button id="install-btn"
+            class="w-full mt-4 bg-[#1976d2] hover:bg-[#155FA0] text-white font-bold py-3 rounded-xl shadow-lg shadow-[#1976d2]/30 transform transition-all active:scale-[0.98]"
+            style="display: none;">
+            Instalar App en tu dispositivo
+        </button>
     </main>
 
     <div id="app-modal"
@@ -134,6 +139,37 @@
                 modal.children[0].classList.add('scale-95');
             }
         }
+
+        // PWA Install Button Logic
+        let deferredPrompt;
+        const installBtn = document.getElementById('install-btn');
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Previene el prompt automático
+            e.preventDefault();
+            deferredPrompt = e;
+            // Muestra el botón
+            installBtn.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('Usuario aceptó la instalación');
+                } else {
+                    console.log('Usuario canceló la instalación');
+                }
+                // Opcional: ocultar el botón tras instalar
+                installBtn.style.display = 'none';
+                deferredPrompt = null;
+            }
+        });
+
+        // Opcional: Oculta el botón si la app ya está instalada
+        window.addEventListener('appinstalled', () => {
+            installBtn.style.display = 'none';
+        });
     </script>
 </body>
 
