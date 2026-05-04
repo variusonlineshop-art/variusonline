@@ -290,8 +290,9 @@ async function fetchAndRenderOrders(filters = {}) {
                             <button onclick="handleSuspendOrder('${orderId}')" title="Suspender Orden" class="bg-red-300 flex-1 py-2 rounded-lg hover:bg-red-500 hover:text-white text-red-700 transition-all">
                                 <i class="fa-regular fa-circle-pause text-xs"></i>
                             </button>
-                            <button onclick="openPostponeOrder('${orderId}')" title="Reprogramar" class="bg-blue-300 flex-[3] py-2 rounded-lg text-white hover:bg-blue-700 transition-all  font-bold uppercase">
-                                <i class="fa-regular fa-clock mr-1"></i> Ajustar Fecha
+                            <button onclick="openPostponeOrder('${orderId}')" title="Reprogramar" class="bg-blue-300 flex-[3] py-2 rounded-lg text-white hover:bg-blue-700 transition-all font-bold uppercase">
+                                <i class="fa-regular fa-clock text-xs"></i> 
+                                <span class="text-[10px] font-bold tracking-wider uppercase">Ajustar Fecha</span>
                             </button>
                         ` : `
                             <button onclick="showOrderDetails('${orderId}')" title="Visualizar Orden" class="bg-green-200 flex-1 py-2 rounded-lg hover:bg-green-600 hover:shadow-sm hover:text-white text-green-700 transition-all">
