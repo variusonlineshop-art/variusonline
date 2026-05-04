@@ -54,19 +54,38 @@ function listenStockCritico() {
 
 /**
  * 2. KPI: PEDIDOS HOY
+ * Filtra por la fecha actual (orderDate) y excluye estados no deseados.
  */
 function listenOrdersToday() {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    // 1. Obtener la fecha de hoy en formato YYYY-MM-DD (Ej: "2026-04-11")
+    const hoy = new Date().toISOString().split('T')[0];
 
     const q = query(
         collection(db, "orders"),
-        where("createdAt", ">=", startOfDay)
+        where("orderDate", "==", hoy) // Filtra solo los del día actual
     );
 
     onSnapshot(q, (snapshot) => {
         const kpiOrders = document.getElementById('kpi-orders');
-        if (kpiOrders) kpiOrders.textContent = snapshot.size;
+        
+        // 2. Definir los estados que queremos EXCLUIR
+        const estadosExcluidos = ['anulado', 'suspendido', 'cancelado'];
+
+        // 3. Contar manualmente los que cumplen la condición de estatus
+        let contadorValido = 0;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            // Convertimos a minúsculas para una comparación segura
+            const status = (data.status || "").toLowerCase();
+            
+            if (!estadosExcluidos.includes(status)) {
+                contadorValido++;
+            }
+        });
+
+        if (kpiOrders) {
+            kpiOrders.textContent = contadorValido;
+        }
     });
 }
 
