@@ -9,25 +9,37 @@ let allVisits = [];
 let paginaActual = 1;
 const registrosPorPagina = 5;
 
-// --- Escucha de datos en tiempo real ---
+// --- Escucha de datos en tiempo real (Solo Hoy) ---
 function listenGlobalVisits() {
     const q = query(collection(db, "visits"), orderBy("fecha_registro", "desc"));
+    
     onSnapshot(q, (querySnapshot) => {
+        // 1. Obtener la fecha de hoy en formato YYYY-MM-DD
+        const hoy = new Date().toISOString().split('T')[0];
+        
         allVisits = [];
+        
         querySnapshot.forEach((doc) => {
-            allVisits.push({ id: doc.id, ...doc.data() });
+            const data = doc.data();
+            // 2. Extraer solo la parte de la fecha del string ISO de la DB
+            const fechaVisita = data.fecha_registro ? data.fecha_registro.split('T')[0] : "";
+            
+            // 3. Filtrar: solo si la fecha coincide con hoy
+            if (fechaVisita === hoy) {
+                allVisits.push({ id: doc.id, ...data });
+            }
         });
         
         // Actualizar el número (KPI)
         const kpiElement = document.getElementById("kpi-visitas-carrito-value");
         if (kpiElement) kpiElement.textContent = allVisits.length;
         
-        // --- NUEVA LÓGICA PARA LA BARRA ---
+        // --- ACTUALIZACIÓN DE LA BARRA ---
         const progressBar = document.getElementById("kpi-visitas-bar");
         if (progressBar) {
-            // Ejemplo: la barra llega al 100% si hay 100 visitas (ajusta el límite según tu meta)
-            const metaVisitas = 1000; 
-            const porcentaje = Math.min((allVisits.length / metaVisitas) * 100, 100);
+            // Meta diaria de visitas (ajusta este valor según tu tráfico)
+            const metaDiaria = 500; 
+            const porcentaje = Math.min((allVisits.length / metaDiaria) * 100, 100);
             progressBar.style.width = `${porcentaje}%`;
         }
         
