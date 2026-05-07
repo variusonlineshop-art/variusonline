@@ -1053,14 +1053,6 @@ async function submitOrder(customerData) {
         const ordersCol = collection(db, 'orders');
         const docRef = await addDoc(ordersCol, orderData);
 
-        // --- CÓDIGO PARA LIMPIAR Y ENVIAR A META ADS ---
-if (typeof fbq !== 'undefined') {
-    fbq('track', 'Purchase', {
-        value: CART.total, // Usa el total real del carrito
-        currency: 'USD',    // Asegura que la moneda sea USD
-    }, { eventID: docRef.id }); // Usa el ID de Firebase para evitar duplicados
-}
-
         hideAllOrderConfirmations();
         openConfirmInline('Su pedido será atendido pronto. Número: ' + docRef.id);
 
