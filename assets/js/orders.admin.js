@@ -194,6 +194,9 @@ async function fetchAndRenderOrders(filters = {}) {
                 const isAccepted = order.status === 'Envio Aceptado';
                 const isPaid = order.status === 'Pagado';
 
+                const suspendComment = order.suspendComment || "";
+                const suspendDate = order.suspendDate || "";
+
                 let statusClass = 'bg-orange-100 text-orange-600';
                 if (isSuspended) statusClass = 'bg-red-100 text-red-600';
                 if (isPostponed) statusClass = 'bg-blue-100 text-blue-600';
@@ -262,6 +265,18 @@ async function fetchAndRenderOrders(filters = {}) {
                             </div>
                         </div>
                     </div>
+
+                    ${isSuspended ? `
+                        <div class="mb-2">
+                            ${(suspendComment || suspendDate) ? `
+                                <span class="inline-block bg-red-100 text-red-500 text-xs rounded-full px-3 py-1 mb-2 font-semibold border border-red-200">
+                                    <i class="fa-regular fa-message-dots mr-1"></i>
+                                    ${suspendComment ? `<span>${suspendComment}</span>` : ``}
+                                    ${suspendDate ? `<span class="ml-2"><i class="fa-regular fa-clock"></i> ${new Date(suspendDate).toLocaleString('es-ES')}</span>` : ``}
+                                </span>
+                            ` : ''}
+                        </div>
+                    ` : ''}
 
                     <div class="flex items-center justify-between gap-1 bg-gray-50/50 p-1.5 rounded-xl">
                         ${isPaid ? `
