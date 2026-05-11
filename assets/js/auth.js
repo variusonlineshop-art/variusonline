@@ -52,7 +52,6 @@ function getModalElements() {
 function showModal(message, title = 'Aviso') {
     const els = getModalElements();
     if (!els) {
-        // fallback si no hay modal en la página
         alert((title ? title + '\n\n' : '') + message);
         return;
     }
@@ -65,13 +64,15 @@ function showModal(message, title = 'Aviso') {
         els.bodyEl.appendChild(message);
     }
 
+    // Quita clases que lo ocultan
     els.modal.setAttribute('aria-hidden', 'false');
     els.modal.classList.add('open');
+    els.modal.classList.remove('opacity-0', 'pointer-events-none');
 
-    // Handlers
     function close() {
         els.modal.setAttribute('aria-hidden', 'true');
         els.modal.classList.remove('open');
+        els.modal.classList.add('opacity-0', 'pointer-events-none');
         els.okBtn.removeEventListener('click', okHandler);
         els.closeBtn.removeEventListener('click', closeHandler);
         document.removeEventListener('keydown', escHandler);
@@ -211,12 +212,15 @@ if (loginForm) {
         setInputAlert('login-email-alert', '');
         setInputAlert('login-password-alert', '');
 
+        // Validaciones previas
         if (!email) {
             setInputAlert('login-email-alert', 'Ingresa tu correo.');
+            showModal('Por favor ingresa tu correo para continuar.', 'Campo Requerido');
             return;
         }
         if (!password) {
             setInputAlert('login-password-alert', 'Ingresa tu contraseña.');
+            showModal('Por favor ingresa tu contraseña.', 'Campo Requerido');
             return;
         }
 
@@ -225,43 +229,34 @@ if (loginForm) {
             const uid = cred.user.uid;
             try {
                 const userDoc = await getDoc(doc(db, 'users', uid));
-                if (userDoc.exists()) {
-                    showModal('Sesión iniciada correctamente. Redirigiendo...', 'Éxito');
-                    setTimeout(() => redirectByRole(userDoc.data().role), 900);
-                } else {
-                    // si no existe documento, crear con rol por defecto
-                    await setDoc(doc(db, 'users', uid), {
-                        email: cred.user.email,
-                        role: 'vendedor',
-                        createdAt: serverTimestamp()
-                    });
-                    showModal('Sesión iniciada correctamente. Redirigiendo...', 'Éxito');
-                    setTimeout(() => redirectByRole('vendedor'), 900);
-                }
+                const userRole = (userDoc.exists() && userDoc.data().role) || 'vendedor';
+                showModal('¡Bienvenido! Sesión iniciada correctamente.', 'Éxito');
+                setTimeout(() => redirectByRole(userRole), 950);
             } catch (errInner) {
                 console.error('Error obteniendo/creando user doc tras login:', errInner);
-                // Aun así redirigimos por seguridad
-                showModal('Sesión iniciada correctamente. Redirigiendo...', 'Éxito');
-                setTimeout(() => redirectByRole('vendedor'), 900);
+                showModal('¡Bienvenido! Sesión iniciada correctamente.', 'Éxito');
+                setTimeout(() => redirectByRole('vendedor'), 950);
             }
         } catch (err) {
-            // Manejo más amigable para errores comunes de login:
+            // Mostramos SIEMPRE modal de error
             if (err && err.code) {
                 switch (err.code) {
                     case 'auth/wrong-password':
                         setInputAlert('login-password-alert', 'Contraseña incorrecta.');
+                        showModal('La contraseña es incorrecta. Vuelve a intentarlo.', 'Error de autenticación');
                         return;
                     case 'auth/user-not-found':
                         setInputAlert('login-email-alert', 'No existe una cuenta con ese correo.');
+                        showModal('El correo electrónico no está registrado.', 'Error de autenticación');
                         return;
                     case 'auth/invalid-email':
                         setInputAlert('login-email-alert', 'El correo ingresado no tiene un formato válido.');
+                        showModal('El correo ingresado no tiene un formato válido.', 'Error de autenticación');
                         return;
                     case 'auth/too-many-requests':
-                        showModal('Se han realizado demasiados intentos fallidos. Intenta más tarde.', 'Atención');
+                        showModal('Se han realizado demasiados intentos fallidos. Intenta más tarde.', 'Cuenta Bloqueada');
                         return;
                     default:
-                        // Para otros códigos, mostrar modal amigable (y logging en consola dentro de handleAuthError)
                         handleAuthError(err, 'No se pudo iniciar sesión.');
                         return;
                 }
