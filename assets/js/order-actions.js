@@ -31,7 +31,8 @@ function openConfirmCustom({ title, message, iconClass, iconBg, btnClass, action
     const btnAction = document.getElementById('confirmBtnAction');
 
     document.getElementById('confirmTitle').innerText = title;
-    document.getElementById('confirmMessage').innerText = message;
+    document.getElementById('confirmMessage').innerHTML = message;
+
     iconContainer.className = `w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl ${iconBg}`;
     iconContainer.innerHTML = `<i class="${iconClass}"></i>`;
     btnAction.className = `flex-1 py-3 rounded-xl font-bold text-white shadow-lg transform active:scale-95 transition-all ${btnClass}`;
@@ -52,12 +53,20 @@ function openConfirmCustom({ title, message, iconClass, iconBg, btnClass, action
 export async function handleSuspendOrder(orderId) {
     openConfirmCustom({
         title: "Suspender Orden",
-        message: "¿Estás seguro de pausar esta orden? Los botones de gestión se ocultarán.",
+        message: `
+            ¿Estás seguro de pausar esta orden? Los botones de gestión se ocultarán.<br>
+            <textarea id="suspendComment" class="w-full border rounded-lg p-2 mt-3 text-sm" placeholder="Motivo de suspensión" rows="2"></textarea>
+        `,
         iconClass: "fa-regular fa-circle-pause",
         iconBg: "bg-red-100 text-red-500",
         btnClass: "bg-red-500 hover:bg-red-600",
         actionFn: async () => {
-            await updateDoc(doc(db, "orders", orderId), { status: "Suspendido" });
+            const comment = document.getElementById('suspendComment').value.trim();
+            await updateDoc(doc(db, "orders", orderId), {
+                status: "Suspendido",
+                suspendComment: comment,
+                suspendDate: new Date().toISOString()
+            });
             location.reload();
         }
     });
