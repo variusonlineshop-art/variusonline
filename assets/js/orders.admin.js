@@ -193,6 +193,7 @@ async function fetchAndRenderOrders(filters = {}) {
                 const isSent = order.status === 'Enviado';
                 const isAccepted = order.status === 'Envio Aceptado';
                 const isPaid = order.status === 'Pagado';
+                const isCall = status === 'Contactado';
 
                 const suspendComment = order.suspendComment || "";
                 const suspendDate = order.suspendDate || "";
