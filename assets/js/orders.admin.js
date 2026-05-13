@@ -332,6 +332,9 @@ function fetchAndRenderOrders(filters = {}) {
                 }
 
                 container.innerHTML = allCardsHTML;
+                if (window.startOrderNotificationsTimer) {
+                    window.startOrderNotificationsTimer();
+                }
             }, (error) => {
                 console.error("Error en tiempo real:", error);
                 container.innerHTML = '<p class="text-center py-10 text-red-500">Error al conectar en tiempo real con Firestore.</p>';
