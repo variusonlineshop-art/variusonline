@@ -7,7 +7,8 @@ import {
     getDoc,
     doc,
     query,
-    where
+    where,
+    onSnapshot
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -80,137 +81,139 @@ async function fetchProductImg(productId) {
  * Renderiza el grid de órdenes con lógica condicional para órdenes suspendidas y filtro de rol
  * Ahora acepta un objeto filters: {search, seller, motorized, sort}
  */
-async function fetchAndRenderOrders(filters = {}) {
+
+// Variable global para limpiar el listener en caso de recarga de filtros o sesión
+window.currentOrdersUnsubscribe = null;
+
+/**
+ * Renderiza el grid de órdenes con lógica condicional y en TIEMPO REAL, mostrando los pedidos del día
+ * y siempre ordenados del más nuevo al más viejo.
+ * Ahora acepta un objeto filters: {search, seller, motorized, sort}
+ */
+function fetchAndRenderOrders(filters = {}) {
     const container = document.getElementById('grid-container');
     if (!container) return;
+
+    // Limpia cualquier listener anterior (evita duplicados)
+    if (window.currentOrdersUnsubscribe) {
+        window.currentOrdersUnsubscribe();
+        window.currentOrdersUnsubscribe = null;
+    }
 
     // --- 1. Autenticación y Rol ---
     const auth = getAuth();
     let user = auth.currentUser;
-    if (!user) {
-        await new Promise(resolve => {
-            const unsubscribe = auth.onAuthStateChanged(u => {
-                user = u;
-                unsubscribe();
-                resolve();
-            });
-        });
+
+    function continuarConUsuario(user) {
         if (!user) {
             container.innerHTML = '<p class="text-center py-10 text-red-500">Debes iniciar sesión para ver órdenes.</p>';
             return;
         }
-    }
+        getDoc(doc(db, "users", user.uid)).then(userDocSnap => {
+            let myData = userDocSnap.data() || {};
+            let myRole = (myData.role || '').toLowerCase();
 
-    let userDocSnap = await getDoc(doc(db, "users", user.uid));
-    let myData = userDocSnap.data() || {};
-    let myRole = (myData.role || '').toLowerCase();
-
-    // --- 2. Query base por rol ---
-    let ordersQuery;
-    if (myRole === "administrador") {
-        ordersQuery = collection(db, "orders");
-    } else if (myRole === "motorizado") {
-        ordersQuery = query(collection(db, "orders"), where("assignedMotorizedId", "==", user.uid));
-    } else if (myRole === "vendedor") {
-        ordersQuery = query(collection(db, "orders"), where("assignedSeller", "==", user.uid));
-    } else {
-        container.innerHTML = '<p class="text-center py-10 text-gray-500">No tienes permisos para ver órdenes.</p>';
-        return;
-    }
-
-    try {
-        const querySnapshot = await getDocs(ordersQuery);
-        window.ordersCache = {};
-        let rawOrders = [];
-
-        // --- 3. Definir "Hoy" (Ajustado a zona horaria local para comparar con ISO String) ---
-        const ahora = new Date();
-        const offset = ahora.getTimezoneOffset() * 60000;
-        const localISOTime = new Date(ahora - offset).toISOString().split('T')[0];
-
-        querySnapshot.forEach((documento) => {
-            const order = documento.data();
-            const orderId = documento.id;
-            order._id = orderId;
-
-            // FILTRADO POR FECHA ISO (Ej: "2026-03-17T...")
-            if (order.orderDate && typeof order.orderDate === 'string') {
-                if (order.orderDate.startsWith(localISOTime)) {
-                    window.ordersCache[orderId] = order;
-                    rawOrders.push(order);
-                }
+            let ordersQuery;
+            if (myRole === "administrador") {
+                ordersQuery = collection(db, "orders");
+            } else if (myRole === "motorizado") {
+                ordersQuery = query(collection(db, "orders"), where("assignedMotorizedId", "==", user.uid));
+            } else if (myRole === "vendedor") {
+                ordersQuery = query(collection(db, "orders"), where("assignedSeller", "==", user.uid));
+            } else {
+                container.innerHTML = '<p class="text-center py-10 text-gray-500">No tienes permisos para ver órdenes.</p>';
+                return;
             }
-        });
 
-        if (rawOrders.length === 0) {
-            container.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-20 text-center">
-                    <i class="fa-regular fa-calendar-xmark text-4xl text-gray-300 mb-3"></i>
-                    <p class="text-gray-500 font-medium">No hay órdenes registradas para el día de hoy.</p>
-                </div>`;
-            fillFilterOptions("filterSeller", []);
-            fillFilterOptions("filterMotorized", []);
-            return;
-        }
+            // --- 2. Activar el Listener en Tiempo Real ---
+            window.currentOrdersUnsubscribe = onSnapshot(ordersQuery, (querySnapshot) => {
+                window.ordersCache = {};
+                let rawOrders = [];
 
-        // Popula selects con datos del día
-        fillFilterOptions("filterSeller", rawOrders.map(o => [o.assignedSeller, o.assignedSellerName]));
-        fillFilterOptions("filterMotorized", rawOrders.map(o => [o.assignedMotorizedId, o.assignedMotorizedName]));
+                // --- 3. Definir "Hoy" ---
+                const ahora = new Date();
+                const offset = ahora.getTimezoneOffset() * 60000;
+                const localISOTime = new Date(ahora - offset).toISOString().split('T')[0];
 
-        // --- 4. Aplicar Filtros de UI ---
-        let ordersArr = [...rawOrders];
+                querySnapshot.forEach((documento) => {
+                    const order = documento.data();
+                    const orderId = documento.id;
+                    order._id = orderId;
 
-        if (filters.seller && filters.seller !== "all") {
-            ordersArr = ordersArr.filter(o => o.assignedSeller === filters.seller);
-        }
-        if (filters.motorized && filters.motorized !== "all") {
-            ordersArr = ordersArr.filter(o => o.assignedMotorizedId === filters.motorized);
-        }
-        if (filters.search) {
-            const searchTerm = filters.search.toLowerCase();
-            ordersArr = ordersArr.filter(o => {
-                const customer = o.customerData?.Customname?.toLowerCase() || '';
-                const id = o.cartToken?.toLowerCase() || '';
-                const phone = o.customerData?.phone?.toLowerCase() || o.phone?.toLowerCase() || '';
-                return (customer.includes(searchTerm) || id.includes(searchTerm) || phone.includes(searchTerm));
-            });
-        }
+                    // FILTRADO POR FECHA ISO (solo órdenes del día actual)
+                    if (order.orderDate && typeof order.orderDate === 'string') {
+                        if (order.orderDate.startsWith(localISOTime)) {
+                            window.ordersCache[orderId] = order;
+                            rawOrders.push(order);
+                        }
+                    }
+                });
 
-        // Orden cronológico usando comparación de strings ISO
-        ordersArr.sort((a, b) => {
-            return filters.sort === "oldest"
-                ? a.orderDate.localeCompare(b.orderDate)
-                : b.orderDate.localeCompare(a.orderDate);
-        });
+                if (rawOrders.length === 0) {
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-20 text-center">
+                            <i class="fa-regular fa-calendar-xmark text-4xl text-gray-300 mb-3"></i>
+                            <p class="text-gray-500 font-medium">No hay órdenes registradas para el día de hoy.</p>
+                        </div>`;
+                    fillFilterOptions("filterSeller", []);
+                    fillFilterOptions("filterMotorized", []);
+                    return;
+                }
 
-        // --- 5. Renderizado de Tarjetas ---
-        let allCardsHTML = "";
-        ordersArr.forEach((order) => {
-            const orderId = order._id;
-            const status = order.status || 'Pendiente';
-            const isSuspended = status === 'Suspendido';
-            const isPostponed = status === 'Postergado';
-            const isSent = status === 'Enviado';
-            const isAccepted = status === 'Envio Aceptado';
-            const isPaid = status === 'Pagado';
-            const isCall = status === 'Contactado';
+                // Popula selects con datos únicos del día
+                fillFilterOptions("filterSeller", rawOrders.map(o => [o.assignedSeller, o.assignedSellerName]));
+                fillFilterOptions("filterMotorized", rawOrders.map(o => [o.assignedMotorizedId, o.assignedMotorizedName]));
 
-            const suspendComment = order.suspendComment || "";
-            const suspendDate = order.suspendDate || "";
+                // --- 4. Aplicar Filtros de UI ---
+                let ordersArr = [...rawOrders];
 
-            let statusClass = 'bg-orange-100 text-orange-600';
-            if (isSuspended) statusClass = 'bg-red-100 text-red-600';
-            if (isPostponed) statusClass = 'bg-blue-100 text-blue-600';
-            if (isSent) statusClass = 'bg-emerald-100 text-emerald-600';
-            if (isAccepted) statusClass = 'bg-yellow-200 text-yellow-600';
-            if (isPaid) statusClass = 'bg-purple-200 text-purple-600';
-            if (isCall) statusClass = 'bg-green-200 text-green-600';
+                if (filters.seller && filters.seller !== "all") {
+                    ordersArr = ordersArr.filter(o => o.assignedSeller === filters.seller);
+                }
+                if (filters.motorized && filters.motorized !== "all") {
+                    ordersArr = ordersArr.filter(o => o.assignedMotorizedId === filters.motorized);
+                }
+                if (filters.search) {
+                    const searchTerm = filters.search.toLowerCase();
+                    ordersArr = ordersArr.filter(o => {
+                        const customer = o.customerData?.Customname?.toLowerCase() || '';
+                        const id = o.cartToken?.toLowerCase() || '';
+                        const phone = o.customerData?.phone?.toLowerCase() || o.phone?.toLowerCase() || '';
+                        return (customer.includes(searchTerm) || id.includes(searchTerm) || phone.includes(searchTerm));
+                    });
+                }
 
-            const hasMotorized = order.assignedMotorizedId && order.assignedMotorizedId !== "";
-            const hasLocation = order.deliveryLocation?.lat && order.deliveryLocation?.lng;
-            const showCobranzaBtn = myRole === "administrador" || myRole === "motorizado";
+                // --- 5. Ordenar SIEMPRE del más nuevo al más viejo ---
+                ordersArr.sort((a, b) => b.orderDate.localeCompare(a.orderDate));
 
-            allCardsHTML += `
+                // --- 6. Renderizado de Tarjetas ---
+                let allCardsHTML = "";
+                ordersArr.forEach((order) => {
+                    const orderId = order._id;
+                    const status = order.status || 'Pendiente';
+                    const isSuspended = status === 'Suspendido';
+                    const isPostponed = status === 'Postergado';
+                    const isSent = status === 'Enviado';
+                    const isAccepted = status === 'Envio Aceptado';
+                    const isPaid = status === 'Pagado';
+                    const isCall = status === 'Contactado';
+
+                    const suspendComment = order.suspendComment || "";
+                    const suspendDate = order.suspendDate || "";
+
+                    let statusClass = 'bg-orange-100 text-orange-600';
+                    if (isSuspended) statusClass = 'bg-red-100 text-red-600';
+                    if (isPostponed) statusClass = 'bg-blue-100 text-blue-600';
+                    if (isSent) statusClass = 'bg-emerald-100 text-emerald-600';
+                    if (isAccepted) statusClass = 'bg-yellow-200 text-yellow-600';
+                    if (isPaid) statusClass = 'bg-purple-200 text-purple-600';
+                    if (isCall) statusClass = 'bg-green-200 text-green-600';
+
+                    const hasMotorized = order.assignedMotorizedId && order.assignedMotorizedId !== "";
+                    const hasLocation = order.deliveryLocation?.lat && order.deliveryLocation?.lng;
+                    const showCobranzaBtn = myRole === "administrador" || myRole === "motorizado";
+
+                    allCardsHTML += `
                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow ${isSuspended ? 'opacity-80 grayscale-[0.5]' : ''}">
                     <div class="flex justify-between items-start mb-4">
                         <div>
@@ -341,13 +344,25 @@ async function fetchAndRenderOrders(filters = {}) {
                     </div>
                 </div>
                 `;
+                });
+
+                container.innerHTML = allCardsHTML;
+
+            }, (error) => {
+                console.error("Error en tiempo real:", error);
+                container.innerHTML = '<p class="text-center py-10 text-red-500">Error de conexión en tiempo real.</p>';
+            });
         });
+    }
 
-        container.innerHTML = allCardsHTML;
-
-    } catch (error) {
-        console.error("Error cargando órdenes:", error);
-        container.innerHTML = '<p class="text-center py-10 text-red-500">Error al cargar datos.</p>';
+    // Si hay usuario autenticado, continuar; si no, esperar a login
+    if (user) {
+        continuarConUsuario(user);
+    } else {
+        const unsubscribe = auth.onAuthStateChanged(u => {
+            unsubscribe();
+            continuarConUsuario(u);
+        });
     }
 }
 
