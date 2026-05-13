@@ -271,23 +271,29 @@ export function openContactModal(orderId) {
     const order = window.ordersCache[orderId];
     if (!order) return;
 
-    const phone = order.customerData?.phone || order.phone || "";
+    let phone = order.customerData?.phone || order.phone || "";
+    
+    // Si el teléfono existe y no empieza con '+', se le añade automáticamente
+    const formattedPhone = phone && !phone.startsWith('+') ? `+${phone}` : phone;
+
     const modal = document.getElementById('contactModal');
     
     // Configurar el botón de llamada
     const callBtn = document.getElementById('contactCallBtn');
     if(phone) {
-        callBtn.href = `tel:${phone}`;
+        // Usamos el teléfono con el símbolo '+' para el enlace tel:
+        callBtn.href = `tel:${formattedPhone}`;
         callBtn.classList.remove('opacity-50', 'pointer-events-none');
     } else {
         callBtn.href = "#";
         callBtn.classList.add('opacity-50', 'pointer-events-none');
     }
 
-    // El botón de chat redirige a chats.html (puedes añadir parámetros si tu sistema lo soporta)
+    // El botón de chat redirige a chats.html
     const chatBtn = document.getElementById('contactChatBtn');
     chatBtn.onclick = () => {
-        window.location.href = `chats.html?orderId=${orderId}&phone=${phone}`;
+        // También pasamos el teléfono formateado por la URL si es necesario
+        window.location.href = `chats.html?orderId=${orderId}&phone=${formattedPhone}`;
     };
 
     modal.classList.remove('hidden');
