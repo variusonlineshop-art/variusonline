@@ -272,7 +272,7 @@ export function openContactModal(orderId) {
     if (!order) return;
 
     let phone = order.customerData?.phone || order.phone || "";
-    
+
     // Si el teléfono existe y no empieza con '+', se le añade automáticamente
     const formattedPhone = phone && !phone.startsWith('+') ? `+${phone}` : phone;
 
@@ -280,56 +280,36 @@ export function openContactModal(orderId) {
     
     // Configurar el botón de llamada
     const callBtn = document.getElementById('contactCallBtn');
-    if(phone) {
-        // Usamos el teléfono con el símbolo '+' para el enlace tel:
+    if (phone) {
         callBtn.href = `tel:${formattedPhone}`;
         callBtn.classList.remove('opacity-50', 'pointer-events-none');
-
-        // --- INICIO DEL CAMBIO ---
-        // Añadir evento click para actualizar el estado en Firestore
-        callBtn.onclick = async (event) => {
-            // Evitar comportamientos extraños si es necesario (aunque tel: suele funcionar bien con onclick)
-            // event.preventDefault(); 
-
-            // Solo actualizamos si el estado actual es "Asignado"
-            // Esto evita sobreescribir estados más avanzados como "Enviado" o "Pagado"
-            if (order.status === "Asignado") {
-                try {
-                    // Actualizar el documento de la orden en Firestore
-                    await updateDoc(doc(db, "orders", orderId), {
-                        status: "Contactado",
-                        contactedAt: new Date().toISOString() // Opcional: guardar cuándo se contactó
-                    });
-                    
-                    // Actualizar el cache local para reflejar el cambio sin recargar
-                    window.ordersCache[orderId].status = "Contactado";
-                    
-                    // Opcional: Podrías recargar la página para ver el cambio de color en el grid immediately
-                    // location.reload(); 
-                    
-                    console.log(`Estado de la orden ${orderId} actualizado a 'Contactado'.`);
-                } catch (error) {
-                    console.error("Error al actualizar el estado de la orden:", error);
-                    // Opcional: Mostrar una alerta sutil si la actualización falla
-                    // alert("No se pudo actualizar el estado de la orden, pero puedes realizar la llamada.");
-                }
+        callBtn.onclick = async (e) => {
+            e.preventDefault(); // Prevenimos el comportamiento por defecto para controlar todo
+            // Cambia el estado en Firestore
+            try {
+                await updateDoc(doc(db, "orders", orderId), {
+                    status: "Contactado",
+                    contactedAt: new Date().toISOString()
+                });
+                // Cierra el modal
+                modal.classList.add('hidden');
+                // Redirige a llamada (después de breve delay para asegurar el cierre de modal en móviles)
+                setTimeout(() => {
+                    window.location.href = `tel:${formattedPhone}`;
+                }, 300);
+            } catch (err) {
+                alert("No se pudo actualizar el estado a Contactado");
             }
-            
-            // Después de intentar la actualización (o si no era "Asignado"),
-            // permitimos que el navegador siga el enlace tel:
         };
-        // --- FIN DEL CAMBIO ---
-
     } else {
         callBtn.href = "#";
-        callBtn.onclick = null; // Limpiar el evento si no hay teléfono
         callBtn.classList.add('opacity-50', 'pointer-events-none');
+        callBtn.onclick = null;
     }
 
     // El botón de chat redirige a chats.html
     const chatBtn = document.getElementById('contactChatBtn');
     chatBtn.onclick = () => {
-        // También pasamos el teléfono formateado por la URL si es necesario
         window.location.href = `chats.html?orderId=${orderId}&phone=${formattedPhone}`;
     };
 
