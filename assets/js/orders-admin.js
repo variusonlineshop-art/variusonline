@@ -193,6 +193,7 @@ async function fetchAndRenderOrders(filters = {}) {
             const isSent = status === 'Enviado';
             const isAccepted = status === 'Envio Aceptado';
             const isPaid = status === 'Pagado';
+            const isCall = status === 'Contactado';
 
             const suspendComment = order.suspendComment || "";
             const suspendDate = order.suspendDate || "";
@@ -203,6 +204,7 @@ async function fetchAndRenderOrders(filters = {}) {
             if (isSent) statusClass = 'bg-emerald-100 text-emerald-600';
             if (isAccepted) statusClass = 'bg-yellow-200 text-yellow-600';
             if (isPaid) statusClass = 'bg-purple-200 text-purple-600';
+            if (isCall) statusClass = 'bg-green-200 text-green-600';
 
             const hasMotorized = order.assignedMotorizedId && order.assignedMotorizedId !== "";
             const hasLocation = order.deliveryLocation?.lat && order.deliveryLocation?.lng;
