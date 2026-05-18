@@ -183,9 +183,15 @@ function fetchAndRenderOrders(filters = {}) {
                     });
                 }
 
-                // --- 5. Ordenar SIEMPRE del más nuevo al más viejo ---
-                ordersArr.sort((a, b) => b.orderDate.localeCompare(a.orderDate));
+                // --- 5. Ordenar SIEMPRE del más nuevo al más viejo (Fecha + Hora) ---
+                ordersArr.sort((a, b) => {
+                    // Extraemos los milisegundos para comparar numéricamente
+                    const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.orderDate).getTime();
+                    const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.orderDate).getTime();
 
+                    // Orden descendente: el más reciente arriba
+                    return timeB - timeA;
+                });
                 // --- 6. Renderizado de Tarjetas ---
                 let allCardsHTML = "";
                 ordersArr.forEach((order) => {
@@ -282,9 +288,9 @@ function fetchAndRenderOrders(filters = {}) {
                     <div class="mb-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
                         <p class="text-[10px] text-blue-600 font-bold uppercase italic">Reprogramado para:</p>
                         <p class="text-xs font-bold text-gray-700">
-                            ${order.postponeHistory && order.postponeHistory.length > 0 
-                            ? `${order.postponeHistory[order.postponeHistory.length - 1].date} ${order.postponeHistory[order.postponeHistory.length - 1].time}` 
-                            : 'No definida'}
+                            ${order.postponeHistory && order.postponeHistory.length > 0
+                                ? `${order.postponeHistory[order.postponeHistory.length - 1].date} ${order.postponeHistory[order.postponeHistory.length - 1].time}`
+                                : 'No definida'}
                         </p>
                     </div>
                     ` : ''}
@@ -646,9 +652,45 @@ window.closeModal = function () {
     if (modal) modal.classList.add('hidden');
 }
 
+async function checkPostponedOrders() {
+    const ahora = new Date();
+
+    for (const id in window.ordersCache) {
+        const order = window.ordersCache[id];
+
+        // Verificamos que la orden esté postergada y tenga historial
+        if (order.status === "Postergado" && order.postponeHistory && order.postponeHistory.length > 0) {
+
+            // Obtenemos el último registro de postergación
+            const lastPostpone = order.postponeHistory[order.postponeHistory.length - 1];
+            const { date, time } = lastPostpone;
+
+            if (date && time) {
+                // Creamos un objeto Date combinando "YYYY-MM-DD" y "HH:mm"
+                const scheduledTime = new Date(`${date}T${time}:00`);
+
+                // Si la hora actual es mayor o igual a la programada, reactivamos
+                if (ahora >= scheduledTime) {
+                    console.log(`Reactivando orden vencida desde historial: ${id}`);
+                    try {
+                        await updateDoc(doc(db, "orders", id), {
+                            status: "Asignado", // Cambia a "Pendiente" o el que uses normalmente
+                            lastUpdate: ahora.toISOString(),
+                            autoReactivated: true
+                        });
+                        // El onSnapshot se encargará de refrescar la UI automáticamente
+                    } catch (error) {
+                        console.error("Error al reactivar desde historial:", error);
+                    }
+                }
+            }
+        }
+    }
+}
 // === Inicialización automática ===
 window.addEventListener('DOMContentLoaded', () => {
     window.applyAllFilters();
+    setInterval(checkPostponedOrders, 30000);
 });
 
 window.clearAllFilters = async function () {
