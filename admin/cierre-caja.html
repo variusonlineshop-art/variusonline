@@ -37,14 +37,27 @@
                 <span class="hamburger-box"><span class="hamburger-inner"></span></span>
             </label>
             <a class="brand" href="./" aria-label="Dashboard">
-                <img src="assets/img/logo.png" alt="Varius" width="44" style="height:auto">
-                <span class="brand-text" style="font-weight:800;margin-left:8px">VARIUS</span>
+                <img src="assets/img/logo.png" alt="Varius" width="14%">
+                <span class="brand-text">VARIUS</span>
             </a>
         </div>
+
         <div class="top-search">
+            <!-- input eliminado intencionalmente -->
             <div id="presence-pill" class="presence-pill offline" role="status" aria-live="polite">
                 <span class="dot"></span>
                 <span class="label">Desconectado</span>
+            </div>
+
+            <div class="ticker-container">
+                <div class="ticker-wrapper">
+                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">
+                        $ Bs/USD Cargando...
+                    </div>
+                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">
+                        € Bs./EUR Cargando...
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -188,8 +201,11 @@
     <script type="module" src="../assets/js/sidebar-loader.js"></script>
     <script type="module" src="../assets/js/session-timeout.js"></script>
     <script type="module" src="../assets/js/cierre-caja.js"></script>
+    <script type="module" src="../assets/js/money.cash.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
     <script>
         // Inicializamos el calendario cuando cargue la página
         document.addEventListener('DOMContentLoaded', () => {
