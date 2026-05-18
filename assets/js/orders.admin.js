@@ -188,6 +188,23 @@ function fetchAndRenderOrders(filters = {}) {
 
                         const suspendComment = order.suspendComment || "";
                         const suspendDate = order.suspendDate || "";
+                        
+                        let paymentDateFormatted = "";
+                        if (order.paymentUpdatedAt) {
+                            const pDate = (typeof order.paymentUpdatedAt.toDate === 'function')
+                                ? order.paymentUpdatedAt.toDate()
+                                : new Date(order.paymentUpdatedAt);
+
+                            // 2. Formateamos la fecha al estilo local de Venezuela
+                            paymentDateFormatted = pDate.toLocaleString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+                        }
 
                         let statusClass = 'bg-orange-100 text-orange-600';
                         if (isSuspended) statusClass = 'bg-red-100 text-red-600';
@@ -263,6 +280,16 @@ function fetchAndRenderOrders(filters = {}) {
                                             ${suspendDate ? `<span class="ml-2"><i class="fa-regular fa-clock"></i> ${new Date(suspendDate).toLocaleString('es-ES')}</span>` : ``}
                                         </span>
                                     ` : ''}
+                                </div>
+                            ` : ''}
+
+                            ${paymentDateFormatted ? `
+                                <div class="text-center mb-1">
+                                    <p class="text-[9px] uppercase font-bold text-purple-400 italic">Fecha de Cobro</p>
+                                    <p class="text-[10px] font-medium text-gray-600">
+                                        <i class="fa-regular fa-calendar-check mr-1"></i>
+                                        ${paymentDateFormatted}
+                                    </p>
                                 </div>
                             ` : ''}
                             <div class="flex items-center justify-between gap-1 bg-gray-50/50 p-1.5 rounded-xl">
