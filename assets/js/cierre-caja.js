@@ -352,6 +352,7 @@ async function loadTotalsForToday() {
     let bsTotal = 0, usdTotal = 0, ordersCount = 0;
     const today = new Date();
     ordenesDia = [];
+
     try {
         const ordersRef = collection(db, 'orders');
         const q = query(ordersRef, where('paymentStatus', '==', 'pagado'));
@@ -359,11 +360,15 @@ async function loadTotalsForToday() {
 
         snap.forEach(doc => {
             const data = doc.data ? doc.data() : doc;
-            const orderDateRaw = data.orderDate ?? data.createdAt ?? null;
-            const orderDate = isoDateFromValue(orderDateRaw);
-            if (!isSameIsoDay(orderDate, today)) return;
+
+            const paymentDateRaw = data.paymentUpdatedAt ?? data.orderDate ?? null;
+            const paymentDate = isoDateFromValue(paymentDateRaw);
+
+            if (!isSameIsoDay(paymentDate, today)) return;
+
             const payment = data.payment ?? {}, methods = payment.methods || [];
             let sumInThisOrder = false;
+            
             if (Array.isArray(methods) && methods.length > 0) {
                 methods.forEach(method => {
                     const conv = method.conversion ?? {};
@@ -650,10 +655,10 @@ async function renderAuditDay(fechaIso, cierresDelMes, orders) {
             vendedorInfo.comisionBs = calcularComision(vendedorInfo.commissionType, vendedorInfo.commissionValue, orderTotals.bs);
             vendedorInfo.comisionUsd = calcularComision(vendedorInfo.commissionType, vendedorInfo.commissionValue, orderTotals.usd);
             if (!vendedores[vendedor]) {
-                vendedores[vendedor] = { 
-                    count: 0, 
-                    comisionBs: 0, 
-                    comisionUsd: 0 
+                vendedores[vendedor] = {
+                    count: 0,
+                    comisionBs: 0,
+                    comisionUsd: 0
                 };
             }
             vendedores[vendedor].count += 1;
@@ -670,10 +675,10 @@ async function renderAuditDay(fechaIso, cierresDelMes, orders) {
             motorizadoInfo.comisionBs = calcularComision(motorizadoInfo.commissionType, motorizadoInfo.commissionValue, orderTotals.bs);
             motorizadoInfo.comisionUsd = calcularComision(motorizadoInfo.commissionType, motorizadoInfo.commissionValue, orderTotals.usd);
             if (!motorizados[motorizado]) {
-                motorizados[motorizado] = { 
-                    count: 0, 
-                    comisionBs: 0, 
-                    comisionUsd: 0 
+                motorizados[motorizado] = {
+                    count: 0,
+                    comisionBs: 0,
+                    comisionUsd: 0
                 };
             }
             motorizados[motorizado].count += 1;
