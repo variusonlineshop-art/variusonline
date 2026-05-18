@@ -281,7 +281,11 @@ function fetchAndRenderOrders(filters = {}) {
                     ${isPostponed ? `
                     <div class="mb-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
                         <p class="text-[10px] text-blue-600 font-bold uppercase italic">Reprogramado para:</p>
-                        <p class="text-xs font-bold text-gray-700">${order.nextSchedule || 'No definida'}</p>
+                        <p class="text-xs font-bold text-gray-700">
+                            ${order.postponeHistory && order.postponeHistory.length > 0 
+                            ? `${order.postponeHistory[order.postponeHistory.length - 1].date} ${order.postponeHistory[order.postponeHistory.length - 1].time}` 
+                            : 'No definida'}
+                        </p>
                     </div>
                     ` : ''}
 
