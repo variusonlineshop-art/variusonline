@@ -8,24 +8,36 @@ const db = getFirestore(app);
 let ventasHoy = [];
 let mapInstance = null; // Para guardar la instancia del mapa
 
+// En kpis-ventas-dia.js
+
 function listenVentasDia() {
-    const q = query(collection(db, "orders"), orderBy("timestamp", "desc"));
+    // Mantenemos la consulta general o puedes optimizarla por estatus
+    const q = query(collection(db, "orders"), orderBy("paymentUpdatedAt", "desc"));
 
     onSnapshot(q, (querySnapshot) => {
+        // Obtenemos la fecha de hoy en formato YYYY-MM-DD
         const hoy = new Date().toLocaleDateString('en-CA'); 
         ventasHoy = [];
         let totalMonto = 0;
 
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            let fechaOrden = "";
-            if (data.timestamp?.toDate) {
-                fechaOrden = data.timestamp.toDate().toLocaleDateString('en-CA');
+            let fechaCobro = "";
+
+            // CAMBIO CLAVE: Usar paymentUpdatedAt en lugar de timestamp
+            // Si por alguna razón no existe paymentUpdatedAt (órdenes viejas), 
+            // usamos timestamp como respaldo.
+            const fechaReferencia = data.paymentUpdatedAt || data.timestamp;
+
+            if (fechaReferencia?.toDate) {
+                fechaCobro = fechaReferencia.toDate().toLocaleDateString('en-CA');
             }
 
-            // --- FILTRO APLICADO: Fecha de hoy Y Estatus "Pagado" ---
-            if (fechaOrden === hoy && data.status === "Pagado") {
+            // --- FILTRO APLICADO: Fecha de COBRO es hoy Y Estatus "Pagado" ---
+            if (fechaCobro === hoy && data.status === "Pagado") {
                 ventasHoy.push({ id: doc.id, ...data });
+                
+                // Sumamos el total de la orden al KPI
                 totalMonto += parseFloat(data.total || 0);
             }
         });
