@@ -200,7 +200,7 @@ function fetchAndRenderOrders(filters = {}) {
 
                     const suspendComment = order.suspendComment || "";
                     const suspendDate = order.suspendDate || "";
-                    
+
                     let paymentDateFormatted = "";
                     if (order.paymentUpdatedAt) {
                         const pDate = (typeof order.paymentUpdatedAt.toDate === 'function')
@@ -212,6 +212,20 @@ function fetchAndRenderOrders(filters = {}) {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+                    }
+
+                    let orderTimeFormatted = "";
+                    if (order.timestamp) {
+                        // Si es un Timestamp de Firebase usará .toDate(), si no, creará un Date normal
+                        const tDate = (typeof order.timestamp.toDate === 'function')
+                            ? order.timestamp.toDate()
+                            : new Date(order.timestamp);
+
+                        orderTimeFormatted = tDate.toLocaleString('es-ES', {
                             hour: '2-digit',
                             minute: '2-digit',
                             hour12: true
@@ -256,7 +270,7 @@ function fetchAndRenderOrders(filters = {}) {
                     <div class="flex justify-between items-center mb-5">
                         <div class="flex items-center gap-2 text-gray-400">
                             <i class="fa-regular fa-calendar text-sm"></i>
-                            <span class="text-xs font-medium text-gray-500">${order.orderDate}</span>
+                            <span class="text-xs font-medium text-gray-500">${order.orderDate} ${orderTimeFormatted ? `• ${orderTimeFormatted}` : ''}</span>
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="text-gray-400 text-sm">$</span>
