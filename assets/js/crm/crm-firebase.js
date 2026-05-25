@@ -84,3 +84,27 @@ export function listenCrmOrders(callback) {
         console.error("🔴 Error en Firebase CRM:", error);
     });
 }
+
+/**
+ * Escucha en tiempo real todos los leads registrados en el sistema
+ * @param {Function} callback - Función que recibe el array de leads de forma cronológica
+ */
+export function listenCrmLeads(callback) {
+    const leadsRef = collection(db, "leads");
+    // Al no usar un 'orderBy' directo de Firebase evitamos la necesidad de crear índices compuestos manuales
+    return onSnapshot(leadsRef, (querySnapshot) => {
+        const leads = [];
+        querySnapshot.forEach((doc) => {
+            leads.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        // Ordenar del más reciente al más antiguo de forma local
+        leads.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        callback(leads);
+    }, (error) => {
+        console.error("🔴 Error en Firebase al escuchar Leads:", error);
+    });
+}

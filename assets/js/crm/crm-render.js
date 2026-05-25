@@ -168,6 +168,10 @@ export function switchTab(tabId) {
     if (tabId === 'agenda' && typeof window.renderAgenda === 'function') {
         window.renderAgenda();
     }
+
+    if (tabId === 'comunicaciones' && typeof window.renderComunicaciones === 'function') {
+        window.renderComunicaciones();
+    }
 }
 
 /**

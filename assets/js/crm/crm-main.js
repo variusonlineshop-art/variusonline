@@ -1,5 +1,5 @@
 // Orquestador Principal del Módulo CRM
-import { listenCrmOrders } from './crm-firebase.js';
+import { listenCrmOrders, listenCrmLeads } from './crm-firebase.js';
 import { renderClientes, switchTab, showToast, renderProductosCards } from './crm-render.js';
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import {
@@ -8,7 +8,8 @@ import {
     query,
     where,
     getDocs,
-    doc,
+    getDoc,   // <--- AGREGA ESTO AQUÍ
+    doc,      // <--- Y ESTO TAMBIÉN
     updateDoc,
     addDoc,
     Timestamp
@@ -28,22 +29,74 @@ window.switchTab = switchTab;
 document.addEventListener('DOMContentLoaded', () => {
     showToast("Conectando al CRM en tiempo real...");
 
+    // Inicializar el estado global de forma segura si no existe
+    window.crmState = window.crmState || { clientes: [], leads: [] };
+
+    // 1. ESCUCHA DE ÓRDENES EN TIEMPO REAL
     listenCrmOrders((clientesFiltrados) => {
-        window.crmState = { clientes: clientesFiltrados };
+        window.crmState = { ...window.crmState, clientes: clientesFiltrados };
 
-        // El render sigue mostrando todos (Contactado, Postergado y Pagado)
-        renderClientes(clientesFiltrados);
+        // Validar si la sección de clientes está visible en pantalla
+        const containerClientes = document.getElementById('tab-clientes');
+        if (containerClientes && window.getComputedStyle(containerClientes).display !== 'none') {
+            renderClientes(clientesFiltrados);
+        }
 
-        // 📊 NUEVOS KPIs: Filtrar SOLO las órdenes finalizadas ("Pagado")
+        // KPIs
         const ordenesPagadas = clientesFiltrados.filter(c => c.status.toLowerCase() === 'pagado');
-
         const totalMonto = ordenesPagadas.reduce((acc, c) => acc + c.montoTotal, 0);
         const kpiQty = document.getElementById('crm-kpi-qty');
         const kpiAmount = document.getElementById('crm-kpi-amount');
 
-        if (kpiQty) kpiQty.innerText = ordenesPagadas.length; // Cantidad de ventas realizadas
-        if (kpiAmount) kpiAmount.innerText = `$${totalMonto.toFixed(2)}`; // Monto total de ventas
+        if (kpiQty) kpiQty.innerText = ordenesPagadas.length;
+        if (kpiAmount) kpiAmount.innerText = `$${totalMonto.toFixed(2)}`;
     });
+
+    // 2. ESCUCHA DE LEADS (COMUNICACIONES) EN TIEMPO REAL
+    listenCrmLeads((leadsRegistrados) => {
+        window.crmState = { ...window.crmState, leads: leadsRegistrados };
+        
+        // Validar si la sección de comunicaciones está visible en pantalla
+        const containerComunicaciones = document.getElementById('tab-comunicaciones');
+        if (containerComunicaciones && window.getComputedStyle(containerComunicaciones).display !== 'none') {
+            if (typeof window.renderComunicaciones === 'function') {
+                window.renderComunicaciones();
+            }
+        }
+    });
+
+    // 3. MANEJADOR DEL BUSCADOR GLOBAL (FILTRA CON PRECISIÓN DE VISTA)
+    const searchInput = document.getElementById('crm-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+
+            const containerClientes = document.getElementById('tab-clientes');
+            const containerComunicaciones = document.getElementById('tab-comunicaciones');
+
+            // VERIFICACIÓN REAL DE VISIBILIDAD (Evita fallos por clases CSS de Tailwind o custom)
+            const esPestañaClientes = containerClientes && window.getComputedStyle(containerClientes).display !== 'none';
+            const esPestañaComunicaciones = containerComunicaciones && window.getComputedStyle(containerComunicaciones).display !== 'none';
+
+            // Caso A: Si el usuario está viendo Clientes
+            if (esPestañaClientes) {
+                const clientesOriginales = window.crmState.clientes || [];
+                const clientesFiltrados = clientesOriginales.filter(c => {
+                    return c.nombre.toLowerCase().includes(searchTerm) || 
+                           c.telefono.includes(searchTerm) || 
+                           c.id.toLowerCase().includes(searchTerm);
+                });
+                renderClientes(clientesFiltrados);
+            }
+
+            // Caso B: Si el usuario está viendo Comunicaciones
+            if (esPestañaComunicaciones) {
+                if (typeof window.renderComunicaciones === 'function') {
+                    window.renderComunicaciones();
+                }
+            }
+        });
+    }
 });
 
 /////////////////////////////
@@ -569,5 +622,199 @@ window.uploadComprobanteLead = async function uploadComprobanteLead(leadId, inpu
         input.disabled = false;
         setTimeout(() => { if (loadingIndicator) loadingIndicator.remove(); }, 1400);
         console.error(err);
+    }
+};
+
+// --- FUNCIÓN: Renderizar Pestaña de Comunicaciones Globales (Agrupada y con Filtro) ---
+window.renderComunicaciones = function renderComunicaciones() {
+    const state = window.crmState || { clientes: [], leads: [] };
+    const leads = state.leads || [];
+    const clientes = state.clientes || [];
+
+    const container = document.getElementById('crm-comunicaciones-container');
+    if (!container) return;
+
+    const searchInput = document.getElementById('crm-search-input');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
+    const leadsFiltrados = leads.filter(lead => {
+        const nombre = (lead.nombre || "").toLowerCase();
+        const telefono = (lead.telefono || "").toLowerCase();
+        const canal = (lead.canal || "").toLowerCase();
+        const clienteId = (lead.clienteId || "").toLowerCase();
+        const vendedor = (lead.vendedor || "").toLowerCase();
+
+        return nombre.includes(searchTerm) || 
+               telefono.includes(searchTerm) || 
+               canal.includes(searchTerm) || 
+               vendedor.includes(searchTerm) ||
+               clienteId.includes(searchTerm);
+    });
+
+    if (leadsFiltrados.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-400">
+                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed">
+                    <i class="fa-solid fa-magnifying-glass text-xl text-gray-300"></i>
+                </div>
+                <p class="text-sm font-bold text-gray-700">No se encontraron resultados</p>
+                <p class="text-xs text-gray-400 max-w-xs mx-auto mt-1">Ninguna interacción coincide con "${searchTerm}".</p>
+            </div>`;
+        return;
+    }
+
+    const leadsAgrupados = leadsFiltrados.reduce((grupos, lead) => {
+        if (!grupos[lead.clienteId]) {
+            grupos[lead.clienteId] = {
+                clienteId: lead.clienteId,
+                nombreCliente: lead.nombre,
+                telefonoCliente: lead.telefono,
+                interacciones: []
+            };
+        }
+        grupos[lead.clienteId].interacciones.push(lead);
+        return grupos;
+    }, {});
+
+    let html = `<div class="space-y-4">`;
+
+    Object.values(leadsAgrupados).forEach((grupo, index) => {
+        const ordenAsociada = clientes.find(c => c.id === grupo.clienteId);
+        const estatusActual = ordenAsociada ? ordenAsociada.status : "Finalizado/Inactivo";
+        const montoOrden = ordenAsociada ? `$${ordenAsociada.montoTotal.toFixed(2)}` : "N/A";
+
+        const badgeColor = estatusActual === 'Contactado'
+            ? 'bg-green-50 text-green-600 border-green-200'
+            : estatusActual === 'Pagado'
+                ? 'bg-purple-50 text-purple-600 border-purple-200'
+                : 'bg-blue-50 text-blue-600 border-blue-200';
+
+        // Generamos un ID único por cada tarjeta de cliente
+        const collapseId = `collapse-cliente-${grupo.clienteId.replace(/\s+/g, '-')}`;
+
+        html += `
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden group/card transition-all duration-200">
+                
+                <div onclick="toggleClienteLeads('${collapseId}')" 
+                     class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 sm:p-5 bg-gray-50/60 hover:bg-gray-50 cursor-pointer select-none transition-all duration-150">
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <div id="icon-${collapseId}" class="w-8 h-8 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 transition-transform duration-200 transform rotate-0">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="text-sm font-black text-gray-800">${grupo.nombreCliente}</h3>
+                                <span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border ${badgeColor}">
+                                    ${estatusActual}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-0.5">
+                                <i class="fa-solid fa-phone text-[10px] mr-1"></i> ${grupo.telefonoCliente} 
+                                <span class="mx-1 text-gray-300">|</span> 
+                                <i class="fa-solid fa-file-invoice text-[10px] mr-1"></i> Orden: <span class="font-mono font-bold">${grupo.clienteId}</span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-3 self-end sm:self-auto">
+                        <div class="text-right bg-white px-3 py-1 rounded-xl border border-gray-100 shadow-sm">
+                            <span class="text-[9px] uppercase block font-bold text-gray-400">Total Orden</span>
+                            <span class="text-xs font-black text-gray-700">${montoOrden}</span>
+                        </div>
+                        <span class="bg-blue-50 text-blue-600 font-bold text-xs px-2.5 py-1 rounded-lg border border-blue-100">
+                            ${grupo.interacciones.length} ${grupo.interacciones.length === 1 ? 'lead' : 'leads'}
+                        </span>
+                    </div>
+                </div>
+
+                <div id="${collapseId}" class="hidden border-t border-gray-100 p-5 bg-white">
+                    <div class="relative border-l-2 border-blue-100 pl-6 ml-3 space-y-4">
+        `;
+
+        grupo.interacciones.forEach(lead => {
+            let channelIcon = "fa-comment";
+            let channelBg = "bg-blue-500 text-white";
+            let channelLabel = lead.canal ? lead.canal.toUpperCase() : "INTERACCIÓN";
+
+            if (lead.canal === "whatsapp") {
+                channelIcon = "fa-brands fa-whatsapp";
+                channelBg = "bg-emerald-500 text-white";
+            } else if (lead.canal === "sms") {
+                channelIcon = "fa-solid fa-message";
+                channelBg = "bg-amber-500 text-white";
+            } else if (lead.canal === "llamada") {
+                channelIcon = "fa-solid fa-phone";
+                channelBg = "bg-blue-500 text-white";
+            }
+
+            const dateStr = lead.fecha ? new Date(lead.fecha).toLocaleString('es-VE', {
+                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+            }) : 'Sin fecha';
+
+            html += `
+                <div class="relative group">
+                    <div class="absolute -left-[33px] top-1 w-5 h-5 rounded-full ${channelBg} border-2 border-white shadow-sm flex items-center justify-center text-[9px]">
+                        <i class="${channelIcon}"></i>
+                    </div>
+
+                    <div class="bg-gray-50/50 p-3 rounded-xl border border-gray-100 hover:border-gray-200 transition-all duration-150">
+                        <div class="flex justify-between items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-gray-700">
+                                Acción: <span class="text-blue-600 font-black">${channelLabel}</span>
+                            </span>
+                            <span class="text-[10px] text-gray-400 flex items-center gap-1">
+                                <i class="fa-regular fa-clock"></i> ${dateStr}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            <i class="fa-solid fa-user-circle text-[10px] text-gray-400 mr-0.5"></i> 
+                            Atendido por: <span class="font-medium text-gray-700">${lead.vendedor || 'Sistema'}</span>
+                        </p>
+
+                        ${lead.comprobanteUrl ? `
+                        <div class="mt-2 p-1.5 bg-emerald-50/30 rounded-lg border border-emerald-100 inline-flex items-center gap-2">
+                            <img src="${lead.comprobanteUrl}" alt="Recibo" class="w-8 h-8 rounded object-cover border border-emerald-200 bg-white">
+                            <a href="${lead.comprobanteUrl}" target="_blank" class="text-blue-500 text-[10px] font-bold hover:underline">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Comprobante
+                            </a>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+};
+
+// --- FUNCIÓN GLOBAL: Contraer/Desplegar tarjetas de clientes en comunicaciones ---
+window.toggleClienteLeads = function toggleClienteLeads(elementId) {
+    const target = document.getElementById(elementId);
+    const iconContainer = document.getElementById(`icon-${elementId}`);
+    
+    if (!target) return;
+
+    if (target.classList.contains('hidden')) {
+        // Desplegar tarjeta
+        target.classList.remove('hidden');
+        if (iconContainer) {
+            iconContainer.classList.add('rotate-180', 'border-blue-200', 'text-blue-500');
+            iconContainer.classList.remove('rotate-0', 'text-gray-400');
+        }
+    } else {
+        // Ocultar tarjeta
+        target.classList.add('hidden');
+        if (iconContainer) {
+            iconContainer.classList.add('rotate-0', 'text-gray-400');
+            iconContainer.classList.remove('rotate-180', 'border-blue-200', 'text-blue-500');
+        }
     }
 };
