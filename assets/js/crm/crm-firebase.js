@@ -21,7 +21,7 @@ export function listenCrmOrders(callback) {
 
     // Solo estados Contactado/Postergado, case-insensitive
     const q = query(
-        ordersRef, 
+        ordersRef,
         where("status", "in", ["Contactado", "Postergado", "Pagado", "contactado", "postergado", "pagado"])
     );
 
@@ -59,13 +59,15 @@ export function listenCrmOrders(callback) {
 
                     uniqueCustomers.push({
                         id: doc.id,
+                        items: data.items || [],
+                        paymentUpdatedAt: data.paymentUpdatedAt || "", // <--- sumar esto
                         nombre: name,
                         telefono: formattedPhone,
                         email: email,
                         altEmail: "",
                         ultVenta: date,
                         montoTotal: parseFloat(total),
-                        status: currentStatus, 
+                        status: currentStatus,
                         ultimaInteraccion: `Orden asociada: ${doc.id}`,
                         vendedor: vendedor
                     });
