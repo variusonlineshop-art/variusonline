@@ -1,6 +1,6 @@
 // Orquestador Principal del Módulo CRM
 import { listenCrmOrders, listenCrmLeads } from './crm-firebase.js';
-import { renderClientes, switchTab, showToast, renderProductosCards } from './crm-render.js';
+import { renderClientes, switchTab, showToast, renderProductosCards, renderPedidos } from './crm-render.js';
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import {
     getFirestore,
@@ -42,6 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
             renderClientes(clientesFiltrados);
         }
 
+        // 🚀 NUEVO: Validar si la sección de pedidos está visible en pantalla
+        const containerPedidos = document.getElementById('tab-pedidos');
+        if (containerPedidos && window.getComputedStyle(containerPedidos).display !== 'none') {
+            renderPedidos(clientesFiltrados);
+        }
         // KPIs
         const ordenesPagadas = clientesFiltrados.filter(c => c.status.toLowerCase() === 'pagado');
         const totalMonto = ordenesPagadas.reduce((acc, c) => acc + c.montoTotal, 0);
@@ -55,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. ESCUCHA DE LEADS (COMUNICACIONES) EN TIEMPO REAL
     listenCrmLeads((leadsRegistrados) => {
         window.crmState = { ...window.crmState, leads: leadsRegistrados };
-        
+
         // Validar si la sección de comunicaciones está visible en pantalla
         const containerComunicaciones = document.getElementById('tab-comunicaciones');
         if (containerComunicaciones && window.getComputedStyle(containerComunicaciones).display !== 'none') {
@@ -64,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
 
     // 3. MANEJADOR DEL BUSCADOR GLOBAL (FILTRA CON PRECISIÓN DE VISTA)
     const searchInput = document.getElementById('crm-search-input');
@@ -82,9 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (esPestañaClientes) {
                 const clientesOriginales = window.crmState.clientes || [];
                 const clientesFiltrados = clientesOriginales.filter(c => {
-                    return c.nombre.toLowerCase().includes(searchTerm) || 
-                           c.telefono.includes(searchTerm) || 
-                           c.id.toLowerCase().includes(searchTerm);
+                    return c.nombre.toLowerCase().includes(searchTerm) ||
+                        c.telefono.includes(searchTerm) ||
+                        c.id.toLowerCase().includes(searchTerm);
                 });
                 renderClientes(clientesFiltrados);
             }
@@ -644,11 +650,11 @@ window.renderComunicaciones = function renderComunicaciones() {
         const clienteId = (lead.clienteId || "").toLowerCase();
         const vendedor = (lead.vendedor || "").toLowerCase();
 
-        return nombre.includes(searchTerm) || 
-               telefono.includes(searchTerm) || 
-               canal.includes(searchTerm) || 
-               vendedor.includes(searchTerm) ||
-               clienteId.includes(searchTerm);
+        return nombre.includes(searchTerm) ||
+            telefono.includes(searchTerm) ||
+            canal.includes(searchTerm) ||
+            vendedor.includes(searchTerm) ||
+            clienteId.includes(searchTerm);
     });
 
     if (leadsFiltrados.length === 0) {
@@ -799,7 +805,7 @@ window.renderComunicaciones = function renderComunicaciones() {
 window.toggleClienteLeads = function toggleClienteLeads(elementId) {
     const target = document.getElementById(elementId);
     const iconContainer = document.getElementById(`icon-${elementId}`);
-    
+
     if (!target) return;
 
     if (target.classList.contains('hidden')) {
@@ -817,4 +823,12 @@ window.toggleClienteLeads = function toggleClienteLeads(elementId) {
             iconContainer.classList.remove('rotate-180', 'border-blue-200', 'text-blue-500');
         }
     }
+};
+
+//////////////////////////////////////
+
+// Función global de puente para renderizar Pedidos desde el switchTab
+window.renderPedidosGlobal = function renderPedidosGlobal() {
+    const state = window.crmState || { clientes: [] };
+    renderPedidos(state.clientes);
 };

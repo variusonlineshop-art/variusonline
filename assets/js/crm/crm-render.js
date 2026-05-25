@@ -172,6 +172,10 @@ export function switchTab(tabId) {
     if (tabId === 'comunicaciones' && typeof window.renderComunicaciones === 'function') {
         window.renderComunicaciones();
     }
+
+    if (tabId === 'pedidos' && typeof window.renderPedidosGlobal === 'function') {
+        window.renderPedidosGlobal();
+    }
 }
 
 /**
@@ -183,4 +187,100 @@ export function showToast(msj) {
     toast.innerText = msj;
     toast.classList.remove('hidden');
     setTimeout(() => toast.classList.add('hidden'), 3000);
+}
+
+///////////////////////////////// RENDER PAGADOS /////////////////////////////////////////////
+/**
+ * Renderiza los pedidos pagados (Finalizados) y actualiza sus KPIs superiores
+ * @param {Array} clientes - Lista total de clientes/órdenes desde Firebase
+ */
+export function renderPedidos(clientes) {
+    const container = document.getElementById('crm-pedidos-container');
+    if (!container) return;
+
+    // 1. Filtrar localmente las órdenes con estatus Pagado
+    const pedidosPagados = clientes.filter(c => c.status && c.status.toLowerCase() === 'pagado');
+
+    // 2. Cálculo y Renderizado de los KPIs de Pedidos (Sin Ticket Promedio)
+    const totalPedidos = pedidosPagados.length;
+    const facturacionTotal = pedidosPagados.reduce((acc, p) => acc + (Number(p.montoTotal) || 0), 0);
+
+    const elCount = document.getElementById('kpi-pedidos-count');
+    const elRevenue = document.getElementById('kpi-pedidos-revenue');
+
+    if (elCount) elCount.textContent = totalPedidos;
+    if (elRevenue) elRevenue.textContent = `$${facturacionTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // 3. Validar si está vacío el listado
+    if (totalPedidos === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-400 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+                <i class="fa-solid fa-basket-shopping text-3xl mb-2 block text-gray-300"></i>
+                <p class="font-bold text-gray-700">No hay pedidos pagados</p>
+                <p class="text-xs text-gray-400 mt-1">Actualmente no se encuentran órdenes con estatus "Pagado".</p>
+            </div>
+        `;
+        return;
+    }
+
+    // 4. Inyección del listado de tarjetas
+    container.innerHTML = pedidosPagados.map(p => {
+        return `
+            <div class="p-5 rounded-2xl bg-white border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-md transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-purple-50 text-purple-700 font-bold text-lg flex items-center justify-center uppercase border border-purple-100">
+                        ${p.nombre ? p.nombre.charAt(0) : '?'}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-gray-800 text-base">${p.nombre}</h4>
+                            <span class="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full border bg-purple-50 text-purple-600 border-purple-200 shadow-sm">
+                                ${p.status}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 font-medium mt-0.5">
+                            <i class="fa-solid fa-user-tie text-[10px]"></i> ${p.vendedor ? `Vendedor: ${p.vendedor} • ` : ""}
+                            <i class="fa-solid fa-phone text-[10px]"></i> ${p.telefono}
+                            ${p.email ? `• <i class="fa-solid fa-envelope text-[10px]"></i> ${p.email}` : ''}
+                        </p>
+                        <p class="text-[11px] text-gray-400 mt-1">
+                            Detalle: <span class="font-semibold text-gray-600">${p.ultimaInteraccion || 'Sin descripción'}</span> • 
+                            Monto de la venta: <span class="font-bold text-emerald-600">$${(Number(p.montoTotal) || 0).toFixed(2)}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button 
+                        onclick="showLeadsModal('${p.id}', '${p.nombre}')" 
+                        class="flex-1 sm:flex-none px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 transition-colors"
+                        type="button"
+                    >
+                        <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                    </button>
+                    <a 
+                        href="https://wa.me/${p.telefono.replace(/[\s+]/g, '')}" 
+                        target="_blank" 
+                        onclick="handleLead('whatsapp','${p.id}');"
+                        class="flex-1 sm:flex-none px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 text-center transition-colors shadow-sm"
+                    >
+                        <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                    </a>
+                    <a 
+                        href="tel:${p.telefono.replace(/\s+/g, '')}" 
+                        onclick="handleLead('llamada','${p.id}');"
+                        class="flex-1 sm:flex-none px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 text-center transition-colors border border-blue-200"
+                    >
+                        <i class="fa-solid fa-phone"></i> Llamar
+                    </a>
+                    <a 
+                        href="sms:${p.telefono.replace(/\s+/g, '')}" 
+                        onclick="handleLead('sms','${p.id}');"
+                        class="flex-1 sm:flex-none px-4 py-2 bg-yellow-50 text-yellow-600 rounded-xl text-xs font-bold hover:bg-yellow-100 text-center transition-colors border border-yellow-200"
+                    >
+                        <i class="fa-solid fa-comment"></i> SMS
+                    </a>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
