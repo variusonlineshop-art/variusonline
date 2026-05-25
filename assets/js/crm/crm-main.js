@@ -1,7 +1,7 @@
 // Orquestador Principal del Módulo CRM
 import { listenCrmOrders } from './crm-firebase.js';
 import { renderClientes, switchTab, showToast, renderProductosCards } from './crm-render.js';
-
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import {
     getFirestore,
     collection,
@@ -21,6 +21,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
 
 window.switchTab = switchTab;
 
@@ -145,7 +146,7 @@ window.showAgendaFullCalendarDay = function (date, orders) {
                                         <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
                                             <span class="font-bold text-gray-700">${p.date}</span>
                                             <span class="text-gray-400 font-medium">a las ${p.time || '--:--'}</span>
-                                            ${p.timestamp ? `<span class="text-[9px] text-gray-400 italic" title="Registrado: ${p.timestamp}">(${(new Date(p.timestamp).toLocaleString('es-VE', {hour:'2-digit', minute:'2-digit'})).toLowerCase()})</span>` : ''}
+                                            ${p.timestamp ? `<span class="text-[9px] text-gray-400 italic" title="Registrado: ${p.timestamp}">(${(new Date(p.timestamp).toLocaleString('es-VE', { hour: '2-digit', minute: '2-digit' })).toLowerCase()})</span>` : ''}
                                         </div>
                                         ${p.comment ? `<p class="text-gray-500 font-medium bg-white border border-gray-100 rounded-lg px-2.5 py-1 mt-1 inline-block shadow-sm">"${p.comment}"</p>` : ''}
                                     </li>
@@ -451,19 +452,23 @@ window.showLeadsModal = async function showLeadsModal(clienteId, clienteNombre) 
         let comprobanteHTML = "";
         if (l.comprobanteUrl) {
             comprobanteHTML = `
-                <div class="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between gap-3 group">
-                    <div class="flex items-center gap-2.5 overflow-hidden">
-                        <div class="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center text-sm flex-shrink-0">
-                            <i class="fa-solid fa-file-image"></i>
-                        </div>
-                        <div class="truncate">
-                            <p class="text-xs font-bold text-gray-700 truncate">Comprobante Adjunto</p>
-                            <p class="text-[10px] text-gray-400">Imagen de respaldo guardada</p>
-                        </div>
-                    </div>
-                    <a href="${l.comprobanteUrl}" target="_blank" class="px-3 py-1.5 bg-white hover:bg-blue-600 hover:text-white text-gray-600 border border-gray-200 rounded-lg text-[11px] font-bold transition-all shadow-sm flex items-center gap-1">
-                        <i class="fa-solid fa-eye"></i> Ver
+                <div class="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3 group">
+                    <a href="${l.comprobanteUrl}" target="_blank" class="flex-shrink-0 block">
+                        <img 
+                            src="${l.comprobanteUrl}" 
+                            alt="Comprobante" 
+                            class="w-16 h-16 rounded-lg border border-emerald-100 object-cover hover:scale-105 transition cursor-pointer"
+                            style="background:#f8fafc;"
+                        >
                     </a>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="text-xs font-bold text-gray-700">Comprobante Adjunto</p>
+                            <a href="${l.comprobanteUrl}" target="_blank" 
+                            class="text-blue-500 text-xs hover:underline ml-1"><i class="fa-solid fa-eye"></i> Ver</a>
+                        </div>
+                        <p class="text-[10px] text-gray-400">Imagen de respaldo guardada</p>
+                    </div>
                 </div>
             `;
         } else {
@@ -517,16 +522,52 @@ window.closeLeadsModal = function closeLeadsModal() {
 // SUBIR COMPROBANTE por lead a Firebase Storage y registrar URL en Firestore
 window.uploadComprobanteLead = async function uploadComprobanteLead(leadId, input) {
     if (!input.files.length) return;
-    const file = input.files[0];
-    const ext = file.name.split('.').pop();
-    const storage_path = `leads_comprobantes/${leadId}.${ext}`;
-    const fileRef = storageRef(storage, storage_path);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    const leadRef = doc(db, "leads", leadId);
-    await updateDoc(leadRef, { comprobanteUrl: url });
-    showToast("Comprobante subido.");
-    setTimeout(() => {
-        window.showLeadsModal(window.leadsModalState.clienteId, window.leadsModalState.clienteNombre);
-    }, 700);
+
+    const auth = getAuth();
+    if (!auth.currentUser) {
+        showToast("Debes iniciar sesión para subir comprobantes.");
+        return;
+    }
+
+    // --- Indicador de carga UI ---
+    const label = input.closest("label");
+    let loadingIndicator = label.querySelector(".crmh-spinner");
+    if (!loadingIndicator) {
+        loadingIndicator = document.createElement("span");
+        loadingIndicator.className = "crmh-spinner ml-2";
+        loadingIndicator.innerHTML = `
+            <i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i> 
+            <span class="text-[10px] font-semibold text-blue-400 ml-1 align-middle">Subiendo...</span>`;
+        label.appendChild(loadingIndicator);
+    }
+    input.disabled = true; // bloquea input
+
+    try {
+        const file = input.files[0];
+        const ext = file.name.split('.').pop();
+        const storage_path = `leads_comprobantes/${leadId}.${ext}`;
+        const fileRef = storageRef(storage, storage_path);
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+        const leadRef = doc(db, "leads", leadId);
+        await updateDoc(leadRef, { comprobanteUrl: url });
+
+        // --- Mostrar éxito visual ---
+        loadingIndicator.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500"></i><span class="ml-2 text-emerald-700 font-bold text-xs">¡Subido!</span>`;
+        showToast("Comprobante subido.");
+
+        setTimeout(() => {
+            // Quita spinner y desbloquea input
+            if (loadingIndicator) loadingIndicator.remove();
+            input.disabled = false;
+            window.showLeadsModal(window.leadsModalState.clienteId, window.leadsModalState.clienteNombre);
+        }, 700);
+
+    } catch (err) {
+        showToast("Error subiendo comprobante.");
+        if (loadingIndicator) loadingIndicator.innerHTML = `<i class="fa-solid fa-circle-xmark text-red-500"></i> <span class="text-xs text-red-500 ml-1">Error</span>`;
+        input.disabled = false;
+        setTimeout(() => { if (loadingIndicator) loadingIndicator.remove(); }, 1400);
+        console.error(err);
+    }
 };
