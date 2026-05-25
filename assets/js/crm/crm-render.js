@@ -21,10 +21,10 @@ export function renderClientes(clientes) {
     container.innerHTML = clientes.map(c => {
         // Estilo de badge dinámico según el estado en Firebase
         const badgeColor = c.status === 'Contactado'
-            ? 'bg-blue-50 text-blue-600 border-blue-200'
+            ? 'bg-green-50 text-green-600 border-green-200'
             : c.status === 'Pagado'
-                ? 'bg-emerald-50 text-emerald-600 border-emerald-200' // Estilo para los finalizados
-                : 'bg-amber-50 text-amber-600 border-amber-200';
+                ? 'bg-purple-50 text-purple-600 border-purple-200' // Estilo para los finalizados
+                : 'bg-blue-50 text-blue-600 border-blue-200';
 
         return `
             <div class="p-5 rounded-2xl bg-white border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-md transition-all">
