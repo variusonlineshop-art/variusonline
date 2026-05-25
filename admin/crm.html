@@ -31,6 +31,11 @@
         .tab-content.active {
             display: block;
         }
+
+        /* Ejemplo para hacer más opacos los días normales */
+        .fc-daygrid-day {
+            background: #f8fafc;
+        }
     </style>
 </head>
 
@@ -242,17 +247,7 @@
                         <h3 class="font-black text-gray-800 text-lg">Semana del 25 al 31 de Mayo</h3>
                         <p class="text-xs text-gray-400">Compromisos de demostración y entrega programados</p>
                     </div>
-                    <div
-                        class="grid grid-cols-7 gap-2 text-center border-b pb-4 mb-4 font-bold text-xs text-gray-400 uppercase tracking-wider">
-                        <div>L</div>
-                        <div>M</div>
-                        <div>M</div>
-                        <div>J</div>
-                        <div>V</div>
-                        <div class="text-blue-600">S</div>
-                        <div class="text-red-500">D</div>
-                    </div>
-                    <div id="crm-agenda-container" class="space-y-4"></div>
+                    <div id="crm-agenda-container"></div>
                 </div>
             </div>
 
@@ -290,9 +285,39 @@
         </div>
     </div>
 
+    <!-- Modal para detalle de agenda -->
+    <div id="agendaModalBackdrop"
+        class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+    <div id="agendaModal" class="fixed inset-0 flex items-center justify-center z-50 hidden p-4 animate-fade-in">
+        <div
+            class="bg-white max-w-2xl w-full rounded-3xl shadow-xl border border-gray-100 flex flex-col max-h-[85vh] relative overflow-hidden transition-all transform scale-95 duration-300">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 class="font-black text-gray-800 text-lg flex items-center gap-2" id="agendaModalTitle">
+                    <i class="fa-solid fa-calendar-day text-blue-500"></i>
+                    Detalle de agenda
+                </h3>
+                <button onclick="closeAgendaModal()"
+                    class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="agendaModalBody" class="p-6 overflow-y-auto space-y-6 flex-1 bg-white custom-scrollbar"></div>
+            <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button onclick="closeAgendaModal()"
+                    class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
+                    Cerrar ventana
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script type="module" src="../assets/js/crm/crm-main.js"></script>
+
+    <!-- FullCalendar core (CSS+JS) -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
 
     <script type="module" src="../assets/js/sidebar-loader.js"></script>
     <script type="module" src="../assets/js/session-timeout.js"></script>
