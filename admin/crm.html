@@ -89,7 +89,7 @@
                         class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-basket-shopping mr-1.5"></i> Pedidos
                     </button>
-                    <button onclick="switchTab('productos')" id="btn-tab-productos"
+                    <button onclick="switchTab('productos'); loadProductosVendidos();" id="btn-tab-productos"
                         class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-box mr-1.5"></i> Productos
                     </button>
@@ -219,12 +219,11 @@
 
             <div id="tab-productos" class="tab-content space-y-6">
                 <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-                    <div class="max-w-md mb-6">
-                        <input type="text" id="searchProductCrm" oninput="filterCrmProducts()"
-                            placeholder="Buscar producto por nombre..."
-                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
-                    </div>
-                    <div id="crm-productos-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-box text-blue-500"></i> Productos Vendidos
+                    </h3>
+                    <div id="crm-productos-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Cards se insertan aquí -->
                     </div>
                 </div>
             </div>
