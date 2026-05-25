@@ -1,8 +1,8 @@
 // Orquestador Principal del Módulo CRM
 import { listenCrmOrders } from './crm-firebase.js';
-import { renderClientes, switchTab, showToast } from './crm-render.js';
+import { renderClientes, switchTab, showToast, renderProductosCards } from './crm-render.js';
 
-import { 
+import {
     getFirestore,
     collection,
     query,
@@ -35,17 +35,92 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 📊 NUEVOS KPIs: Filtrar SOLO las órdenes finalizadas ("Pagado")
         const ordenesPagadas = clientesFiltrados.filter(c => c.status.toLowerCase() === 'pagado');
-        
+
         const totalMonto = ordenesPagadas.reduce((acc, c) => acc + c.montoTotal, 0);
         const kpiQty = document.getElementById('crm-kpi-qty');
         const kpiAmount = document.getElementById('crm-kpi-amount');
-        
+
         if (kpiQty) kpiQty.innerText = ordenesPagadas.length; // Cantidad de ventas realizadas
         if (kpiAmount) kpiAmount.innerText = `$${totalMonto.toFixed(2)}`; // Monto total de ventas
     });
 });
 
-// Filtro avanzado (Asegurar que los KPIs se mantengan consistentes al filtrar la UI)
+// --- FUNCIÓN: Al activar el tab productos ---
+window.loadProductosVendidos = async function loadProductosVendidos() {
+    const state = window.crmState || { clientes: [] };
+    const pagadas = state.clientes.filter(o => o.status && o.status.toLowerCase() === "pagado");
+
+    const productosMap = {}; // productId -> info agregada
+
+    pagadas.forEach(order => {
+        // CUIDADO: La fecha REAL de pago viene de paymentUpdatedAt
+        // Debe estar disponible en el documento de la orden (ajusta si viene con otro nombre/caso)
+        const fechaPago = order.paymentUpdatedAt || order.fechaPago || order.paymentDate || "";
+        const items = order.items;
+        if (!items) return;
+        items.forEach(item => {
+            if (!item.productId) return;
+            if (!productosMap[item.productId]) {
+                productosMap[item.productId] = {
+                    productId: item.productId,
+                    nombre: item.name,
+                    precioUnitario: item.price,
+                    cantidadTotal: 0,
+                    montoTotal: 0,
+                    ultimaVenta: null // fecha más reciente de paymentUpdatedAt
+                };
+            }
+            const cantidad = Number(item.quantity) || 1;
+            productosMap[item.productId].cantidadTotal += cantidad;
+            productosMap[item.productId].montoTotal += (item.subtotal || ((item.price || 0) * cantidad));
+
+            // Fecha de pago más reciente
+            if (
+                fechaPago &&
+                (
+                    !productosMap[item.productId].ultimaVenta ||
+                    new Date(fechaPago) > new Date(productosMap[item.productId].ultimaVenta)
+                )
+            ) {
+                productosMap[item.productId].ultimaVenta = fechaPago;
+            }
+        });
+    });
+
+    const productosIds = Object.keys(productosMap);
+    let productosDb = {};
+    if (productosIds.length) {
+        const productsSnaps = await getDocs(collection(db, "product"));
+        productsSnaps.forEach(doc => {
+            productosDb[doc.id] = doc.data();
+        });
+    }
+
+    const productosArray = productosIds.map(pid => {
+        const prod = productosMap[pid];
+        const dbData = productosDb[pid];
+        let imagen = "";
+        if (prod.img) {
+            imagen = prod.img;
+        } else if (dbData) {
+            if (Array.isArray(dbData.images) && dbData.images.length > 0) {
+                imagen = dbData.images[0];
+            } else if (Array.isArray(dbData.imageUrls) && dbData.imageUrls.length > 0) {
+                imagen = dbData.imageUrls[0];
+            }
+        }
+        return {
+            ...prod,
+            imagen,
+        };
+    });
+
+    // Ordenar del más vendido al menos vendido
+    productosArray.sort((a, b) => b.cantidadTotal - a.cantidadTotal);
+
+    renderProductosCards(productosArray);
+}
+// Filtro avanzado
 window.applyCrmFilters = function applyCrmFilters() {
     const state = window.crmState || { clientes: [] };
 
@@ -60,16 +135,15 @@ window.applyCrmFilters = function applyCrmFilters() {
     if (date) {
         filtrados = filtrados.filter(c => c.ultVenta && c.ultVenta.startsWith(date));
     }
+    // Si implementas campo canal, añade aquí tu filtro por canal.
 
     renderClientes(filtrados);
 
-    // 📊 RECALCULAR KPIs EN FILTROS: Basado en los clientes visibles actuales que estén "Pagado"
-    const ordenesPagadasFiltradas = filtrados.filter(c => c.status.toLowerCase() === 'pagado');
-
-    const totalMonto = ordenesPagadasFiltradas.reduce((acc, c) => acc + c.montoTotal, 0);
+    // KPIs
+    const totalMonto = filtrados.reduce((acc, c) => acc + c.montoTotal, 0);
     const kpiQty = document.getElementById('crm-kpi-qty');
     const kpiAmount = document.getElementById('crm-kpi-amount');
-    if (kpiQty) kpiQty.innerText = ordenesPagadasFiltradas.length;
+    if (kpiQty) kpiQty.innerText = filtrados.length;
     if (kpiAmount) kpiAmount.innerText = `$${totalMonto.toFixed(2)}`;
 };
 
@@ -156,7 +230,7 @@ window.showLeadsModal = async function showLeadsModal(clienteId, clienteNombre) 
 
     snap.forEach((docu) => {
         const l = docu.data();
-        
+
         // Configuración visual del canal de contacto
         let channelIcon = "fa-comment";
         let channelBg = "bg-blue-500 text-white";
@@ -173,8 +247,8 @@ window.showLeadsModal = async function showLeadsModal(clienteId, clienteNombre) 
             channelBg = "bg-blue-500 text-white";
         }
 
-        const dateStr = l.fecha ? new Date(l.fecha).toLocaleString('es-VE', { 
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+        const dateStr = l.fecha ? new Date(l.fecha).toLocaleString('es-VE', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
         }) : 'Sin fecha';
 
         let comprobanteHTML = "";
@@ -231,7 +305,7 @@ window.showLeadsModal = async function showLeadsModal(clienteId, clienteNombre) 
                 </div>
             </div>
         `;
-        
+
         timelineContainer.insertAdjacentHTML('beforeend', itemHTML);
     });
 
