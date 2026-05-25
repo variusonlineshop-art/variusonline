@@ -25,12 +25,14 @@
 </head>
 
 <body class="h-full text-slate-900 antialiased bg-gradient-to-b from-slate-50 to-white font-sans">
-    
+
     <div class="min-h-screen flex items-center justify-center p-6" role="main">
-        <div class="w-full max-w-[520px] bg-white rounded-xl p-7 shadow-custom-card flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between transition-all" aria-live="polite" aria-busy="true">
-            
+        <div class="w-full max-w-[520px] bg-white rounded-xl p-7 shadow-custom-card flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between transition-all"
+            aria-live="polite" aria-busy="true">
+
             <div class="flex gap-3.5 items-center flex-1 min-w-0 w-full" title="Varius — Admin">
-                <div class="w-14 h-14 flex-shrink-0 rounded-xl bg-gradient-to-br from-[#3b3b3b] to-[#131313] flex items-center justify-center text-white font-bold shadow-custom-inner overflow-hidden" aria-hidden="true">
+                <div class="w-14 h-14 flex-shrink-0 rounded-xl bg-gradient-to-br from-[#3b3b3b] to-[#131313] flex items-center justify-center text-white font-bold shadow-custom-inner overflow-hidden"
+                    aria-hidden="true">
                     <img src="assets/img/logo.png" alt="Varius" class="w-full object-cover">
                 </div>
                 <div class="min-w-0">
@@ -39,8 +41,10 @@
                 </div>
             </div>
 
-            <div class="flex gap-3.5 items-center flex-shrink-0 w-full sm:w-auto justify-between sm:justify-start" aria-hidden="false">
-                <div class="w-[42px] h-[42px] rounded-full border-4 border-slate-900/5 border-top-color border-t-accent animate-spin flex-shrink-0" aria-hidden="true"></div>
+            <div class="flex gap-3.5 items-center flex-shrink-0 w-full sm:w-auto justify-between sm:justify-start"
+                aria-hidden="false">
+                <div class="w-[42px] h-[42px] rounded-full border-4 border-slate-900/5 border-top-color border-t-accent animate-spin flex-shrink-0"
+                    aria-hidden="true"></div>
                 <div class="flex flex-col gap-1 items-end sm:items-start text-right sm:text-left">
                     <div id="statusMain" class="text-sm font-semibold text-slate-900">Cargando</div>
                     <div id="statusSub" class="text-xs text-gray-500">Aguarda unos segundos...</div>
@@ -78,15 +82,30 @@
             if (sub) STATUS_SUB.textContent = sub;
         }
 
+        // Si ya conocemos el rol localmente, podemos acelerar la interfaz mentalmente
+        const cachedRole = localStorage.getItem('_user_role');
+
         const fallbackTimer = setTimeout(() => {
             setStatus('Tiempo de espera', 'No se pudo verificar a tiempo. Intenta recargar.');
         }, 12000);
 
-        onAuthStateChanged(auth, async (user) => {
+        // Guardamos la referencia de la función para poder apagarla
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            // Apagamos el listener inmediatamente al recibir el estado inicial
+            unsubscribe();
             clearTimeout(fallbackTimer);
+
             if (!user) {
-                setStatus('No autenticado', 'Redirigiendo a la página de inicio de sesión...');
-                setTimeout(() => { window.location.href = '/index.html'; }, 900);
+                localStorage.removeItem('_user_role'); // Limpiamos caché si cerró sesión
+                setStatus('No autenticado', 'Redirigiendo al inicio de sesión...');
+                setTimeout(() => { window.location.href = '/login.html'; }, 900); // <-- Ojo con la ruta origen
+                return;
+            }
+
+            // Si tenemos el rol en caché, procesamos la ruta ultra rápido
+            if (cachedRole && ROLE_ROUTES[cachedRole]) {
+                setStatus('Redirigiendo', `Entrando como ${cachedRole}...`);
+                setTimeout(() => { window.location.href = ROLE_ROUTES[cachedRole]; }, 400);
                 return;
             }
 
@@ -95,14 +114,19 @@
             try {
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 const role = userDoc.exists() ? (userDoc.data().role || 'vendedor') : 'vendedor';
+
+                // Guardamos en caché para la próxima visita
+                localStorage.setItem('_user_role', role);
+
                 setStatus('Redirigiendo', `Entrando como ${role}...`);
                 setTimeout(() => {
                     window.location.href = ROLE_ROUTES[role] || ROLE_ROUTES['vendedor'];
                 }, 700);
+
             } catch (err) {
                 console.error('Error verificando rol:', err);
-                setStatus('Error', 'No se pudo comprobar el rol. Revisa la consola.');
-                setTimeout(() => { window.location.href = '/index.html'; }, 2000);
+                setStatus('Error', 'No se pudo comprobar el rol.');
+                setTimeout(() => { window.location.href = '/login.html'; }, 2000);
             }
         });
     </script>
