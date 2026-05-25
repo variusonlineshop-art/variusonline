@@ -101,7 +101,7 @@ window.showAgendaFullCalendarDay = function (date, orders) {
                         </h4>
                     </div>
                     <div class="flex flex-col sm:items-end gap-1">
-                        <span class="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full border bg-amber-50 text-amber-600 border-amber-200 shadow-sm">
+                        <span class="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full border bg-blue-50 text-blue-600 border-blue-200 shadow-sm">
                             ${order.status}
                         </span>
                         <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
@@ -112,7 +112,7 @@ window.showAgendaFullCalendarDay = function (date, orders) {
 
                 <div class="mb-4 bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
                     <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <i class="fa-regular fa-clock text-amber-500"></i> Gestión Programada para Hoy
+                        <i class="fa-regular fa-clock text-blue-500"></i> Gestión Programada para Hoy
                     </p>
                     <ul class="space-y-3">
                         ${allPostpones.map(h => `
