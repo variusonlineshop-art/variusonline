@@ -15,7 +15,7 @@ const PAGE_CATALOG = {
     pedidos:    { name: 'Pedidos',      icon: '📋',   url: './orders.html' },
     cierre_caja:{ name: 'Cierre de Caja', icon: '💰', url: './cierre-caja.html' },
     crm:        { name: 'CRM',          icon: '🖥️',   url: './crm.html' },
-    chat:       { name: 'Chat',         icon: '💬',   url: './chats.html' },
+    //chat:       { name: 'Chat',         icon: '💬',   url: './chats.html' },
     visitas:    { name: 'Visitas',      icon: '👁️',   url: './visits.html' },
     routes:     { name: 'Mis Rutas',    icon: '📍',   url: './routes.html' }
 };
