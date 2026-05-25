@@ -87,6 +87,65 @@ export function renderClientes(clientes) {
     }).join('');
 }
 
+export function renderProductosCards(productos) {
+    const container = document.getElementById('crm-productos-cards');
+    if (!container) return;
+
+    container.innerHTML = '';
+    if (!productos.length) {
+        container.innerHTML = `
+            <div class="col-span-full text-center text-gray-400 py-8">
+                <i class="fa-solid fa-box-open text-4xl mb-3 block"></i>
+                No hay productos vendidos en órdenes con estatus "Pagado".
+            </div>
+        `;
+        return;
+    }
+
+    productos.forEach((prod, idx) => {
+        // --- FECHA DE ÚLTIMO PAGO ---
+        let fechaUltimaVenta = '-';
+        if (prod.ultimaVenta) {
+            let fechaJS = null;
+            if (typeof prod.ultimaVenta === 'object' && typeof prod.ultimaVenta.toDate === 'function') {
+                fechaJS = prod.ultimaVenta.toDate();
+            } else if (typeof prod.ultimaVenta === 'string' || typeof prod.ultimaVenta === 'number') {
+                fechaJS = new Date(prod.ultimaVenta);
+            }
+            if (fechaJS && !isNaN(fechaJS.getTime())) {
+                fechaUltimaVenta = fechaJS.toLocaleString('es-VE');
+            }
+        }
+
+        container.innerHTML += `
+            <div class="bg-white rounded-2xl border border-gray-100 shadow flex flex-col p-5 gap-3 hover:shadow-md transition">
+                <div class="flex items-center gap-3">
+                    <img src="${prod.imagen || 'https://via.placeholder.com/60'}" alt="${prod.nombre}" class="w-16 h-16 rounded-xl border border-gray-200 object-cover bg-gray-100 flex-shrink-0">
+                    <div>
+                        <h4 class="font-bold text-gray-800 text-base">${prod.nombre}</h4>
+                        <span class="bg-gray-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full ml-0">
+                            #${idx + 1} MÁS VENDIDO
+                        </span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-1 text-xs text-gray-500 mt-2">
+                    <div>
+                        <span class="font-semibold text-gray-700">Precio (última orden):</span>
+                        $${prod.precioUnitario?.toFixed(2) ?? '0.00'}
+                    </div>
+                    <div>
+                        <span class="font-semibold text-gray-700">Unidades vendidas:</span>
+                        <span class="text-indigo-700 font-extrabold">${prod.cantidadTotal}</span>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-gray-700">Último pago:</span>
+                        <span class="text-emerald-700 font-bold">${fechaUltimaVenta}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
 /**
  * Cambiador de pestañas de la interfaz
  */
