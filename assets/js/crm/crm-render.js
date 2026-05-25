@@ -164,6 +164,10 @@ export function switchTab(tabId) {
         targetBtn.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
         targetBtn.classList.remove('text-gray-500');
     }
+
+    if (tabId === 'agenda' && typeof window.renderAgenda === 'function') {
+        window.renderAgenda();
+    }
 }
 
 /**

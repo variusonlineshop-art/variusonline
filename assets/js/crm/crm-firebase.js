@@ -60,7 +60,7 @@ export function listenCrmOrders(callback) {
                     uniqueCustomers.push({
                         id: doc.id,
                         items: data.items || [],
-                        paymentUpdatedAt: data.paymentUpdatedAt || "", // <--- sumar esto
+                        paymentUpdatedAt: data.paymentUpdatedAt || "",
                         nombre: name,
                         telefono: formattedPhone,
                         email: email,
@@ -69,7 +69,11 @@ export function listenCrmOrders(callback) {
                         montoTotal: parseFloat(total),
                         status: currentStatus,
                         ultimaInteraccion: `Orden asociada: ${doc.id}`,
-                        vendedor: vendedor
+                        vendedor: vendedor,
+                        // 🚩 CAMPOS PARA AGENDA
+                        postponeHistory: data.postponeHistory || [],
+                        postponeAt: data.postponeAt || "",
+                        postponeReactiveAt: data.postponeReactiveAt || "",
                     });
                 }
             }
