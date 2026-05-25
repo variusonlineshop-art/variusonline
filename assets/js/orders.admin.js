@@ -362,7 +362,6 @@ function fetchAndRenderOrders(filters = {}) {
                                     <button onclick="openPostponeOrder('${orderId}')" title="Postergar" class="bg-yellow-200 flex-1 py-2 rounded-lg hover:bg-yellow-500 hover:text-white text-yellow-700 transition-all">
                                         <i class="fa-regular fa-clock text-xs"></i>
                                     </button>
-                                    <button title="Historial del Cliente" class="flex-1 py-2 rounded-lg bg-blue-100 hover:bg-blue-300 text-blue-600 hover:text-white shadow-sm"><i class="fa-regular fa-calendar text-xs"></i></button>
                                     
                                     ${showCobranzaBtn ? `
                                         <button onclick="openPaymentModalFromOrderId('${orderId}')" title="Gestionar Cobranza" class="flex-1 py-2 rounded-lg bg-blue-100 hover:bg-blue-300 text-blue-600 hover:text-white shadow-sm">
