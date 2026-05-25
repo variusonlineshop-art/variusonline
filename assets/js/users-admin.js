@@ -370,7 +370,7 @@ const PAGES = [
     { key: 'pedidos', label: 'Pedidos', icon: '📝' },
     { key: 'cierre_caja', label: 'Cierre de Caja', icon: '💰' },
     { key: 'crm', label: 'CRM', icon: '🖥️' },
-    { key: 'chat', label: 'Chat', icon: '💬' },
+    //{ key: 'chat', label: 'Chat', icon: '💬' },
     { key: 'visitas', label: 'Visitas', icon: '👁️' },
     { key: 'routes', label: 'Rutas', icon: '📍' }
 ];
