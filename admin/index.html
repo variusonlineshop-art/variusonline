@@ -1,200 +1,58 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="h-full bg-slate-50">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Admin — redirigiendo...</title>
 
-    <!-- Pequeños estilos embebidos para el preloader (centrado, accesible y limpio) -->
-    <style>
-        :root {
-            --bg: #f6f7f8;
-            --card-bg: #ffffff;
-            --muted: #6b7280;
-            --accent: #2b6ef6;
-            --radius: 12px;
-            --shadow: 0 8px 30px rgba(11, 15, 34, 0.06);
-        }
-
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(180deg, var(--bg), #ffffff);
-            color: #0f172a;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        .center-wrap {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-        }
-
-        .preloader-card {
-            width: 100%;
-            max-width: 520px;
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 28px;
-            box-shadow: var(--shadow);
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .brand {
-            display: flex;
-            gap: 14px;
-            align-items: center;
-            flex: 1;
-            min-width: 0;
-        }
-
-        .logo {
-            width: 56px;
-            height: 56px;
-            flex: 0 0 56px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #3b3b3b, #131313);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            box-shadow: inset 0 -6px 20px rgba(0, 0, 0, 0.06);
-        }
-
-        .brand-text {
-            min-width: 0;
-        }
-
-        .brand-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin: 0;
-            line-height: 1;
-            color: #0f172a;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .brand-sub {
-            margin-top: 4px;
-            color: var(--muted);
-            font-size: 13px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        /* right area: spinner + message */
-        .status {
-            display: flex;
-            gap: 14px;
-            align-items: center;
-            flex-shrink: 0;
-        }
-
-        /* spinner */
-        .spinner {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            position: relative;
-            box-sizing: border-box;
-            border: 4px solid rgba(15, 23, 42, 0.06);
-            border-top-color: var(--accent);
-            animation: spin 1s linear infinite;
-            flex-shrink: 0;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        accent: '#2b6ef6',
+                    },
+                    boxShadow: {
+                        'custom-card': '0 8px 30px rgba(11, 15, 34, 0.06)',
+                        'custom-inner': 'inset 0 -6px 20px rgba(0, 0, 0, 0.06)',
+                    }
+                }
             }
         }
-
-        .status-text {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            align-items: flex-start;
-        }
-
-        .status-text .main {
-            font-size: 14px;
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .status-text .sub {
-            font-size: 13px;
-            color: var(--muted);
-        }
-        .note {
-            margin-top: 12px;
-            font-size: 12px;
-            color: var(--muted);
-            text-align: center;
-        }
-
-        /* responsive */
-        @media (max-width:600px) {
-            .preloader-card {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-                padding: 18px;
-            }
-
-            .status {
-                width: 100%;
-                justify-content: space-between;
-            }
-
-            .status-text {
-                align-items: flex-end;
-            }
-
-            .brand {
-                width: 100%;
-            }
-        } 
-    </style>
+    </script>
 </head>
 
-<body>
-    <div class="center-wrap" role="main">
-        <div class="preloader-card" aria-live="polite" aria-busy="true">
-            <div class="brand" title="Varius — Admin">
-                <div class="logo" aria-hidden="true">
-                    <img src="assets/img/logo.png" alt="Varius" width=100%">
+<body class="h-full text-slate-900 antialiased bg-gradient-to-b from-slate-50 to-white font-sans">
+    
+    <div class="min-h-screen flex items-center justify-center p-6" role="main">
+        <div class="w-full max-w-[520px] bg-white rounded-xl p-7 shadow-custom-card flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between transition-all" aria-live="polite" aria-busy="true">
+            
+            <div class="flex gap-3.5 items-center flex-1 min-w-0 w-full" title="Varius — Admin">
+                <div class="w-14 h-14 flex-shrink-0 rounded-xl bg-gradient-to-br from-[#3b3b3b] to-[#131313] flex items-center justify-center text-white font-bold shadow-custom-inner overflow-hidden" aria-hidden="true">
+                    <img src="assets/img/logo.png" alt="Varius" class="w-full object-cover">
                 </div>
-                <div class="brand-text">
-                    <h1 class="brand-title">Varius — Panel</h1>
-                    <div class="brand-sub">Verificando usuario y redirigiendo…</div>
+                <div class="min-w-0">
+                    <h1 class="text-lg font-bold m-0 leading-none text-slate-900 truncate">Varius — Panel</h1>
+                    <div class="mt-1 text-gray-500 text-xs truncate">Verificando usuario y redirigiendo…</div>
                 </div>
             </div>
 
-            <div class="status" aria-hidden="false">
-                <div class="spinner" aria-hidden="true"></div>
-                <div class="status-text">
-                    <div id="statusMain" class="main">Cargando</div>
-                    <div id="statusSub" class="sub">Aguarda unos segundos...</div>
+            <div class="flex gap-3.5 items-center flex-shrink-0 w-full sm:w-auto justify-between sm:justify-start" aria-hidden="false">
+                <div class="w-[42px] h-[42px] rounded-full border-4 border-slate-900/5 border-top-color border-t-accent animate-spin flex-shrink-0" aria-hidden="true"></div>
+                <div class="flex flex-col gap-1 items-end sm:items-start text-right sm:text-left">
+                    <div id="statusMain" class="text-sm font-semibold text-slate-900">Cargando</div>
+                    <div id="statusSub" class="text-xs text-gray-500">Aguarda unos segundos...</div>
                 </div>
             </div>
+
         </div>
     </div>
 
-    <div class="note">Si la redirección tarda más de 10 segundos, revisa tu conexión o inicia sesión de nuevo.</div>
+    <div class="fixed bottom-4 left-0 right-0 px-4 text-center text-xs text-gray-500">
+        Si la redirección tarda más de 10 segundos, revisa tu conexión o inicia sesión de nuevo.
+    </div>
 
     <script type="module">
         import { firebaseConfig } from '../assets/js/firebase-config.js';
@@ -215,13 +73,11 @@
             administrador: 'administrador.html'
         };
 
-        // small helper to update UI
         function setStatus(main, sub) {
             if (main) STATUS_MAIN.textContent = main;
             if (sub) STATUS_SUB.textContent = sub;
         }
 
-        // timeout fallback in case onAuthStateChanged doesn't fire (network issues)
         const fallbackTimer = setTimeout(() => {
             setStatus('Tiempo de espera', 'No se pudo verificar a tiempo. Intenta recargar.');
         }, 12000);
@@ -230,7 +86,6 @@
             clearTimeout(fallbackTimer);
             if (!user) {
                 setStatus('No autenticado', 'Redirigiendo a la página de inicio de sesión...');
-                // slight delay for UX before redirect
                 setTimeout(() => { window.location.href = '/index.html'; }, 900);
                 return;
             }
@@ -241,14 +96,12 @@
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 const role = userDoc.exists() ? (userDoc.data().role || 'vendedor') : 'vendedor';
                 setStatus('Redirigiendo', `Entrando como ${role}...`);
-                // small delay so user sees the message
                 setTimeout(() => {
                     window.location.href = ROLE_ROUTES[role] || ROLE_ROUTES['vendedor'];
                 }, 700);
             } catch (err) {
                 console.error('Error verificando rol:', err);
                 setStatus('Error', 'No se pudo comprobar el rol. Revisa la consola.');
-                // optionally redirect to login after short delay
                 setTimeout(() => { window.location.href = '/index.html'; }, 2000);
             }
         });
