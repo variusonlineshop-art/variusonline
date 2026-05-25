@@ -5,100 +5,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>CRM — Varius</title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
 
-    <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ===== CONFIGURACIÓN BASE ===== */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
         }
 
-        :root {
-            --color-primario: #7E3FF0;
-            --color-secundario: #4CAF50;
-            --color-pendiente: #FF9800;
-            --color-email: #2196F3;
-            --color-texto: #2D2D2D;
-            --color-texto-secundario: #757575;
-            --color-gris-claro: #F8F9FA;
-            --color-borde: #E0E0E0;
-            --color-blanco: #FFFFFF;
+        .sidebar {
+            z-index: 10 !important;
         }
 
-        /* ===== HEADER ===== */
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        /* ===== TABS ===== */
-        .tabs {
-            display: flex;
-            background: var(--color-gris-claro);
-            padding: 0 24px;
-        }
-
-        .tab {
-            padding: 16px 24px;
-            cursor: pointer;
-            color: var(--color-texto-secundario);
-        }
-
-        .tab.active {
-            color: var(--color-primario);
-            border-bottom: 3px solid var(--color-primario);
-        }
-
-        /* ===== FILTROS GLOBALES ===== */
-        .filters-bar {
-            background: var(--color-gris-claro);
-            padding: 16px;
-            margin: 0 24px 24px;
-            border-radius: 12px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .filter-group label {
-            margin-bottom: 6px;
-            font-weight: 600;
-        }
-
-        .filter-group input,
-        .filter-group select {
-            padding: 12px;
-            border: 1px solid var(--color-borde);
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        .btn-filter {
-            background: var(--color-primario);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            height: 44px;
-        }
-
-        /* ===== CONTENIDO PRINCIPAL ===== */
-        .main-content {
-            padding: 0 24px;
-        }
-
+        /* Utilidades para transiciones de pestañas */
         .tab-content {
             display: none;
         }
@@ -106,184 +31,11 @@
         .tab-content.active {
             display: block;
         }
-
-        /* ===== CARDS Y MÉTRICAS ===== */
-        .form-card {
-            background: var(--color-gris-claro);
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 24px;
-        }
-
-        .form-card h3 {
-            margin-bottom: 16px;
-            color: var(--color-texto);
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .metrics-row {
-            display: flex;
-            gap: 16px;
-            margin: 24px 0;
-        }
-
-        .metric-card {
-            background: var(--color-gris-claro);
-            padding: 16px;
-            border-radius: 12px;
-            flex: 1;
-        }
-
-        .metric-value {
-            font-size: 24px;
-            font-weight: bold;
-            margin-top: 8px;
-        }
-
-        /* ===== LISTAS ===== */
-        .data-list {
-            margin-top: 16px;
-        }
-
-        .list-item {
-            border: 1px solid var(--color-borde);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .list-item:hover {
-            background: var(--color-gris-claro);
-        }
-
-        .list-item.expanded {
-            background: var(--color-gris-claro);
-        }
-
-        .item-header {
-            display: flex;
-            gap: 16px;
-            align-items: start;
-        }
-
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--color-primario);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-
-        .product-img {
-            width: 50px;
-            height: 50px;
-            border-radius: 8px;
-            background: #eee;
-        }
-
-        .item-body {
-            flex: 1;
-        }
-
-        .item-actions {
-            margin-top: 12px;
-            color: var(--color-primario);
-        }
-
-        .item-actions a {
-            margin-right: 12px;
-            text-decoration: none;
-        }
-
-        .expanded-content {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1;
-            px solid var(--color-borde);
-            display: none;
-        }
-
-        .expanded-content.active {
-            display: block;
-        }
-
-        /* ===== BOTONES ===== */
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .btn-primary {
-            background: var(--color-secundario);
-            color: white;
-            width: 100%;
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--color-primario);
-            border: 1px solid var(--color-primario);
-        }
-
-        /* ===== TOAST ===== */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--color-secundario);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: bold;
-            display: none;
-            z-index: 1000;
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) {
-            .metrics-row {
-                flex-direction: column;
-            }
-
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .filters-bar {
-                grid-template-columns: 1fr;
-            }
-
-            .tabs {
-                overflow-x: auto;
-                white-space: nowrap;
-            }
-
-            .tab {
-                min-width: 120px;
-                text-align: center;
-            }
-        }
     </style>
 </head>
 
 <body>
     <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
-
     <!-- Top bar -->
     <header class="topbar">
         <div class="top-left">
@@ -302,263 +54,251 @@
                 <span class="dot"></span>
                 <span class="label">Desconectado</span>
             </div>
+
+            <div class="ticker-container">
+                <div class="ticker-wrapper">
+                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">
+                        $ Bs/USD Cargando...
+                    </div>
+                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">
+                        € Bs./EUR Cargando...
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 
     <div id="app-sidebar"></div>
 
-    <!-- Main content -->
     <main class="main">
-        <section class="table-wrap card">
-            <!-- Tabs -->
-            <div class="tabs">
-                <div class="tab active" data-tab="clientes">👥 Clientes</div>
-                <div class="tab" data-tab="pedidos">🛍️ Pedidos</div>
-                <div class="tab" data-tab="productos">📦 Productos</div>
-                <div class="tab" data-tab="comunicaciones">📞 Comunicaciones</div>
-                <div class="tab" data-tab="agenda">📅 Agenda</div>
+        <div class="px-6 py-8">
+
+            <div
+                class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                <div>
+                    <h1 class="text-xl font-black text-gray-800">Centro de Relaciones (CRM)</h1>
+                    <p class="text-xs text-gray-400">Seguimiento de prospectos, clientes, comunicaciones y agenda
+                        comercial</p>
+                </div>
+                <div class="flex flex-wrap gap-2 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-auto">
+                    <button onclick="switchTab('clientes')" id="btn-tab-clientes"
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all bg-white text-blue-600 shadow-sm">
+                        <i class="fa-solid fa-users mr-1.5"></i> Clientes
+                    </button>
+                    <button onclick="switchTab('pedidos')" id="btn-tab-pedidos"
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        <i class="fa-solid fa-basket-shopping mr-1.5"></i> Pedidos
+                    </button>
+                    <button onclick="switchTab('productos')" id="btn-tab-productos"
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        <i class="fa-solid fa-box mr-1.5"></i> Productos
+                    </button>
+                    <button onclick="switchTab('comunicaciones')" id="btn-tab-comunicaciones"
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        <i class="fa-solid fa-comments mr-1.5"></i> Comunicaciones
+                    </button>
+                    <button onclick="switchTab('agenda')" id="btn-tab-agenda"
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        <i class="fa-solid fa-calendar-days mr-1.5"></i> Agenda
+                    </button>
+                </div>
             </div>
 
-            <!-- Filtros Globales -->
-            <div class="filters-bar">
-                <div class="filter-group">
-                    <label>Rango de fechas</label>
-                    <input type="date" id="fechaDesde">
+            <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 items-end">
+                    <div>
+                        <label
+                            class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Rango
+                            de fechas</label>
+                        <input type="date" id="crmFilterDate" onchange="applyCrmFilters()"
+                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
+                    </div>
+                    <div>
+                        <label
+                            class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Estado
+                            de Pedido</label>
+                        <select id="crmFilterStatus" onchange="applyCrmFilters()"
+                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 cursor-pointer transition-all">
+                            <option value="all">Todos los estados</option>
+                            <option value="Contactado">Contactado</option>
+                            <option value="Postergado">Postergado</option>
+                            <option value="Pagado">Culminados</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label
+                            class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Método
+                            de Contacto</label>
+                        <select id="crmFilterChannel" onchange="applyCrmFilters()"
+                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 cursor-pointer transition-all">
+                            <option value="all">Todos los canales</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="llamada">Llamada Telefónica</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2 lg:col-span-2 xl:col-span-1">
+                        <button onclick="clearCrmFilters()"
+                            class="w-full p-3 bg-red-50 text-red-500 font-bold rounded-2xl hover:bg-red-500 hover:text-white transition-all text-sm flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-eraser"></i> Limpiar Filtros
+                        </button>
+                    </div>
                 </div>
-                <div class="filter-group">
-                    <label>Estado de pedido</label>
-                    <select>
-                        <option>Todos</option>
-                        <option>Pendiente</option>
-                        <option>Pagado</option>
-                        <option>Entregado</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Motorizado</label>
-                    <select>
-                        <option>Todos</option>
-                        <option>Juan Pérez</option>
-                        <option>María López</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Método de contacto</label>
-                    <select>
-                        <option>Todos</option>
-                        <option>WhatsApp</option>
-                        <option>Email</option>
-                        <option>Llamada</option>
-                    </select>
-                </div>
-                <button class="btn-filter">Aplicar filtros</button>
             </div>
 
-            <!-- Contenido -->
-            <div class="main-content">
-                <!-- CLIENTES -->
-                <div class="tab-content active" id="clientes">
-                    <!-- Formulario Nuevo Cliente -->
-                    <div class="form-card">
-                        <h3>➕ Nuevo cliente</h3>
-                        <div class="form-grid">
-                            <div class="filter-group">
-                                <label>Nombre completo *</label>
-                                <input type="text" id="nombreCliente" placeholder="Ej: Ana Martínez">
+            <div id="tab-clientes" class="tab-content active space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
+                        <h3
+                            class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-user-plus text-blue-500"></i> Agregar Nuevo Cliente
+                        </h3>
+                        <form id="form-nuevo-cliente" onsubmit="agregarCliente(event)"
+                            class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <input type="text" id="newClientName" placeholder="Nombre completo *" required
+                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
                             </div>
-                            <div class="filter-group">
-                                <label>Teléfono *</label>
-                                <input type="tel" id="telefonoCliente" placeholder="+58 412 1234567">
+                            <div>
+                                <input type="tel" id="newClientPhone" placeholder="Teléfono (Ej: +58412...)" required
+                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
                             </div>
-                            <div class="filter-group">
-                                <label>Email</label>
-                                <input type="email" id="emailCliente" placeholder="ana@email.com">
+                            <div>
+                                <input type="email" id="newClientEmail" placeholder="Correo electrónico"
+                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
                             </div>
-                        </div>
-                        <button class="btn-primary" id="btnGuardarCliente">✅ Guardar cliente</button>
+                            <div class="sm:col-span-3">
+                                <button type="submit"
+                                    class="w-full p-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-100">
+                                    <i class="fa-solid fa-floppy-disk"></i> Guardar Cliente
+                                </button>
+                            </div>
+                        </form>
                     </div>
-
-                    <!-- Métricas -->
-                    <div class="metrics-row">
-                        <div class="metric-card">
-                            <div>Cantidad Ventas Realizadas</div>
-                            <div class="metric-value">120</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div
+                            class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+                                Ventas Realizadas</p>
+                            <h3 class="text-3xl font-black text-gray-800" id="crm-kpi-qty">120</h3>
+                            <span class="text-[10px] text-emerald-500 font-bold mt-2"><i
+                                    class="fa-solid fa-arrow-up"></i> Global</span>
                         </div>
-                        <div class="metric-card">
-                            <div>Monto de Ventas Realizadas</div>
-                            <div class="metric-value">$3.598.800</div>
-                        </div>
-                    </div>
-
-                    <!-- Lista de Clientes -->
-                    <div class="data-list" id="listaClientes">
-                        <!-- Clientes simulados -->
-                        <div class="list-item" data-cliente="1">
-                            <div class="item-header">
-                                <div class="avatar">A</div>
-                                <div class="item-body">
-                                    <div><strong>Ana Martínez</strong></div>
-                                    <div>📱 +58 412 1234567</div>
-                                    <div>ana@email.com</div>
-                                    <div>10/04/2025 • $149.970</div>
-                                    <div>
-                                        <span style="color:var(--color-primario)">📱 10/04 14:30</span> "Pedido
-                                        confirmado"
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="item-actions">
-                                <a href="#">✏️ Editar</a>
-                                <a href="#">➕ Actividad</a>
-                                <a href="#">📱 WhatsApp</a>
-                            </div>
-                            <div class="expanded-content" id="cliente-1-expanded">
-                                <h4>Historial de pedidos</h4>
-                                <ul>
-                                    <li>PED-101: Camisa X, Pantalón Y - $149.970</li>
-                                </ul>
-                                <h4>Productos comprados</h4>
-                                <ul>
-                                    <li>Camisa Varius (3 veces)</li>
-                                </ul>
-                            </div>
+                        <div
+                            class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+                                Monto de Ventas</p>
+                            <h3 class="text-2xl font-black text-gray-800" id="crm-kpi-amount">$3.598,00</h3>
+                            <span class="text-[10px] text-blue-500 font-bold mt-2">Ref. Divisas</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- PEDIDOS -->
-                <div class="tab-content" id="pedidos">
-                    <div class="metrics-row">
-                        <div class="metric-card">
-                            <div>Pedidos hoy</div>
-                            <div class="metric-value">5</div>
-                        </div>
-                        <div class="metric-card">
-                            <div>Por cobrar</div>
-                            <div class="metric-value">$200.000</div>
-                        </div>
-                    </div>
-                    <div class="data-list">
-                        <div class="list-item">
-                            <div><strong>PED-101</strong></div>
-                            <div>👤 Ana Martínez</div>
-                            <div>10/04/2025</div>
-                            <div>Camisa X, Pantalón Y</div>
-                            <div><strong>$149.970</strong></div>
-                            <div style="color:var(--color-secundario)">✅ Entregado</div>
-                            <div style="color:var(--color-primario)">Efectivo + Pago Móvil</div>
-                            <div>Juan Pérez</div>
-                        </div>
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Base de Datos de Clientes
+                    </h3>
+                    <div id="crm-clientes-container" class="space-y-4">
                     </div>
                 </div>
+            </div>
 
-                <!-- PRODUCTOS -->
-                <div class="tab-content" id="productos">
-                    <div class="filters-bar">
-                        <div class="filter-group">
-                            <label>Nombre del producto</label>
-                            <input type="text" placeholder="Buscar por nombre...">
-                        </div>
-                        <div class="filter-group">
-                            <label>Fecha de venta (desde)</label>
-                            <input type="date">
-                        </div>
-                        <div class="filter-group">
-                            <label>Fecha de venta (hasta)</label>
-                            <input type="date">
-                        </div>
-                        <button class="btn-filter">Filtrar</button>
+            <div id="tab-pedidos" class="tab-content space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Pedidos Hoy</p>
+                        <h3 class="text-2xl font-black text-gray-800">5</h3>
                     </div>
-                    <div class="data-list">
-                        <div class="list-item">
-                            <div class="item-header">
-                                <div class="product-img"></div>
-                                <div class="item-body">
-                                    <div><strong>Camisa Varius</strong></div>
-                                    <div>$29.990</div>
-                                    <div>12 unidades</div>
-                                    <div style="color:var(--color-primario)">Fecha de Última Venta: 10/04/2025</div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Por Cobrar</p>
+                        <h3 class="text-2xl font-black text-red-500">$200,00</h3>
                     </div>
                 </div>
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <div id="crm-pedidos-container" class="space-y-4"></div>
+                </div>
+            </div>
 
-                <!-- COMUNICACIONES -->
-                <div class="tab-content" id="comunicaciones">
-                    <div class="filters-bar">
-                        <div class="filter-group">
-                            <label>Cliente</label>
-                            <select>
-                                <option>Todos</option>
-                                <option>Ana Martínez</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Tipo</label>
-                            <select>
-                                <option>Todos</option>
-                                <option>WhatsApp</option>
-                                <option>Email</option>
-                            </select>
-                        </div>
+            <div id="tab-productos" class="tab-content space-y-6">
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <div class="max-w-md mb-6">
+                        <input type="text" id="searchProductCrm" oninput="filterCrmProducts()"
+                            placeholder="Buscar producto por nombre..."
+                            class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
                     </div>
-                    <div class="data-list">
-                        <div class="list-item">
-                            <div>10/04 14:30</div>
-                            <div><strong>Ana Martínez</strong></div>
-                            <div style="color:var(--color-primario)">📱 WhatsApp</div>
-                            <div>Pedido PED-101 confirmado</div>
-                            <div style="color:var(--color-secundario)">✅ Enviado</div>
-                            <div style="margin-top: 8px; color:var(--color-primario)"><a href="#">🔁 Reenviar</a></div>
-                        </div>
+                    <div id="crm-productos-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     </div>
                 </div>
+            </div>
 
-                <!-- AGENDA -->
-                <div class="tab-content" id="agenda">
-                    <h3 style="text-align:center; margin: 0 0 16px;">Semana del 14 al 20 de abril</h3>
+            <div id="tab-comunicaciones" class="tab-content space-y-6">
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Historial de Interacciones
+                    </h3>
+                    <div id="crm-comunicaciones-container" class="space-y-4"></div>
+                </div>
+            </div>
+
+            <div id="tab-agenda" class="tab-content space-y-6">
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <div class="text-center mb-6">
+                        <h3 class="font-black text-gray-800 text-lg">Semana del 25 al 31 de Mayo</h3>
+                        <p class="text-xs text-gray-400">Compromisos de demostración y entrega programados</p>
+                    </div>
                     <div
-                        style="display:grid; grid-template-columns: repeat(7, 1fr); text-align:center; gap:8px; margin-bottom:24px;">
+                        class="grid grid-cols-7 gap-2 text-center border-b pb-4 mb-4 font-bold text-xs text-gray-400 uppercase tracking-wider">
                         <div>L</div>
                         <div>M</div>
                         <div>M</div>
                         <div>J</div>
                         <div>V</div>
-                        <div>S</div>
-                        <div>D</div>
-                        <!-- Días simulados -->
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div>18</div>
-                        <div style="background:var(--color-secundario);color:white;border-radius:50%;">19</div>
-                        <div>20</div>
+                        <div class="text-blue-600">S</div>
+                        <div class="text-red-500">D</div>
                     </div>
-                    <div class="data-list">
-                        <div class="list-item"
-                            style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border:none;">
-                            <span>⏰ En 1 hora: Demostración con Ana Martínez</span>
-                            <span>
-                                <a href="#" style="color:var(--color-primario);margin-right:12px;">✅ Completar</a>
-                                <a href="#" style="color:var(--color-primario);">🔁 Posponer</a>
-                            </span>
-                        </div>
-                    </div>
+                    <div id="crm-agenda-container" class="space-y-4"></div>
                 </div>
             </div>
 
-            <!-- Toast -->
-            <div class="toast" id="toast">✅ Cliente guardado</div>
-        </section>
+        </div>
     </main>
+
+    <div id="leadsModalBackdrop"
+        class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+    <div id="leadsModal" class="fixed inset-0 flex items-center justify-center z-50 hidden p-4 animate-fade-in">
+        <div
+            class="bg-white max-w-2xl w-full rounded-3xl shadow-xl border border-gray-100 flex flex-col max-h-[85vh] relative overflow-hidden transition-all transform scale-95 duration-300">
+
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                    <h3 class="font-black text-gray-800 text-lg flex items-center gap-2" id="leadsModalTitle">
+                        <i class="fa-solid fa-clock-rotate-left text-blue-500"></i> Historial de Interacciones
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Seguimiento cronológico del cliente seleccionado</p>
+                </div>
+                <button onclick="closeLeadsModal()"
+                    class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="leadsModalList" class="p-6 overflow-y-auto space-y-6 flex-1 bg-white custom-scrollbar">
+            </div>
+
+            <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button onclick="closeLeadsModal()"
+                    class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
+                    Cerrar Ventana
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="../assets/js/sidebar-loader.js"></script>
-    <script type="module" src="../assets/js/customer-relationship-management.js"></script>
-    <script type="module" src="../assets/js/session-timeout.js"></script>
-</body>
+    <script type="module" src="../assets/js/crm/crm-main.js"></script>
 
+    <script type="module" src="../assets/js/sidebar-loader.js"></script>
+    <script type="module" src="../assets/js/session-timeout.js"></script>
+    <script type="module" src="../assets/js/money.cash.js"></script>
+
+</body>
 
 </html>
