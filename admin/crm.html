@@ -36,6 +36,16 @@
         .fc-daygrid-day {
             background: #f8fafc;
         }
+
+        /* Ocultar barra de scroll en pestañas móviles */
+        .style-scroll-x {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .style-scroll-x::-webkit-scrollbar {
+            display: none;
+        }
     </style>
 </head>
 
@@ -85,25 +95,26 @@
                     <p class="text-xs text-gray-400">Seguimiento de prospectos, clientes, comunicaciones y agenda
                         comercial</p>
                 </div>
-                <div class="flex flex-wrap gap-2 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-auto">
+                <div
+                    class="flex overflow-x-auto whitespace-nowrap gap-2 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-auto scrollbar-none style-scroll-x">
                     <button onclick="switchTab('clientes')" id="btn-tab-clientes"
-                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all bg-white text-blue-600 shadow-sm">
+                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all bg-white text-blue-600 shadow-sm">
                         <i class="fa-solid fa-users mr-1.5"></i> Clientes
                     </button>
                     <button onclick="switchTab('pedidos')" id="btn-tab-pedidos"
-                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-basket-shopping mr-1.5"></i> Pedidos
                     </button>
                     <button onclick="switchTab('productos'); loadProductosVendidos();" id="btn-tab-productos"
-                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-box mr-1.5"></i> Productos
                     </button>
                     <button onclick="switchTab('comunicaciones')" id="btn-tab-comunicaciones"
-                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
-                        <i class="fa-solid fa-comments mr-1.5"></i> Comunicaciones
+                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        <i class="fa-solid fa-comments mr-1.5"></i> Mensajes
                     </button>
                     <button onclick="switchTab('agenda')" id="btn-tab-agenda"
-                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-calendar-days mr-1.5"></i> Agenda
                     </button>
                 </div>
@@ -232,18 +243,6 @@
                         <div
                             class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
                             <i class="fa-solid fa-sack-dollar"></i>
-                        </div>
-                    </div>
-
-                    <div
-                        class="p-5 rounded-3xl bg-white border border-gray-100 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Ticket Promedio</p>
-                            <h3 id="kpi-pedidos-average" class="text-2xl font-black text-blue-600 mt-1">$0.00</h3>
-                        </div>
-                        <div
-                            class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
-                            <i class="fa-solid fa-calculator"></i>
                         </div>
                     </div>
                 </div>
