@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>CRM — Varius</title>
     <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,27 +14,27 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap');
+
         body {
             font-family: 'Inter', sans-serif;
         }
+
         .sidebar {
             z-index: 10 !important;
         }
+
+        /* Utilidades para transiciones de pestañas */
         .tab-content {
             display: none;
         }
+
         .tab-content.active {
             display: block;
         }
+
+        /* Ejemplo para hacer más opacos los días normales */
         .fc-daygrid-day {
             background: #f8fafc;
-        }
-        .style-scroll-x {
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        .style-scroll-x::-webkit-scrollbar {
-            display: none;
         }
     </style>
 </head>
@@ -53,6 +54,7 @@
         </div>
 
         <div class="top-search">
+            <!-- input eliminado intencionalmente -->
             <div id="presence-pill" class="presence-pill offline" role="status" aria-live="polite">
                 <span class="dot"></span>
                 <span class="label">Desconectado</span>
@@ -83,26 +85,25 @@
                     <p class="text-xs text-gray-400">Seguimiento de prospectos, clientes, comunicaciones y agenda
                         comercial</p>
                 </div>
-                <div
-                    class="flex overflow-x-auto whitespace-nowrap gap-2 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-auto scrollbar-none style-scroll-x">
+                <div class="flex flex-wrap gap-2 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-auto">
                     <button onclick="switchTab('clientes')" id="btn-tab-clientes"
-                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all bg-white text-blue-600 shadow-sm">
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all bg-white text-blue-600 shadow-sm">
                         <i class="fa-solid fa-users mr-1.5"></i> Clientes
                     </button>
                     <button onclick="switchTab('pedidos')" id="btn-tab-pedidos"
-                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-basket-shopping mr-1.5"></i> Pedidos
                     </button>
                     <button onclick="switchTab('productos'); loadProductosVendidos();" id="btn-tab-productos"
-                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-box mr-1.5"></i> Productos
                     </button>
                     <button onclick="switchTab('comunicaciones')" id="btn-tab-comunicaciones"
-                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
-                        <i class="fa-solid fa-comments mr-1.5"></i> Mensajes
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        <i class="fa-solid fa-comments mr-1.5"></i> Comunicaciones
                     </button>
                     <button onclick="switchTab('agenda')" id="btn-tab-agenda"
-                        class="tab-btn inline-flex items-center px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
+                        class="tab-btn px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-gray-500 hover:text-gray-800">
                         <i class="fa-solid fa-calendar-days mr-1.5"></i> Agenda
                     </button>
                 </div>
@@ -151,6 +152,36 @@
 
             <div id="tab-clientes" class="tab-content active space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!----
+                <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
+                        <h3
+                            class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-user-plus text-blue-500"></i> Agregar Nuevo Cliente
+                        </h3>
+                        <form id="form-nuevo-cliente" onsubmit="agregarCliente(event)"
+                            class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <input type="text" id="newClientName" placeholder="Nombre completo *" required
+                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
+                            </div>
+                            <div>
+                                <input type="tel" id="newClientPhone" placeholder="Teléfono (Ej: +58412...)" required
+                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
+                            </div>
+                            <div>
+                                <input type="email" id="newClientEmail" placeholder="Correo electrónico"
+                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <button type="submit"
+                                    class="w-full p-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-100">
+                                    <i class="fa-solid fa-floppy-disk"></i> Guardar Cliente
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                ---->
+
                     <div class="grid grid-cols-2 gap-4">
                         <div
                             class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
@@ -300,6 +331,7 @@
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script type="module" src="../assets/js/crm/crm-main.js"></script>
+
     <!-- FullCalendar core (CSS+JS) -->
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
