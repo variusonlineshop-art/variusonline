@@ -219,10 +219,10 @@ function formatCurrency(n) {
             minimumFractionDigits: fractionDigits,
             maximumFractionDigits: fractionDigits
         }).format(num);
-        return `$${nf}`;
+        return `€${nf}`;
     } catch (err) {
         const fixed = num.toFixed(fractionDigits);
-        return `$${fixed.replace('.', ',')}`;
+        return `€${fixed.replace('.', ',')}`;
     }
 }
 
