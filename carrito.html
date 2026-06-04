@@ -1,226 +1,152 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="h-full">
 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Tienda - Varius</title>
-
   
   <title>Tienda Varius | Calidad y Estilo en un solo lugar</title>
-  <meta name="description"
-    content="Explora el catálogo exclusivo de Varius. Encuentra los mejores productos con envíos a domicilio y una experiencia de compra única." />
+  <meta name="description" content="Explora el catálogo exclusivo de Varius. Encuentra los mejores productos con envíos a domicilio y una experiencia de compra única." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://www.variusonline.com/" />
 
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Tienda Varius - Catálogo Online" />
-  <meta property="og:description"
-    content="Explora nuestro catálogo exclusivo: Belleza, Tecnología y Cuidado Personal. ¡Envíos rápidos y seguros!" />
+  <meta property="og:description" content="Descubre nuestra colección exclusiva. Compra fácil, rápido y seguro en Varius." />
   <meta property="og:url" content="https://www.variusonline.com/" />
   <meta property="og:image" content="https://www.variusonline.com/assets/img/og-images.png" />
   <meta property="og:site_name" content="Varius" />
-
+  <meta name="facebook-domain-verification" content="zh5tn97t6jobmxij6pfdel4rduz95y" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Tienda Varius" />
   <meta name="twitter:description" content="Explora nuestro catálogo y aprovecha nuestras ofertas." />
   <meta name="twitter:image" content="https://www.variusonline.com/assets/img/og-images.png" />
-<meta name="facebook-domain-verification" content="zh5tn97t6jobmxij6pfdel4rduz95y" />
-  
+
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="stylesheet" href="assets/css/carrito.css">
-  <!-- Meta Pixel Code -->
-<script>
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '1447229266852557');
-fbq('track', 'PageView');
-</script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=1447229266852557&ev=PageView&noscript=1"
-/></noscript>
-<!-- End Meta Pixel Code -->
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Estilo extra inyectado para ocultar barras de scroll feas y mantener la fluidez táctil -->
   <style>
-    .field-inline-wrapper {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    #cust_operator {
-      width: 90px;
-      min-width: 75px;
-      padding: 8px;
-      border-radius: 8px;
-      border: 1px solid #e6eef6;
-    }
-
-    #cust_phone {
-      flex: 1;
-      min-width: 110px;
-      padding: 8px;
-      border-radius: 8px;
-      border: 1px solid #e6eef6;
-    }
-        /* Forzamos que el contenedor sea una columna siempre */
-.cart-page {
-  display: flex;
-  flex-direction: column; /* Esto evita que se pongan a los lados */
-  align-items: center;    /* Centra ambos cards */
-  max-width: 500px;       /* Ajusta este ancho al de tu carrito */
-  margin: 0 auto;         /* Centra todo el bloque en la página */
-  gap: 15px;              /* Espacio entre el card promo y el carrito */
-}
-
-/* Aseguramos que el card promocional no supere el ancho del carrito */
-.promo-card-glass {
-  width: 100%;
-  box-sizing: border-box; /* Para que el padding no afecte el ancho total */
-}
-
-/* Mantenemos el diseño horizontal interno del card */
-.promo-content {
-  display: flex;
-  flex-direction: row;    /* Siempre horizontal */
-  align-items: center;
-  justify-content: space-between;
-}
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
+
+  <script>
+    !function (f, b, e, v, n, t, s) {
+      if (f.fbq) return; n = f.fbq = function () {
+        n.callMethod ?
+          n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+      };
+      if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+      n.queue = []; t = b.createElement(e); t.async = !0;
+      t.src = v; s = b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t, s)
+    }(window, document, 'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1447229266852557');
+    fbq('track', 'PageView');
+  </script>
 </head>
 
-<body>
-  <header class="site-header">
-    <div class="brand">
-      <a href="./">
-        <img src="admin/assets/img/logo-horizontal.png" width="100rem" alt="Varius">
-      </a>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+  
+  <!-- HEADER MEJORADO (Basado en image_2472da.png): Excelente distribución móvil y escritorio -->
+  <header class="w-full bg-white shadow-sm border-b border-slate-100 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <div class="brand flex-shrink-0">
+        <a href="./" class="flex items-center">
+          <img src="admin/assets/img/logo-horizontal.png" class="w-24 sm:w-28 md:w-32 h-auto object-contain" alt="Varius">
+        </a>
+      </div>
+
+      <nav class="top-actions flex items-center gap-2 sm:gap-4">
+        <a href="login.html" class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50" aria-label="Mi cuenta">
+          <span class="text-lg sm:text-xl">👤</span>
+        </a>
+        <button id="openCartBtn" class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50 relative flex items-center" aria-label="Abrir carrito">
+          <span class="text-lg sm:text-xl">🛒</span> 
+          <span id="cartCount" class="bg-cyan-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full absolute top-0 right-0 shadow-sm">0</span>
+        </button>
+      </nav>
+
     </div>
-    <nav class="top-actions">
-      <a href="login.html" class="cart-btn" aria-label="Abrir carrito">👤</a>
-      <button id="openCartBtn" class="cart-btn" aria-label="Abrir carrito">🛒 <span id="cartCount">0</span></button>
-    </nav>
   </header>
 
-  <div class="ticker-wrapper">
-    <div class="ticker-mask">
-      <div class="ticker-content">
-        <span>✨ PRECIO TASA EURO✨</span>
-        <span>💳 PAGA AL RECIBIR 💳</span>
-        <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
-        <span>✨ PRECIO TASA EURO ✨</span>
-        <span>💳 PAGA AL RECIBIR 💳</span>
-        <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
-        <span>💳 PAGA AL RECIBIR 💳</span>
-        <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 flex-grow w-full">
+
+    <!-- FILTROS ULTRA RESPONSIVOS (Solución a image_2472b4.png) -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+      
+      <!-- Izquierda: Paginación -->
+      <div class="flex items-center gap-2 text-xs sm:text-sm text-slate-500 justify-between sm:justify-start flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <span>Mostrar</span>
+          <select id="catalogPageSize" class="border border-slate-200 bg-slate-50 rounded-xl px-2.5 py-1.5 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-cyan-300 transition-all cursor-pointer text-xs sm:text-sm">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="250">250</option>
+          </select>
+          <span>por página</span>
+        </div>
+      </div>
+
+      <!-- Centro: Categorías Dinámicas con Scroll Táctil e Invisible sin romper el diseño -->
+      <div class="w-full xl:max-w-2xl overflow-x-auto no-scrollbar touch-pan-x py-1">
+        <div id="catalogCategories" class="flex items-center gap-1.5 min-w-max">
+          <!-- Nota: Los botones generados por tu JavaScript se adaptarán automáticamente de forma horizontal sin cortes -->
+        </div>
+      </div>
+
+      <!-- Derecha: Buscador y Ofertas -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+        
+        <!-- Input de búsqueda -->
+        <div class="relative flex-grow sm:w-60 md:w-64">
+          <input type="text" id="catalogSearch"
+            class="w-full pl-4 pr-16 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all placeholder-slate-400"
+            placeholder="Buscar producto..." autocomplete="off" aria-label="Buscar producto" />
+          <span class="absolute right-2.5 top-1.5 text-[9px] text-slate-400 bg-slate-50 font-medium px-1.5 py-1 rounded border border-slate-200 shadow-sm pointer-events-none hidden sm:block">Ctrl + K</span>
+        </div>
+
+        <!-- Switch Ofertas -->
+        <div class="flex items-center justify-between sm:justify-end gap-3 bg-slate-50 sm:bg-transparent px-3 py-2 sm:p-0 rounded-xl flex-shrink-0">
+          <span class="text-xs sm:text-sm font-medium text-slate-600 xl:hidden">Ver Ofertas</span>
+          <label class="offer-toggle-label flex items-center gap-2 cursor-pointer" for="offerToggle">
+            <input type="checkbox" id="offerToggle" class="sr-only peer">
+            <span class="offer-toggle-switch"><span></span></span>
+            <span class="offer-switch-text text-xs sm:text-sm font-medium text-slate-700 hidden sm:inline">Ofertas</span>
+          </label>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Título del catálogo -->
+    <div class="relative flex items-center justify-center my-8">
+      <div class="absolute inset-0 flex items-center" aria-hidden="true">
+        <div class="w-full border-t border-slate-200"></div>
+      </div>
+      <div class="relative bg-slate-50 px-4">
+        <h1 class="text-sm sm:text-base font-bold tracking-wider text-slate-600 uppercase">Catálogo de Productos</h1>
       </div>
     </div>
-  </div>
-  
-  <main class="container">
 
-    <!-- Página de carrito: dividida en panel izquierdo (carrito) y derecho (checkout) -->
-    <section id="cartPage" class="cart-page">
-      <div class="promo-card-glass">
-        <div class="promo-content">
-          <div class="promo-info">
-            <img src="assets/img/revista-de-moda.gif" width="100%" alt="Catálogo" class="promo-gif">
-            <div class="promo-text">
-              <h4>Conoce todo nuestro catálogo</h4>
-              <p>Descubre las mejores ofertas</p>
-            </div>
-          </div>
-          <a href="catalogo.html" class="btn-promo">Ver Catálogo</a>
-        </div>
-      </div>
-      <!-- Panel carrito (ahora inline, puede minimizarse) -->
-      <aside id="cartPanel" class="cart-panel" role="region" aria-label="Carrito">
-        <header class="cart-header">
-          <div class="cart-header-left">
-            <h2>Tu Carrito</h2>
-            <div class="cart-subhead">Envío: <strong id="cartShippingInline">GRATIS</strong></div>
-          </div>
-          <button id="minimizeCartBtn" class="mini-toggle" aria-label="Minimizar carrito"
-            title="Minimizar carrito">—</button>
-        </header>
-        <br>
-        <div id="selectedProducts" class="selected-products" aria-live="polite" tabindex="0">
-          <!-- Productos seleccionados con quantity > 0 -->
-        </div>
-
-        <hr class="divider">
-
-        <!-- MOVIDO: Resumen y acciones (ahora antes de "Productos Disponibles") -->
-        <div class="cart-summary" id="cartSummaryInline" aria-live="polite">
-          <div>Subtotal: <strong id="cartSubtotalInline">$0</strong></div>
-          <div>Envío: <strong id="cartShippingInline2">GRATIS</strong></div>
-          <div class="total" style="margin-top:8px;font-weight:800">Total: <strong id="cartTotalInline">$0</strong>
-          </div>
-        </div>
-
-        <div class="cart-actions-inline">
-          <button id="continueWithData" class="btn-primary" disabled>Continuar con mis datos</button>
-          <button id="clearCartBtn" class="btn-secondary">Vaciar Carrito</button>
-        </div>
-
-      </aside>
-
-      <!-- Panel checkout (right) -->
-      <section id="checkoutPanel" class="checkout-panel hidden" role="region" aria-label="Checkout">
-        <header class="checkout-header">
-          <button id="backToCart" class="back" aria-label="Volver al carrito">←</button>
-          <h3 id="checkoutTotalHeader">Total: $0</h3>
-        </header>
-        <form id="checkoutForm" class="checkout-form" novalidate>
-          <div class="form-row">
-            <label for="cust_name">Nombre y Apellido <span class="req">*</span></label>
-            <input id="cust_name" name="name" type="text" placeholder="Ej: Ana Martínez" required autocomplete="name">
-            <div id="cust_name_err" class="field-err" aria-live="polite"></div>
-          </div>
-
-          <div class="field-inline-wrapper">
-            <select id="cust_operator" name="operator">
-              <option value="58414">0414</option>
-              <option value="58424">0424</option>
-              <option value="58412">0412</option>
-              <option value="58422">0422</option>
-              <option value="58416">0416</option>
-              <option value="58426">0426</option>
-            </select>
-            <input id="cust_phone" type="text" placeholder="Ej: 1234567" maxlength="7" />
-          </div>
-
-          <div class="form-row" style="position:relative;">
-            <label for="cust_address">Dirección Completa <span class="req">*</span></label>
-            <button type="button" id="btnGeoLocation" class="btn-secondary"
-              style="margin-bottom:8px;width: fit-content;align-self: flex-start;">
-              📍 Ubicación
-            </button>
-            <textarea id="cust_address" name="address" placeholder="Estado, ciudad, Calle, Parroquia, Municipio" required></textarea>
-            <div id="geo_error" class="field-err" aria-live="polite" style="margin-top:3px;"></div>
-            <input type="hidden" id="cust_lat" name="lat">
-            <input type="hidden" id="cust_lng" name="lng">
-          </div>
-
-          <div class="form-actions">
-            <button id="checkoutSubmitBtn" type="submit" class="btn-primary" disabled>Confirmar pedido</button>
-            <button type="button" id="cancelCheckout" class="btn-secondary">Cancelar</button>
-          </div>
-          <div id="checkoutMsg" class="form-msg" aria-live="polite"></div>
-        </form>
-      </section>
+    <!-- Grid de Productos totalmente responsivo -->
+    <section class="products-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6" id="productsGrid" aria-live="polite">
+      <!-- Renderizado por script.js -->
     </section>
 
+    <div id="catalogPagination" class="pagination-controls flex justify-center gap-2 mt-12"></div>
   </main>
 
-  <!-- Custom confirm modal (mejor estilo y accesible) -->
-  <div id="confirmModal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-hidden="true"
-    aria-labelledby="confirmTitle">
+  <!-- Modales y Toasts -->
+  <div id="confirmModal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirmTitle">
     <div class="confirm-panel" role="document">
       <div class="confirm-body">
         <h4 id="confirmTitle" class="confirm-title">Confirmar</h4>
@@ -233,9 +159,25 @@ src="https://www.facebook.com/tr?id=1447229266852557&ev=PageView&noscript=1"
     </div>
   </div>
 
-  <!-- Product modal (slider + detalles) -->
-  <div id="productModal" class="product-modal hidden" role="dialog" aria-modal="true" aria-hidden="true"
-    aria-labelledby="productModalTitle">
+  <div id="vpnModal" class="product-modal" style="display: none;">
+    <div class="product-modal-panel" style="max-width: 500px; text-align: center;">
+      <div class="product-modal-body">
+        <div style="width: 100%;">
+          <span style="font-size: 3rem;">🌐</span>
+          <h2 style="margin-top: 1rem; color: var(--text);">VPN Detectado</h2>
+          <p style="color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6;">
+            Hemos detectado que estás utilizando una conexión VPN o Proxy. Por motivos de seguridad y para procesar tu
+            compra correctamente, por favor <strong>desactiva el VPN</strong> y recarga la página.
+          </p>
+          <button onclick="window.location.reload()" class="btn-primary" style="width: 100%;">
+            Recargar Página
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="productModal" class="product-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="productModalTitle">
     <div class="product-modal-panel" role="document">
       <button id="productModalClose" class="product-modal-close" aria-label="Cerrar">✕</button>
       <div class="product-modal-body">
@@ -266,45 +208,64 @@ src="https://www.facebook.com/tr?id=1447229266852557&ev=PageView&noscript=1"
     </div>
   </div>
 
-  <!-- Confirmación simple inline -->
-  <div id="orderConfirmInline" class="order-confirm hidden" role="status" aria-live="polite">
-    <div class="confirm-inner">
-      <h3>Pedido enviado</h3>
-      <p id="orderConfirmText">Su pedido será atendido pronto. Gracias por comprar con nosotros.</p>
-      <button id="closeConfirm" class="btn-primary">Cerrar</button>
-    </div>
-  </div>
+  <div id="toast" class="toast" aria-live="polite"></div>
 
-  <div id="vpnModal" class="product-modal" style="display: none;">
-    <div class="product-modal-panel" style="max-width: 500px; text-align: center;">
-      <div class="product-modal-body">
-        <div style="width: 100%;">
-          <span style="font-size: 3rem;">🌐</span>
-          <h2 style="margin-top: 1rem; color: var(--text);">VPN Detectado</h2>
-          <p style="color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6;">
-            Hemos detectado que estás utilizando una conexión VPN o Proxy. Por motivos de seguridad y para procesar tu
-            compra correctamente, por favor <strong>desactiva el VPN</strong> y recarga la página.
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 text-slate-600 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div class="space-y-3">
+          <img src="admin/assets/img/logo-horizontal.png" width="100" alt="Varius Logo" class="object-contain">
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Tu tienda online de confianza. Ofrecemos calidad, variedad y seguridad en cada una de tus compras con envíos garantizados.
           </p>
-          <button onclick="window.location.reload()" class="btn-primary" style="width: 100%;">
-            Recargar Página
-          </button>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800 tracking-wider uppercase mb-3">Explorar</h3>
+          <ul class="space-y-2 text-xs">
+            <li><a href="./" class="hover:text-cyan-500 transition-colors">Catálogo Completo</a></li>
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Nuevos Productos</a></li>
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Ofertas Especiales</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800 tracking-wider uppercase mb-3">Soporte y Legal</h3>
+          <ul class="space-y-2 text-xs">
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Términos y Condiciones</a></li>
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Política de Privacidad</a></li>
+            <li><a href="#" class="hover:text-cyan-500 hover:underline transition-colors">Centro de Ayuda</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800 tracking-wider uppercase mb-3">Compra Segura</h3>
+          <p class="text-xs text-slate-500 mb-3">Procesamos tus pedidos bajo estrictos estándares de cifrado y seguridad.</p>
+          <div class="flex gap-2 text-xl opacity-75">
+            <span>💳</span> <span>🔒</span> <span>🚚</span>
+          </div>
+        </div>
+      </div>
+      <div class="border-t border-slate-100 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        <div>&copy; 2026 Varius. Todos los derechos reservados.</div>
+        <div class="flex gap-4">
+          <a href="#" class="hover:underline">Facebook</a>
+          <a href="#" class="hover:underline">Instagram</a>
+          <a href="#" class="hover:underline">WhatsApp</a>
         </div>
       </div>
     </div>
-  </div>
-
-  <div id="toast" class="toast" aria-live="polite"></div>
-
-  <footer class="site-footer">
-    <div class="container">
-      <div>© Varius - Todos los derechos reservados</div>
-    </div>
   </footer>
 
-  <script type="module" src="assets/js/pedidos-data.js"></script>
+  <!-- Scripts -->
+  <script type="module" src="assets/js/catalogo.js"></script>
   <script type="module" src="assets/js/ui-animations.js"></script>
   <script type="module" src="assets/js/visits.js"></script>
   <script type="module" src="assets/js/anti-vpn.js"></script>
+  <script>
+    const cartBtn = document.getElementById('openCartBtn');
+    cartBtn.addEventListener('click', () => {
+      window.location.href = 'carrito.html';
+    });
+  </script>
 </body>
 
 </html>
