@@ -77,7 +77,6 @@ body {
   line-height: 1.5;
   font-size: var(--font-base);
   overflow-x: hidden;
-  padding-top: var(--header-h);
 }
 
 img,
