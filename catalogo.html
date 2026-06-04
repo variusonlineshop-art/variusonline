@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="h-full">
 
 <head>
   <meta charset="utf-8" />
@@ -16,7 +16,7 @@
   <meta property="og:url" content="https://www.variusonline.com/" />
   <meta property="og:image" content="https://www.variusonline.com/assets/img/og-images.png" />
   <meta property="og:site_name" content="Varius" />
-<meta name="facebook-domain-verification" content="zh5tn97t6jobmxij6pfdel4rduz95y" />
+  <meta name="facebook-domain-verification" content="zh5tn97t6jobmxij6pfdel4rduz95y" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Tienda Varius" />
   <meta name="twitter:description" content="Explora nuestro catálogo y aprovecha nuestras ofertas." />
@@ -24,9 +24,14 @@
 
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="stylesheet" href="assets/css/carrito.css">
-  <link rel="stylesheet" href="assets/css/catalogo.css">
 
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Estilo extra inyectado para ocultar barras de scroll feas y mantener la fluidez táctil -->
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
 
   <script>
     !function (f, b, e, v, n, t, s) {
@@ -45,53 +50,76 @@
   </script>
 </head>
 
-<body>
-  <header class="site-header">
-    <div class="brand">
-      <a href="./">
-        <img src="admin/assets/img/logo-horizontal.png" width="100rem" alt="Varius">
-      </a>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+  
+  <!-- HEADER MEJORADO (Basado en image_2472da.png): Excelente distribución móvil y escritorio -->
+  <header class="w-full bg-white shadow-sm border-b border-slate-100 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <div class="brand flex-shrink-0">
+        <a href="./" class="flex items-center">
+          <img src="admin/assets/img/logo-horizontal.png" class="w-24 sm:w-28 md:w-32 h-auto object-contain" alt="Varius">
+        </a>
+      </div>
+
+      <nav class="top-actions flex items-center gap-2 sm:gap-4">
+        <a href="login.html" class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50" aria-label="Mi cuenta">
+          <span class="text-lg sm:text-xl">👤</span>
+        </a>
+        <button id="openCartBtn" class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50 relative flex items-center" aria-label="Abrir carrito">
+          <span class="text-lg sm:text-xl">🛒</span> 
+          <span id="cartCount" class="bg-cyan-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full absolute top-0 right-0 shadow-sm">0</span>
+        </button>
+      </nav>
+
     </div>
-    <nav class="top-actions">
-      <a href="login.html" class="cart-btn" aria-label="Abrir carrito">👤</a>
-      <button id="openCartBtn" class="cart-btn" aria-label="Abrir carrito">🛒 <span id="cartCount">0</span></button>
-    </nav>
   </header>
 
-  <main class="max-w-7xl mx-auto p-6 md:p-10">
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 flex-grow w-full">
 
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-
-      <div class="flex flex-wrap items-center gap-3">
-        <label class="text-sm text-slate-500">Mostrar</label>
-        <select id="catalogPageSize"
-          class="border rounded-full px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-cyan-300">
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-          <option value="250">250</option>
-        </select>
-        <label class="text-sm text-slate-500">por página</label>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2 bg-white p-1 rounded-full shadow-inner border border-slate-100">
-        <div id="catalogCategories"></div>
-      </div>
-
-      <div class="flex items-center gap-4">
-
-        <div class="relative">
-          <input type="text" id="catalogSearch"
-            class="pl-4 pr-10 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          placeholder="Buscar producto..."
-          autocomplete="off" aria-label="Buscar producto" tabindex="0" />
-          <span class="absolute right-3 top-2 text-[10px] text-slate-300 border px-1 rounded">Ctrl + K</span>
-        </div>
+    <!-- FILTROS ULTRA RESPONSIVOS (Solución a image_2472b4.png) -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+      
+      <!-- Izquierda: Paginación -->
+      <div class="flex items-center gap-2 text-xs sm:text-sm text-slate-500 justify-between sm:justify-start flex-shrink-0">
         <div class="flex items-center gap-2">
-          <label class="offer-toggle-label" for="offerToggle">
-            <input type="checkbox" id="offerToggle">
-            <span class="offer-toggle-switch" tabindex="0"><span></span></span>
-            <span class="offer-switch-text">Ofertas</span>
+          <span>Mostrar</span>
+          <select id="catalogPageSize" class="border border-slate-200 bg-slate-50 rounded-xl px-2.5 py-1.5 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-cyan-300 transition-all cursor-pointer text-xs sm:text-sm">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="250">250</option>
+          </select>
+          <span>por página</span>
+        </div>
+      </div>
+
+      <!-- Centro: Categorías Dinámicas con Scroll Táctil e Invisible sin romper el diseño -->
+      <div class="w-full xl:max-w-2xl overflow-x-auto no-scrollbar touch-pan-x py-1">
+        <div id="catalogCategories" class="flex items-center gap-1.5 min-w-max">
+          <!-- Nota: Los botones generados por tu JavaScript se adaptarán automáticamente de forma horizontal sin cortes -->
+        </div>
+      </div>
+
+      <!-- Derecha: Buscador y Ofertas -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+        
+        <!-- Input de búsqueda -->
+        <div class="relative flex-grow sm:w-60 md:w-64">
+          <input type="text" id="catalogSearch"
+            class="w-full pl-4 pr-16 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all placeholder-slate-400"
+            placeholder="Buscar producto..." autocomplete="off" aria-label="Buscar producto" />
+          <span class="absolute right-2.5 top-1.5 text-[9px] text-slate-400 bg-slate-50 font-medium px-1.5 py-1 rounded border border-slate-200 shadow-sm pointer-events-none hidden sm:block">Ctrl + K</span>
+        </div>
+
+        <!-- Switch Ofertas -->
+        <div class="flex items-center justify-between sm:justify-end gap-3 bg-slate-50 sm:bg-transparent px-3 py-2 sm:p-0 rounded-xl flex-shrink-0">
+          <span class="text-xs sm:text-sm font-medium text-slate-600 xl:hidden">Ver Ofertas</span>
+          <label class="offer-toggle-label flex items-center gap-2 cursor-pointer" for="offerToggle">
+            <input type="checkbox" id="offerToggle" class="sr-only peer">
+            <span class="offer-toggle-switch"><span></span></span>
+            <span class="offer-switch-text text-xs sm:text-sm font-medium text-slate-700 hidden sm:inline">Ofertas</span>
           </label>
         </div>
 
@@ -99,19 +127,26 @@
 
     </div>
 
-    <div class="section-divider">
-      <span>Catalogo de Productos</span>
+    <!-- Título del catálogo -->
+    <div class="relative flex items-center justify-center my-8">
+      <div class="absolute inset-0 flex items-center" aria-hidden="true">
+        <div class="w-full border-t border-slate-200"></div>
+      </div>
+      <div class="relative bg-slate-50 px-4">
+        <h1 class="text-sm sm:text-base font-bold tracking-wider text-slate-600 uppercase">Catálogo de Productos</h1>
+      </div>
     </div>
-    <!-- Productos (grid) - se usa en otras vistas, conservar -->
-    <section class="products-grid" id="productsGrid" aria-live="polite" style="margin-top:22px">
+
+    <!-- Grid de Productos totalmente responsivo -->
+    <section class="products-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6" id="productsGrid" aria-live="polite">
       <!-- Renderizado por script.js -->
     </section>
-    <div id="catalogPagination" class="pagination-controls" style="display: flex; gap: 6px;"></div>
+
+    <div id="catalogPagination" class="pagination-controls flex justify-center gap-2 mt-12"></div>
   </main>
 
-  <!-- Custom confirm modal (mejor estilo y accesible) -->
-  <div id="confirmModal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-hidden="true"
-    aria-labelledby="confirmTitle">
+  <!-- Modales y Toasts -->
+  <div id="confirmModal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirmTitle">
     <div class="confirm-panel" role="document">
       <div class="confirm-body">
         <h4 id="confirmTitle" class="confirm-title">Confirmar</h4>
@@ -142,9 +177,7 @@
     </div>
   </div>
 
-  <!-- Product modal (slider + detalles) -->
-  <div id="productModal" class="product-modal hidden" role="dialog" aria-modal="true" aria-hidden="true"
-    aria-labelledby="productModalTitle">
+  <div id="productModal" class="product-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="productModalTitle">
     <div class="product-modal-panel" role="document">
       <button id="productModalClose" class="product-modal-close" aria-label="Cerrar">✕</button>
       <div class="product-modal-body">
@@ -175,15 +208,54 @@
     </div>
   </div>
 
-  <!-- Confirmación simple inline -->
   <div id="toast" class="toast" aria-live="polite"></div>
 
-  <footer class="site-footer">
-    <div class="container">
-      <div>© Varius - Todos los derechos reservados</div>
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 text-slate-600 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div class="space-y-3">
+          <img src="admin/assets/img/logo-horizontal.png" width="100" alt="Varius Logo" class="object-contain">
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Tu tienda online de confianza. Ofrecemos calidad, variedad y seguridad en cada una de tus compras con envíos garantizados.
+          </p>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800 tracking-wider uppercase mb-3">Explorar</h3>
+          <ul class="space-y-2 text-xs">
+            <li><a href="./" class="hover:text-cyan-500 transition-colors">Catálogo Completo</a></li>
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Nuevos Productos</a></li>
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Ofertas Especiales</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800 tracking-wider uppercase mb-3">Soporte y Legal</h3>
+          <ul class="space-y-2 text-xs">
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Términos y Condiciones</a></li>
+            <li><a href="#" class="hover:text-cyan-500 transition-colors">Política de Privacidad</a></li>
+            <li><a href="#" class="hover:text-cyan-500 hover:underline transition-colors">Centro de Ayuda</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800 tracking-wider uppercase mb-3">Compra Segura</h3>
+          <p class="text-xs text-slate-500 mb-3">Procesamos tus pedidos bajo estrictos estándares de cifrado y seguridad.</p>
+          <div class="flex gap-2 text-xl opacity-75">
+            <span>💳</span> <span>🔒</span> <span>🚚</span>
+          </div>
+        </div>
+      </div>
+      <div class="border-t border-slate-100 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        <div>&copy; 2026 Varius. Todos los derechos reservados.</div>
+        <div class="flex gap-4">
+          <a href="#" class="hover:underline">Facebook</a>
+          <a href="#" class="hover:underline">Instagram</a>
+          <a href="#" class="hover:underline">WhatsApp</a>
+        </div>
+      </div>
     </div>
   </footer>
 
+  <!-- Scripts -->
   <script type="module" src="assets/js/catalogo.js"></script>
   <script type="module" src="assets/js/ui-animations.js"></script>
   <script type="module" src="assets/js/visits.js"></script>
