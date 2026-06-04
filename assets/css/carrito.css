@@ -77,6 +77,7 @@ body {
   line-height: 1.5;
   font-size: var(--font-base);
   overflow-x: hidden;
+  /*padding-top: var(--header-h);*/
 }
 
 img,
@@ -105,21 +106,6 @@ button {
 /* =====================================================
    HEADER FIXED - OPTIMIZADO PARA MÓVIL
    ===================================================== */
-.site-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--header-h);
-  z-index: 600;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 1.5rem);
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 0.125rem 0.5rem rgba(11, 15, 34, 0.03);
-}
 
 .brand {
   font-weight: 800;
@@ -1178,12 +1164,6 @@ product-ribbon {
 }
 
 /* Rewrite form-row, labels, error, input, textarea for correct style */
-.checkout-form {
-  display: flex;
-  flex-direction: column;
-  gap: 2.2rem; /* más margen entre filas */
-}
-
 .form-row {
   display: flex;
   flex-direction: column;
@@ -1308,26 +1288,6 @@ product-ribbon {
   position: relative;
 }
 
-#btnGeoLocation {
-  position: absolute;
-  right: 0.7rem;
-  top: -0.69rem;
-  padding: 0.45rem 1.3rem;
-  min-width: unset;
-  height: 2.25rem;
-  border-radius: 1.15rem;
-  background: #f8faff;
-  border: 1.8px solid #e6eef6;
-  color: #e783b3;
-  font-weight: 600;
-  font-size: 1.02rem;
-  line-height: 1;
-  z-index: 2;
-  box-shadow: none;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
 
 #btnGeoLocation:hover {
   background: #f3eaff;
@@ -1359,12 +1319,6 @@ product-ribbon {
     max-width: 100%;
     min-width: unset;
   }
-  #btnGeoLocation {
-    right: 0.3rem;
-    top: 1.88rem;
-    font-size: 0.96rem;
-    padding: 0.38rem 1.2rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1374,11 +1328,6 @@ product-ribbon {
     font-size: 0.99rem;
     padding: 0.8rem 0.7rem;
     min-height: 2.2rem;
-  }
-  #btnGeoLocation {
-    font-size: 0.94rem;
-    top: -0.65rem;
-    padding: 0.29rem 1.13rem;
   }
 }
 
