@@ -25,7 +25,94 @@ const toastEl = document.getElementById('toast');
 let ordenesDia = [];
 let totalesHoy = { bs: 0, usd: 0 };
 
-// ----------- ALERTA MODAL CENTRADA -----------
+// --- VARIABLE GLOBAL PARA ALMACENAR LA TASA DEL EURO DEL DÍA ---
+let tasaEuroDelDia = 45.00; // Valor de respaldo por si fallan las APIs externas
+
+// --- CACHÉ EN MEMORIA PARA REDUCIR LECTURAS DE FIRESTORE (OPTIMIZACIÓN N+1) ---
+const cacheUsuarios = new Map();
+
+// --- INTEGRACIÓN DE LAS APIS DE DIVISAS (BCV) ---
+const API_SOURCES = [
+    {
+        name: 'DolarApi (Principal)',
+        async fetcher() {
+            const [resUsd, resEur] = await Promise.all([
+                fetch('https://ve.dolarapi.com/v1/dolares'),
+                fetch('https://ve.dolarapi.com/v1/euros')
+            ]);
+            if (!resUsd.ok || !resEur.ok) throw new Error("Error en respuesta de red");
+
+            const dataUsd = await resUsd.json();
+            const dataEur = await resEur.json();
+
+            const findOficial = (arr) => arr.find(i =>
+                (i.fuente && i.fuente.toLowerCase() === 'oficial') ||
+                (i.casa && i.casa.toLowerCase() === 'bcv') ||
+                (i.nombre && i.nombre.toLowerCase() === 'bcv')
+            );
+
+            const bcvUsd = findOficial(dataUsd);
+            const bcvEur = findOficial(dataEur);
+
+            if (!bcvUsd || !bcvEur) throw new Error("Tasas BCV no encontradas en el JSON");
+
+            return {
+                usd: bcvUsd.promedio,
+                eur: bcvEur.promedio
+            };
+        }
+    },
+    {
+        name: 'PyDolar (Respaldo)',
+        url: 'https://pydolarve.org/api/v1/dollar?page=bcv',
+        async fetcher() {
+            const res = await fetch(this.url);
+            if (!res.ok) throw new Error("Error en PyDolar");
+            const data = await res.json();
+            return {
+                usd: data.monitors?.usd?.price,
+                eur: data.monitors?.eur?.price
+            };
+        }
+    }
+];
+
+// Función para cargar la tasa del Euro antes de procesar cálculos
+async function consultarTasaEuro() {
+    for (const source of API_SOURCES) {
+        try {
+            console.log(`Intentando obtener tasa BCV desde: ${source.name}`);
+            const tasas = await source.fetcher();
+            if (tasas && tasas.eur) {
+                tasaEuroDelDia = Number(tasas.eur);
+                console.log(`Tasa del EURO (BCV) cargada con éxito: Bs. ${tasaEuroDelDia}`);
+                return;
+            }
+        } catch (err) {
+            console.warn(`Falló la fuente ${source.name}:`, err.message);
+        }
+    }
+    console.error("No se pudo obtener la tasa de Euro de ninguna API. Se usará el valor de respaldo:", tasaEuroDelDia);
+}
+
+// Pre-carga todos los usuarios de Firestore en memoria una sola vez
+async function precargarUsuariosEnCache() {
+    try {
+        cacheUsuarios.clear();
+        const usersRef = collection(db, 'users');
+        const snap = await getDocs(usersRef);
+        snap.forEach(doc => {
+            const data = doc.data();
+            if (data.name) {
+                cacheUsuarios.set(data.name, data);
+            }
+        });
+        console.log(`Caché de usuarios lista. ${cacheUsuarios.size} usuarios cargados.`);
+    } catch (e) {
+        console.error("Error precargando usuarios en caché:", e);
+    }
+}
+
 function showAlertModal(message, cbOk) {
     let modal = document.getElementById('modal-alert');
     if (!modal) {
@@ -33,9 +120,9 @@ function showAlertModal(message, cbOk) {
         modal.id = 'modal-alert';
         modal.style.cssText = `z-index:10000;position:fixed;left:0;top:0;width:100vw;height:100vh;background:#171717bb;display:flex;align-items:center;justify-content:center;`;
         modal.innerHTML = `
-      <div style="background:#fff;padding:2.5em 2em;min-width:320px;max-width:94vw;margin:auto;border-radius:14px;box-shadow:0 8px 40px #0007;text-align:center;position:relative;">
-        <div id="modal-message" style="font-size:1.1em;"></div>
-        <button id="modal-ok" style="margin-top:1.5em;font-weight:bold;padding: 0.6em 1.3em;border-radius:7px;font-size:1em;background:#10b981;color:#fff;border:0;cursor:pointer;">OK</button>
+      <div style=\"background:#fff;padding:2.5em 2em;min-width:320px;max-width:94vw;margin:auto;border-radius:14px;box-shadow:0 8px 40px #0007;text-align:center;position:relative;\">
+        <div id=\"modal-message\" style=\"font-size:1.1em; color:#1e293b; font-weight:500;\"></div>
+        <button id=\"modal-ok\" style=\"margin-top:1.5em;font-weight:bold;padding: 0.6em 1.3em;border-radius:7px;font-size:1em;background:#10b981;color:#fff;border:0;cursor:pointer;\">OK</button>
       </div>`;
         document.body.appendChild(modal);
     }
@@ -43,11 +130,10 @@ function showAlertModal(message, cbOk) {
     modal.style.display = 'flex';
     document.getElementById('modal-ok').onclick = () => {
         modal.style.display = 'none';
-        if (cbOk) cbOk()
+        if (cbOk) cbOk();
     }
 }
 
-// ----------- UTILIDADES -----------
 function showToast(msg, timeout = 3000) {
     if (!toastEl) return;
     toastEl.textContent = msg;
@@ -65,11 +151,34 @@ function formatUsd(value) {
     try { return '$' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     catch (e) { return '$0.00'; }
 }
-function calcularComision(tipo, valor, montoOrden) {
-    if (tipo === 'amount') return Number(valor || 0);
-    if (tipo === 'percent') return Number(montoOrden) * (Number(valor) / 100);
-    return 0;
+
+// --- LÓGICA DE CÁLCULO DE COMISIONES BIMONETARIAS BASADA EN EURO BCV ---
+function resolverEstructuraComision(userConfig, orderTotals, tasaCambioEuro = tasaEuroDelDia) {
+    let comisionBs = 0;
+    let comisionUsd = 0;
+    const tipo = userConfig?.commissionType || 'amount';
+    const valor = Number(userConfig?.commissionValue || 0);
+
+    if (tipo === 'amount') {
+        comisionUsd = valor;
+        if (valor >= 1) {
+            comisionBs = valor * tasaCambioEuro;
+        } else {
+            comisionBs = 0; 
+        }
+    } else if (tipo === 'percent') {
+        comisionUsd = Number(orderTotals.usd) * (valor / 100);
+        comisionBs = Number(orderTotals.bs) * (valor / 100);
+    }
+
+    return {
+        commissionType: tipo,
+        commissionValue: valor,
+        comisionBs: isNaN(comisionBs) ? 0 : comisionBs,
+        comisionUsd: isNaN(comisionUsd) ? 0 : comisionUsd
+    };
 }
+
 function tiempoEntrega(inicio, fin) {
     if (!inicio || !fin) return '--';
     const tIni = (inicio.seconds ? inicio.seconds * 1000 : Number(inicio)) || 0;
@@ -79,6 +188,7 @@ function tiempoEntrega(inicio, fin) {
     const minutos = Math.round(diffMs / (1000 * 60));
     return `${minutos} min`;
 }
+
 function getOrderTotalInBsAndUsd(metodos) {
     let bs = 0, usd = 0;
     for (const method of (metodos || [])) {
@@ -92,28 +202,14 @@ function getOrderTotalInBsAndUsd(metodos) {
     }
     return { bs, usd };
 }
-async function getUserCommissionInfo(db, userName) {
-    if (!userName) return { commissionType: "amount", commissionValue: 0 };
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('name', '==', userName));
-    const snap = await getDocs(q);
-    if (snap.empty) return { commissionType: "amount", commissionValue: 0 };
-    return snap.docs[0].data();
+
+function getUserCommissionInfoFromCache(userName) {
+    if (!userName || !cacheUsuarios.has(userName)) {
+        return { commissionType: "amount", commissionValue: 0 };
+    }
+    return cacheUsuarios.get(userName);
 }
-function formatProductItem(item) {
-    const total = `$${(item.quantity * item.price).toFixed(2)}`;
-    return `<div class="product-item">
-      <img src="https://via.placeholder.com/50" class="product-img" alt="${item.name}">
-      <div style="flex-grow:1">
-        <div style="font-weight:bold;">${item.name}</div>
-        <div style="font-size:0.8rem; color:var(--text-muted)">Cant: ${item.quantity} x $ ${item.price.toFixed(2)}</div>
-      </div>
-      <div style="font-weight:bold;">${total}</div>
-    </div>`;
-}
-function commissionBadge(label, bs, usd, color = 'blue') {
-    return `<div class="badge badge-${color}"><span>${label}</span><strong>Bs ${Number(bs).toLocaleString('es-VE', { minimumFractionDigits: 2 })} / $ ${Number(usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></div>`;
-}
+
 function resolveAgent(order, role) {
     if (role === "vendedor") return order.assignedSellerName || '';
     if (role === "motorizado") return order.assignedMotorizedName || '';
@@ -137,103 +233,140 @@ function isSameIsoDay(dateObj, compareTo = new Date()) {
     }
 }
 
-// ----------- TARJETA DE ÓRDEN -----------
-function buildOrderCard(order, vendedorInfo, motorizadoInfo, orderTotals, tiempoEnt) {
-    vendedorInfo.comisionBs = isNaN(vendedorInfo.comisionBs) ? 0 : vendedorInfo.comisionBs;
-    vendedorInfo.comisionUsd = isNaN(vendedorInfo.comisionUsd) ? 0 : vendedorInfo.comisionUsd;
-    motorizadoInfo.comisionBs = isNaN(motorizadoInfo.comisionBs) ? 0 : motorizadoInfo.comisionBs;
-    motorizadoInfo.comisionUsd = isNaN(motorizadoInfo.comisionUsd) ? 0 : motorizadoInfo.comisionUsd;
-    orderTotals.bs = isNaN(orderTotals.bs) ? 0 : orderTotals.bs;
-    orderTotals.usd = isNaN(orderTotals.usd) ? 0 : orderTotals.usd;
-    const statusEntrega = (order.shippingStatus || '').toUpperCase() === 'ENTREGADO'
-        ? `<span style="color:var(--green-text); font-weight:bold; font-size:0.7rem;">ENTREGADO</span>` : '';
-    const iconClock = `<i class="fa-regular fa-clock"></i>`;
+// ----------------- GENERADORES DE HTML TAILWIND ----------------- //
+
+function formatProductItem(item) {
+    const total = `$${(item.quantity * item.price).toFixed(2)}`;
     return `
-    <div class="order-card">
-      <div class="order-header" style="cursor:pointer;">
-        <div class="order-icon">📦</div>
-        <div class="order-info">
-          <div>
-            <span class="order-id">${order.id || ''}</span>
-            <span class="customer-name">• ${order.customerData?.Customname ?? ''}</span>
-          </div>
-          <div class="agents">
-            <span class="vendedor">👤 V: ${resolveAgent(order, 'vendedor') || '<span style="color: #a1a1a1;">—</span>'}</span>
-            <span class="motorizado">🛵 M: ${resolveAgent(order, 'motorizado') || '<span style="color: #a1a1a1;">—</span>'}</span>
-          </div>
-        </div>
-        <div class="amounts-summary">
-          ${commissionBadge('Cobrado', orderTotals.bs, orderTotals.usd, 'blue')}
-          ${commissionBadge(`Com. Vendedor (${vendedorInfo.commissionType === 'percent' ? vendedorInfo.commissionValue + '%' : 'Fijo'})`,
-        vendedorInfo.comisionBs, vendedorInfo.comisionUsd, 'purple')}
-          ${commissionBadge(`Com. Motorizado (${motorizadoInfo.commissionType === 'percent' ? motorizadoInfo.commissionValue + '%' : 'Fijo'})`,
-            motorizadoInfo.comisionBs, motorizadoInfo.comisionUsd, 'green')}
-        </div>
-        <i class="fa-solid fa-chevron-down arrow-icon"></i>
-      </div>
-      <div class="order-content" style="padding: 1.5rem 1rem 1rem 1rem;">
-        <div style="display: flex; gap:2rem; flex-wrap:wrap;">
-          <div style="flex: 1 1 220px; min-width:220px;">
-            <div class="section-title"><i class="fa-solid fa-user"></i> Datos del Cliente</div>
-            <div class="data-box" style="background: #f7fafc; border-radius:9px; padding: 1em 1.2em; margin-top: 0.4em;">
-              <strong>${order.customerData?.Customname ?? ''}</strong><br>
-              <span style="color:var(--text-muted)">${order.customerData?.phone ?? ''}</span><br>
-              <span style="color:var(--text-muted)">${order.customerData?.readable_address ?? ''}</span>
-              <hr style="border:0; border-top:1px solid #e2e8f0; margin:15px 0;">
-              <div class="section-title" style="margin-bottom:5px;">Logística de Entrega</div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Motorizado:</span> <strong>${resolveAgent(order, 'motorizado') || '<span style="color: #a1a1a1;">—</span>'}</strong>
-              </div>
-              <div style="display:flex; justify-content:space-between; margin-top:5px;">
-                <span>Tiempo:</span> <span>${iconClock} ${tiempoEnt}</span>
-              </div>
-              ${statusEntrega}
+    <div class="py-2 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-slate-100 rounded flex items-center justify-center text-slate-400"><i class="fa-solid fa-box-open"></i></div>
+            <div>
+                <p class="font-semibold text-slate-800">${item.name}</p>
+                <p class="text-slate-400 font-medium">Cant: ${item.quantity} x $${item.price.toFixed(2)}</p>
             </div>
-          </div>
-          <div style="flex: 1 1 280px; min-width:260px;">
-            <div class="section-title"><i class="fa-solid fa-cubes"></i> Productos del Pedido</div>
-            ${(order.items || []).map(formatProductItem).join('\n')}
-          </div>
-          <div style="flex: 0 1 260px; min-width:230px;">
-            <div class="section-title" style="color:#fff;background:#1e293b; border-top-left-radius:13px; border-top-right-radius:13px; padding:1em 1.2em 0.7em 1.2em;">Resumen de Liquidación</div>
-            <div style="background: #1e293b; color: #fff; border-radius: 0 0 13px 13px; box-shadow:0 4px 14px #0001; padding:1em 1.2em;">
-              ${(order.payment?.methods || []).map(m => {
-                const conv = m.conversion ?? {};
-                const raw = (conv.currency || m.currency || '').toLowerCase();
-                let label = m.method === "cash" && raw.includes('usd') ? "Efectivo USD"
-                    : m.method === "cash" && raw.includes('bs') ? "Efectivo BS"
-                        : m.method === "mobile" ? "Pago Móvil"
-                            : m.method === "paypal" ? "PAYPAL"
-                                : m.method;
-                let value = '';
-                let sym = '';
-                if (raw.includes('usd')) {
-                    value = (conv.originalAmount ?? conv.usdEquivalent ?? m.originalAmount ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
-                    sym = '$';
-                } else {
-                    value = (m.bsAmount || conv.bsAmount || (conv.originalAmount && conv.rate ? conv.originalAmount * conv.rate : 0) || 0).toLocaleString("es-VE", { minimumFractionDigits: 2 });
-                    sym = 'Bs';
-                }
-                return `<div class="liq-row" style="display: flex; justify-content: space-between; margin-bottom:0.2em;"><span>${label}</span> <strong>${sym} ${value}</strong></div>`;
-            }).join('')}
-              <hr style="border:0; border-top:1px solid #fff2; margin:13px 0 7px 0;">
-              <div style="color:var(--green-text); font-size:0.7rem; font-weight:bold; margin-bottom:2px;">
-                GRAN TOTAL COBRADO</div>
-              <div class="total-amount" style="font-weight:bold; font-size:1.1em;">$${orderTotals.usd.toLocaleString("en-US", { minimumFractionDigits: 2 })} + Bs ${orderTotals.bs.toLocaleString("es-VE", { minimumFractionDigits: 2 })}</div>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
-  `;
+        <span class="font-bold text-slate-800">${total}</span>
+    </div>`;
 }
 
-// --------------- RENDER AND FILTERS --------------
+function commissionBadgeTW(label, bs, usd, color) {
+    let bg, text, border;
+    if(color === 'blue') { bg = 'bg-blue-50'; border = 'border-blue-100'; text = 'text-blue-700'; }
+    else if(color === 'purple') { bg = 'bg-purple-50'; border = 'border-purple-100'; text = 'text-purple-700'; }
+    else { bg = 'bg-emerald-50'; border = 'border-emerald-100'; text = 'text-emerald-700'; }
+    
+    return `<span class="px-2 py-1 ${bg} border ${border} text-[10px] font-bold ${text} rounded uppercase tracking-wide">
+        ${label}: {Bs ${Number(bs).toLocaleString('es-VE', { minimumFractionDigits: 2 })} / $${Number(usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}}
+    </span>`;
+}
+
+function buildOrderCard(order, vendedorInfo, motorizadoInfo, orderTotals, tiempoEnt) {
+    const statusEntrega = (order.shippingStatus || '').toUpperCase() === 'ENTREGADO'
+        ? `<span class="inline-block mt-2 px-2 py-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 rounded">ENTREGADO</span>` : '';
+
+    const vendName = resolveAgent(order, 'vendedor') || '---';
+    const motName = resolveAgent(order, 'motorizado') || '---';
+
+    let liquidacionHTML = (order.payment?.methods || []).map(m => {
+        const conv = m.conversion ?? {};
+        const raw = (conv.currency || m.currency || '').toLowerCase();
+        let label = m.method === "cash" && raw.includes('usd') ? "Efectivo USD"
+            : m.method === "cash" && raw.includes('bs') ? "Efectivo BS"
+            : m.method === "mobile" ? "Pago Móvil"
+            : m.method === "paypal" ? "PAYPAL" : m.method;
+        
+        let value = '', sym = '';
+        if (raw.includes('usd')) {
+            value = (conv.originalAmount ?? conv.usdEquivalent ?? m.originalAmount ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
+            sym = '$';
+        } else {
+            value = (m.bsAmount || conv.bsAmount || (conv.originalAmount && conv.rate ? conv.originalAmount * conv.rate : 0) || 0).toLocaleString("es-VE", { minimumFractionDigits: 2 });
+            sym = 'Bs';
+        }
+        return `<div class="flex justify-between items-center border-b border-slate-800/50 pb-1 mb-1 text-xs">
+            <span class="text-slate-400 font-bold uppercase">${label}</span>
+            <span class="font-mono font-bold text-emerald-400">${sym} ${value}</span>
+        </div>`;
+    }).join('');
+
+    return `
+    <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden mb-4">
+        <div class="p-4 bg-slate-50/60 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-100/50 transition-colors"
+            onclick="window.toggleDetails('order-${order.id}')">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-amber-50 text-amber-600 rounded-lg text-xs"><i class="fa-solid fa-box"></i></div>
+                <div>
+                    <span class="text-xs font-mono font-bold text-slate-800">${order.id || '---'}</span>
+                    <span class="mx-1.5 text-slate-300">•</span>
+                    <span class="text-xs font-bold text-slate-500 uppercase">${order.customerData?.Customname ?? ''}</span>
+                    <div class="flex gap-3 mt-0.5 text-[11px] text-slate-500">
+                        <span><i class="fa-solid fa-user text-slate-400 mr-1"></i> V: ${vendName}</span>
+                        <span><i class="fa-solid fa-motorcycle text-slate-400 mr-1"></i> M: ${motName}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-right">
+                ${commissionBadgeTW('Cobrado', orderTotals.bs, orderTotals.usd, 'blue')}
+                ${commissionBadgeTW(`Com. Vend (${vendedorInfo.commissionType === 'percent' ? vendedorInfo.commissionValue + '%' : 'Fijo $' + vendedorInfo.commissionValue})`, vendedorInfo.comisionBs, vendedorInfo.comisionUsd, 'purple')}
+                ${commissionBadgeTW(`Com. Mot (${motorizadoInfo.commissionType === 'percent' ? motorizadoInfo.commissionValue + '%' : 'Fijo $' + motorizadoInfo.commissionValue})`, motorizadoInfo.comisionBs, motorizadoInfo.comisionUsd, 'green')}
+                <button class="p-1 text-slate-400"><i id="icon-order-${order.id}" class="fa-solid fa-chevron-down transition-transform duration-200"></i></button>
+            </div>
+        </div>
+
+        <div id="order-${order.id}" class="hidden p-5 grid grid-cols-1 lg:grid-cols-12 gap-6 transition-all">
+            <div class="lg:col-span-4 space-y-4">
+                <div>
+                    <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5"><i class="fa-solid fa-user text-[10px] mr-1"></i> DATOS DEL CLIENTE</h4>
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 text-xs">
+                        <p class="font-bold text-slate-800">${order.customerData?.Customname ?? ''}</p>
+                        <p class="font-mono text-slate-500 mt-0.5">${order.customerData?.phone ?? ''}</p>
+                        <p class="text-slate-500 mt-1.5 leading-relaxed">${order.customerData?.readable_address ?? ''}</p>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5"><i class="fa-solid fa-truck text-[10px] mr-1"></i> LOGÍSTICA DE ENTREGA</h4>
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 text-xs flex justify-between items-center">
+                        <div>
+                            <p class="text-slate-500">Motorizado: <span class="font-medium text-slate-700">${motName}</span></p>
+                            ${statusEntrega}
+                        </div>
+                        <div class="text-right text-slate-500 font-medium">
+                            <i class="fa-regular fa-clock mr-1"></i> ${tiempoEnt}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-5">
+                <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5"><i class="fa-solid fa-basket-shopping text-[10px] mr-1"></i> PRODUCTOS DEL PEDIDO</h4>
+                <div class="divide-y divide-slate-100 border border-slate-100 rounded-lg p-2 bg-white shadow-inner">
+                    ${(order.items || []).map(formatProductItem).join('')}
+                </div>
+            </div>
+
+            <div class="lg:col-span-3">
+                <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">RESUMEN DE LIQUIDACIÓN</h4>
+                <div class="bg-slate-900 text-white p-4 rounded-xl flex flex-col justify-between min-h-[155px] shadow-sm">
+                    <div>
+                        ${liquidacionHTML}
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">GRAN TOTAL COBRADO</p>
+                        <p class="text-base font-bold font-mono text-white">$${orderTotals.usd.toLocaleString("en-US", { minimumFractionDigits: 2 })} + Bs ${orderTotals.bs.toLocaleString("es-VE", { minimumFractionDigits: 2 })}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+// ----------------- FLUJO PRINCIPAL Y RENDERS ----------------- //
+
 async function renderOrders(orders, skipFiltros = false) {
     const ordersListDiv = document.getElementById('orders-list');
     if (!ordersListDiv || !orders) return;
 
-    // CAMBIO: Verificar si ya existe un cierre de caja en las órdenes
     const yaCerrado = orders.some(ord => ord.cierreCaja && ord.cierreCaja.fecha);
 
     let html = '';
@@ -242,16 +375,17 @@ async function renderOrders(orders, skipFiltros = false) {
     for (const ord of orders) {
         const vendedor = resolveAgent(ord, 'vendedor');
         const motorizado = resolveAgent(ord, 'motorizado');
-        let vendedorInfo = { commissionType: "amount", commissionValue: 0, comisionBs: 0, comisionUsd: 0 };
-        let motorizadoInfo = { commissionType: "amount", commissionValue: 0, comisionBs: 0, comisionUsd: 0 };
-        if (vendedor && vendedor.length > 1) vendedorInfo = await getUserCommissionInfo(db, vendedor);
-        if (motorizado && motorizado.length > 1) motorizadoInfo = await getUserCommissionInfo(db, motorizado);
+        
+        const rawVendedorConfig = getUserCommissionInfoFromCache(vendedor);
+        const rawMotorizadoConfig = getUserCommissionInfoFromCache(motorizado);
+        
         const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
-        vendedorInfo.comisionBs = calcularComision(vendedorInfo.commissionType, vendedorInfo.commissionValue, orderTotals.bs);
-        vendedorInfo.comisionUsd = calcularComision(vendedorInfo.commissionType, vendedorInfo.commissionValue, orderTotals.usd);
-        motorizadoInfo.comisionBs = calcularComision(motorizadoInfo.commissionType, motorizadoInfo.commissionValue, orderTotals.bs);
-        motorizadoInfo.comisionUsd = calcularComision(motorizadoInfo.commissionType, motorizadoInfo.commissionValue, orderTotals.usd);
+        
+        const vendedorInfo = resolverEstructuraComision(rawVendedorConfig, orderTotals);
+        const motorizadoInfo = resolverEstructuraComision(rawMotorizadoConfig, orderTotals);
+        
         const tiempoEnt = tiempoEntrega(ord.timestamp, ord.paymentUpdatedAt);
+        
         html += buildOrderCard(ord, vendedorInfo, motorizadoInfo, orderTotals, tiempoEnt);
 
         totalComiVendBs += vendedorInfo.comisionBs;
@@ -259,83 +393,78 @@ async function renderOrders(orders, skipFiltros = false) {
         totalComiMotBs += motorizadoInfo.comisionBs;
         totalComiMotUsd += motorizadoInfo.comisionUsd;
     }
+    
+    if(orders.length === 0) {
+        html = `<div class="p-8 text-center text-slate-400 bg-white rounded-xl border border-slate-200">No hay pedidos pagados registrados para hoy.</div>`;
+    }
+    
     ordersListDiv.innerHTML = html;
 
-    // Tarjetas Conciliación & Resumen
     const bottomGrid = document.getElementById('bottom-grid');
     if (bottomGrid) {
-        // CAMBIO: Si ya está cerrado, ocultamos controles y mostramos aviso
         let conciliacionHTML = '';
         if (yaCerrado) {
             conciliacionHTML = `
-                <div class="card-action" style="display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f0fdf4; border:1px solid #bbf7d0; min-height:180px;">
-                    <i class="fa-solid fa-circle-check" style="font-size:2.5rem; color:#16a34a; margin-bottom:10px;"></i>
-                    <div style="text-align:center; color:#166534; font-weight:bold;">CIERRE DE CAJA COMPLETADO</div>
-                    <div style="font-size:0.85rem; color:#15803d;">Las órdenes de hoy ya fueron conciliadas.</div>
-                </div>`;
+            <div class="lg:col-span-5 bg-emerald-50 p-5 rounded-xl border border-emerald-200 shadow-sm flex flex-col items-center justify-center gap-2 text-center">
+                <i class="fa-solid fa-circle-check text-4xl text-emerald-500 mb-2"></i>
+                <div class="text-emerald-800 font-bold tracking-wide">CIERRE DE CAJA COMPLETADO</div>
+                <div class="text-xs text-emerald-600">Las órdenes de hoy ya fueron conciliadas.</div>
+            </div>`;
         } else {
             conciliacionHTML = `
-                <div class="card-action">
-                    <div class="section-title" style="color: #004d40; font-weight: bold;">
-                        <i class="fa-solid fa-wallet"></i> CONCILIACIÓN DE EFECTIVO
-                    </div>
-                    <div class="input-group-row">
-                        <div class="input-field">
-                            <label>FÍSICO EN BS</label>
-                            <input type="number" placeholder="0.00" id="fisico-bs">
+            <div class="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between gap-4">
+                <div>
+                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-500"></i> CONCILIACIÓN DE EFECTIVO
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">FISICO EN BS</label>
+                            <input type="number" id="fisico-bs" placeholder="0.00" class="w-full font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500">
                         </div>
-                        <div class="input-field">
-                            <label>FÍSICO EN USD</label>
-                            <input type="number" placeholder="0.00" id="fisico-usd">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">FISICO EN USD</label>
+                            <input type="number" id="fisico-usd" placeholder="0.00" class="w-full font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500">
                         </div>
                     </div>
-                    <button class="btn-save" onclick="guardarConciliacion()">
-                        <i class="fa-solid fa-floppy-disk"></i> GUARDAR CONCILIACIÓN
-                    </button>
-                </div>`;
+                </div>
+                <button onclick="guardarConciliacion()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm active:scale-[0.99]">
+                    <i class="fa-solid fa-floppy-disk"></i> GUARDAR CONCILIACIÓN
+                </button>
+            </div>`;
         }
 
         bottomGrid.innerHTML = conciliacionHTML + `
-          <div class="card-summary">
-              <div class="summary-header">RESUMEN TOTAL DE COMISIONES</div>
-              <div class="summary-grid">
-                  <div class="summary-item">
-                      <span class="label">VENDEDORES</span>
-                      <div class="amount-bs">Bs ${totalComiVendBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                      <div class="amount-usd">$${totalComiVendUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                  </div>
-                  <div class="summary-item">
-                      <span class="label">MOTORIZADOS</span>
-                      <div class="amount-bs">Bs ${totalComiMotBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                      <div class="amount-usd">$${totalComiMotUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                  </div>
-              </div>
-              <div class="total-impact">
-                  <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                      <span class="label">IMPACTO TOTAL</span>
-                      <div style="text-align: right;">
-                          <div class="total-bs">Bs ${(totalComiVendBs + totalComiMotBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                          <div class="total-usd">$${(totalComiVendUsd + totalComiMotUsd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-        `;
+        <div class="lg:col-span-7 bg-blue-700 text-white p-5 rounded-xl shadow-sm flex flex-col justify-between gap-4">
+            <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider mb-4 opacity-90">RESUMEN TOTAL DE COMISIONES (Tasa Euro BCV: ${Number(tasaEuroDelDia).toFixed(2)})</h3>
+                <div class="grid grid-cols-2 gap-4 border-b border-blue-600/60 pb-4">
+                    <div>
+                        <p class="text-[10px] uppercase font-bold tracking-wider opacity-75 mb-1">VENDEDORES</p>
+                        <p class="text-lg font-bold font-mono">Bs ${totalComiVendBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                        <p class="text-xs opacity-75 font-mono">$${totalComiVendUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase font-bold tracking-wider opacity-75 mb-1">MOTORIZADOS</p>
+                        <p class="text-lg font-bold font-mono">Bs ${totalComiMotBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                        <p class="text-xs opacity-75 font-mono">$${totalComiMotUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center justify-between pt-2">
+                <span class="text-xs font-bold uppercase tracking-wider opacity-90">IMPACTO TOTAL</span>
+                <div class="text-right">
+                    <p class="text-xl font-bold font-mono text-white">Bs ${(totalComiVendBs + totalComiMotBs).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                    <p class="text-xs opacity-85 font-mono text-blue-200">$${(totalComiVendUsd + totalComiMotUsd).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                </div>
+            </div>
+        </div>`;
     }
 
-    // CAMBIO: Ocultar el botón de finalizar caja global
     const btnFinalize = document.querySelector('.btn-finalize');
     if (btnFinalize) {
-        btnFinalize.style.display = yaCerrado ? 'none' : 'block';
+        btnFinalize.style.display = yaCerrado ? 'none' : 'inline-flex';
     }
-
-    setTimeout(() => {
-        document.querySelectorAll('.order-card .order-header').forEach(header => {
-            header.addEventListener('click', function () {
-                this.parentNode.classList.toggle('open');
-            });
-        });
-    }, 10);
 
     if (!skipFiltros) renderFiltros(orders);
 
@@ -347,23 +476,25 @@ async function renderOrders(orders, skipFiltros = false) {
     }, 200);
 }
 
-// --------------- OBTENER Y MOSTRAR LISTA DE ÓRDENES ---------------
 async function loadTotalsForToday() {
     let bsTotal = 0, usdTotal = 0, ordersCount = 0;
     const today = new Date();
     ordenesDia = [];
 
     try {
+        await consultarTasaEuro();
+        await precargarUsuariosEnCache();
+
         const ordersRef = collection(db, 'orders');
         const q = query(ordersRef, where('paymentStatus', '==', 'pagado'));
         const snap = await getDocs(q);
 
         snap.forEach(doc => {
             const data = doc.data ? doc.data() : doc;
-
             const paymentDateRaw = data.paymentUpdatedAt ?? data.orderDate ?? null;
             const paymentDate = isoDateFromValue(paymentDateRaw);
 
+            // FILTRADO ESTRICTO EXCLUSIVO PARA EL DÍA EN CURSO (RESUMEN)
             if (!isSameIsoDay(paymentDate, today)) return;
 
             const payment = data.payment ?? {}, methods = payment.methods || [];
@@ -374,8 +505,8 @@ async function loadTotalsForToday() {
                     const conv = method.conversion ?? {};
                     const currencyRaw = (conv.currency || method.currency || '').toString().trim().toLowerCase();
                     const currency = (currencyRaw === 'bs' || currencyRaw === 'ves' || currencyRaw === 'bolivar' || currencyRaw === 'bolívares') ? 'BS'
-                        : (currencyRaw === 'usd' || currencyRaw === 'dolar' || currencyRaw === 'dólar') ? 'USD'
-                            : (currencyRaw || '').toUpperCase();
+                        : (currencyRaw === 'usd' || currencyRaw === 'dolar' || currencyRaw === 'dólar') ? 'USD' : (currencyRaw || '').toUpperCase();
+                    
                     if (currency === 'USD') {
                         const usd = Number(conv.originalAmount ?? conv.usdEquivalent ?? method.originalAmount ?? 0);
                         if (!isNaN(usd)) usdTotal += usd;
@@ -403,29 +534,22 @@ async function loadTotalsForToday() {
             const dias = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
             const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
             const actual = new Date();
-            const dayName = dias[actual.getDay()];
-            const day = actual.getDate();
-            const month = meses[actual.getMonth()];
-            const year = actual.getFullYear();
-            const fechaFormateada = `${dayName}, ${day} DE ${month} DE ${year}`;
-            const pedidosTexto = `${ordersCount} PEDIDO${ordersCount === 1 ? '' : 'S'}`;
+            const fechaFormateada = `${dias[actual.getDay()]}, ${actual.getDate()} DE ${meses[actual.getMonth()]} DE ${actual.getFullYear()}`;
             headerDateRow.innerHTML = `
-        <div style="font-weight: bold;"><i class="fa-regular fa-calendar"></i> ${fechaFormateada}</div>
-        <div style="font-size: 0.8rem; background: #e2e8f0; padding: 2px 10px; border-radius: 10px;">${pedidosTexto}</div>
-      `;
+                <span class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2"><i class="fa-regular fa-calendar-days text-slate-400"></i> ${fechaFormateada}</span>
+                <span class="px-2.5 py-0.5 text-[11px] font-bold bg-slate-200 text-slate-700 rounded-md">${ordersCount} PEDIDO${ordersCount === 1 ? '' : 'S'}</span>
+            `;
         }
 
         await renderOrders(ordenesDia);
 
     } catch (err) {
         console.error('Error cargando totales de cierre de caja:', err);
-        showToast('Error cargando totales. Revisa la consola.');
+        showToast('Error cargando totales.');
     }
 }
 
-// --------- GUARDAR CONCILIACIÓN EN FIREBASE -----------
 window.guardarConciliacion = async function () {
-    // CAMBIO: Protección extra por si se llama por consola
     const yaCerrado = ordenesDia.some(ord => ord.cierreCaja && ord.cierreCaja.fecha);
     if (yaCerrado) return showAlertModal("La caja ya ha sido conciliada para estas órdenes.");
 
@@ -433,16 +557,15 @@ window.guardarConciliacion = async function () {
     const fisicoUsd = Number(document.getElementById("fisico-usd")?.value) || 0;
     const totalBs = totalesHoy.bs;
     const totalUsd = totalesHoy.usd;
-    const diferenciaBs = fisicoBs - totalBs;
-    const diferenciaUsd = fisicoUsd - totalUsd;
 
     try {
         const conciliacionData = {
             fisicoBs, fisicoUsd, totalBs, totalUsd,
-            diferenciaBs, diferenciaUsd,
+            diferenciaBs: fisicoBs - totalBs, diferenciaUsd: fisicoUsd - totalUsd,
             usuario: currentUserEmail,
             fecha: serverTimestamp(),
-            ordenes: ordenesDia.map(o => o.id)
+            ordenes: ordenesDia.map(o => o.id),
+            tasaEuroAplicada: tasaEuroDelDia
         };
         const colRef = collection(db, 'conciliaciones');
         const res = await addDoc(colRef, conciliacionData);
@@ -450,11 +573,7 @@ window.guardarConciliacion = async function () {
         const batch = writeBatch(db);
         ordenesDia.forEach((order) => {
             batch.update(doc(db, 'orders', order.id), {
-                cierreCaja: {
-                    fecha: serverTimestamp(),
-                    conciliadoPor: currentUserEmail,
-                    conciliacionId: res.id
-                }
+                cierreCaja: { fecha: serverTimestamp(), conciliadoPor: currentUserEmail, conciliacionId: res.id }
             });
         });
         await batch.commit();
@@ -464,7 +583,6 @@ window.guardarConciliacion = async function () {
     }
 }
 
-// ----------- FINALIZAR CAJA DEL DÍA -------------
 document.addEventListener('DOMContentLoaded', () => {
     const btn = document.querySelector('.btn-finalize');
     if (btn) {
@@ -474,10 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const batch = writeBatch(db);
                     ordenesDia.forEach((order) => {
                         batch.update(doc(db, 'orders', order.id), {
-                            cierreCaja: {
-                                fecha: serverTimestamp(),
-                                finalizadoPor: currentUserEmail
-                            }
+                            cierreCaja: { fecha: serverTimestamp(), finalizadoPor: currentUserEmail }
                         });
                     });
                     await batch.commit();
@@ -490,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ----------- FILTROS AUTOCOMPLETADOS ----------
+// ------------- FILTROS -----------
 function renderFiltros(ordenes) {
     let vendedores = [...new Set(ordenes.map(o => resolveAgent(o, 'vendedor')).filter(Boolean))];
     let motorizados = [...new Set(ordenes.map(o => resolveAgent(o, 'motorizado')).filter(Boolean))];
@@ -498,22 +613,16 @@ function renderFiltros(ordenes) {
     ordenes.forEach(o => (o.payment?.methods || []).forEach(m => {
         let label = m.method === "cash" && ((m.conversion?.currency || m.currency || '').toLowerCase().includes('usd')) ? "Efectivo USD"
             : m.method === "cash" && ((m.conversion?.currency || m.currency || '').toLowerCase().includes('bs')) ? "Efectivo BS"
-                : m.method === 'mobile' ? "Pago Móvil" : m.method;
+            : m.method === 'mobile' ? "Pago Móvil" : m.method;
         if (!pagos.includes(label)) pagos.push(label);
     }));
 
     const selectV = document.getElementById('filter-vendedor');
-    if (selectV) {
-        selectV.innerHTML = `<option value="">Vendedores (Todos)</option>` + vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
-    }
+    if (selectV) selectV.innerHTML = `<option value="">Vendedores (Todos)</option>` + vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
     const selectM = document.getElementById('filter-motorizado');
-    if (selectM) {
-        selectM.innerHTML = `<option value="">Motorizados (Todos)</option>` + motorizados.map(m => `<option value="${m}">${m}</option>`).join('');
-    }
+    if (selectM) selectM.innerHTML = `<option value="">Motorizados (Todos)</option>` + motorizados.map(m => `<option value="${m}">${m}</option>`).join('');
     const selectP = document.getElementById('filter-pago');
-    if (selectP) {
-        selectP.innerHTML = `<option value="">Forma de Pago (Todas)</option>` + pagos.map(p => `<option value="${p}">${p}</option>`).join('');
-    }
+    if (selectP) selectP.innerHTML = `<option value="">Forma de Pago (Todas)</option>` + pagos.map(p => `<option value="${p}">${p}</option>`).join('');
 }
 
 window.filterOrders = function () {
@@ -530,7 +639,7 @@ window.filterOrders = function () {
             (ord.payment?.methods || []).forEach(method => {
                 let label = method.method === "cash" && ((method.conversion?.currency || method.currency || '').toLowerCase().includes('usd')) ? "Efectivo USD"
                     : method.method === "cash" && ((method.conversion?.currency || method.currency || '').toLowerCase().includes('bs')) ? "Efectivo BS"
-                        : method.method === 'mobile' ? "Pago Móvil" : method.method;
+                    : method.method === 'mobile' ? "Pago Móvil" : method.method;
                 if (label === mp) found = true;
             });
             if (!found) return false;
@@ -542,17 +651,16 @@ window.filterOrders = function () {
     renderOrders(filtered, true);
 }
 window.clearFilters = function () {
-    document.getElementById('search-input').value = '';
-    document.getElementById('filter-vendedor').selectedIndex = 0;
-    document.getElementById('filter-motorizado').selectedIndex = 0;
-    document.getElementById('filter-pago').selectedIndex = 0;
+    if(document.getElementById('search-input')) document.getElementById('search-input').value = '';
+    if(document.getElementById('filter-vendedor')) document.getElementById('filter-vendedor').selectedIndex = 0;
+    if(document.getElementById('filter-motorizado')) document.getElementById('filter-motorizado').selectedIndex = 0;
+    if(document.getElementById('filter-pago')) document.getElementById('filter-pago').selectedIndex = 0;
     renderOrders(ordenesDia, true);
 }
 
-/* -----------------------------------
-     CALENDARIO DE CIERRRES DE CAJA
------------------------------------ */
+// ------------- CALENDARIO DE AUDITORÍA CON SELECCIÓN MÚLTIPLE (DÍAS / SEMANAS) -----------
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
 async function getCierresCajaForMonth(year, month) {
     const ini = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const fin = new Date(year, month, 0, 23, 59, 59, 999);
@@ -577,110 +685,142 @@ async function getCierresCajaForMonth(year, month) {
         return {};
     }
 }
-async function renderCalendar(month, year, cierresDelMes, onDayClick, selectedKey) {
+
+async function renderCalendar(month, year, cierresDelMes, onDayClick, selectedKeysSet) {
     const grid = document.getElementById("calendar-grid");
     const label = document.getElementById("calendar-month-label");
-    grid.innerHTML = `
-    <div class="day-name">D</div><div class="day-name">L</div><div class="day-name">M</div>
-    <div class="day-name">M</div><div class="day-name">J</div><div class="day-name">V</div><div class="day-name">S</div>
-  `;
+    
+    const headerHTML = `<div class="grid grid-cols-7 gap-1.5 text-[10px] font-bold text-slate-400 mb-2">
+        <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
+    </div>`;
+    
     const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     if (label) label.textContent = `${meses[month - 1]} ${year}`;
+    
     const firstDay = new Date(year, month - 1, 1).getDay();
     const daysInMonth = new Date(year, month, 0).getDate();
-    for (let d = 0; d < firstDay; d++) grid.innerHTML += `<div></div>`;
+    
+    let daysHTML = `<div class="grid grid-cols-7 gap-1.5">`;
+    
+    for (let d = 0; d < firstDay; d++) daysHTML += `<span></span>`;
+    
     for (let d = 1; d <= daysInMonth; d++) {
         const key = `${year}-${pad2(month)}-${pad2(d)}`;
         const cerrado = cierresDelMes[key] ? true : false;
-        const cls = cerrado ? 'calendar-day-closed' : 'calendar-day-open';
-        const selected = selectedKey === key ? 'active-day' : '';
-        grid.innerHTML += `<div 
-      class="calendar-day ${cls} ${selected}" 
-      data-date="${key}" 
-      style="padding: 7px; border-radius:8px; cursor:pointer; font-weight:bold; border:1px solid #ddd; margin:1px; text-align:center;"
-    >${d}</div>`;
+        const isSelected = selectedKeysSet.has(key);
+        
+        let cls = "h-8 flex items-center justify-center rounded-lg text-xs font-semibold cursor-pointer transition-all ";
+        if(isSelected) {
+            cls += "bg-blue-600 text-white shadow-md scale-105 font-bold";
+        } else if (cerrado) {
+            cls += "text-emerald-600 hover:bg-emerald-50";
+        } else {
+            cls += "text-red-400 hover:bg-red-50";
+        }
+
+        daysHTML += `<div class="${cls}" data-date="${key}">${d}</div>`;
     }
-    grid.querySelectorAll(".calendar-day").forEach(dayDiv => {
+    daysHTML += `</div>`;
+    
+    grid.innerHTML = headerHTML + daysHTML;
+
+    grid.querySelectorAll("[data-date]").forEach(dayDiv => {
         dayDiv.onclick = () => onDayClick(dayDiv.dataset.date);
     });
 }
-async function getOrdersForDay(fechaIso) {
+
+// Obtención masiva optimizada para soportar múltiples días seleccionados
+async function getOrdersForMultipleDays(fechasArray) {
+    if (fechasArray.length === 0) return [];
     try {
         const q = query(collection(db, 'orders'), where('paymentStatus', '==', 'pagado'));
         const snap = await getDocs(q);
         let lista = [];
+        
         snap.forEach(doc => {
             const data = doc.data ? doc.data() : doc;
             const orderDateRaw = data.orderDate ?? data.createdAt ?? null;
             const dateObj = isoDateFromValue(orderDateRaw);
-            if (isSameIsoDay(dateObj, new Date(fechaIso))) {
-                lista.push({ ...data, id: doc.id });
+            
+            if (dateObj) {
+                const ordenKey = dateObj.toISOString().slice(0, 10);
+                if (fechasArray.includes(ordenKey)) {
+                    lista.push({ ...data, id: doc.id });
+                }
             }
         });
         return lista;
     } catch (e) {
-        console.error("Error orders for day", e); return [];
+        console.error("Error obteniendo órdenes para múltiples días", e);
+        return [];
     }
 }
 
-async function renderAuditDay(fechaIso, cierresDelMes, orders) {
-    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const d = new Date(fechaIso.replace(/-/g, '\/'));
+async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
     const titleEl = document.getElementById("selectedDateTitle");
-    if (titleEl) {
-        titleEl.textContent = `${dias[d.getDay()]}, ${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()}`;
+    const pill = document.getElementById("statusPill");
+    
+    if (fechasSet.size === 0) {
+        if (titleEl) titleEl.textContent = "Sin selección";
+        if (pill) pill.innerHTML = '<span class="px-2.5 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wide">● SELECCIONE DÍAS</span>';
+        return;
     }
 
-    const pill = document.getElementById("statusPill");
+    // Título dinámico para auditoría (un día vs rango de fechas)
+    if (fechasSet.size === 1) {
+        const [unicaFecha] = fechasSet;
+        const parts = unicaFecha.split('-');
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        if (titleEl) titleEl.textContent = `${diasSemana[d.getDay()]} ${d.getDate()}/${parts[1]}/${parts[0]}`;
+    } else {
+        if (titleEl) titleEl.textContent = `Rango Seleccionado (${fechasSet.size} días)`;
+    }
+
+    // Comprobamos si todos los días seleccionados están cerrados
+    const todosCerrados = Array.from(fechasSet).every(f => cierresDelMes[f]);
     if (pill) {
-        if (cierresDelMes[fechaIso]) {
-            pill.innerHTML = '<span style="color: #fff; background:#16a34a; padding:3px 9px; border-radius:7px; font-weight:bold;">● CIERRE DE CAJA REALIZADO</span>';
+        if (todosCerrados) {
+            pill.innerHTML = '<span class="px-2.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full uppercase tracking-wide">● Período Conciliado</span>';
         } else {
-            pill.innerHTML = '<span style="color: #fff; background:#dc2626; padding:3px 9px; border-radius:7px; font-weight:bold;">● CIERRE DE CAJA NO REALIZADO</span>';
+            pill.innerHTML = '<span class="px-2.5 py-0.5 bg-amber-50 border border-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase tracking-wide">● Cierres Pendientes detectados</span>';
         }
     }
 
-    // Agrupa por vendedor y motorizado
-    let vendedores = {};
-    let motorizados = {};
+    let vendedores = {}, motorizados = {};
     let totalV_bs = 0, totalV_usd = 0, totalM_bs = 0, totalM_usd = 0;
 
     for (const ord of orders) {
-        // Vendedor
+        const orderDateRaw = ord.orderDate ?? ord.createdAt ?? null;
+        const dateObj = isoDateFromValue(orderDateRaw);
+        const ordenKey = dateObj ? dateObj.toISOString().slice(0, 10) : '';
+        
+        // Cada orden usa la tasa histórica del día en que se guardó su conciliación, o la del día de hoy en su defecto.
+        const tasaAplicadaDeLaOrden = cierresDelMes[ordenKey]?.tasaEuroAplicada || tasaEuroDelDia;
+
+        // Vendedores
         const vendedor = resolveAgent(ord, 'vendedor');
         if (vendedor && vendedor.length > 1) {
-            let vendedorInfo = await getUserCommissionInfo(db, vendedor);
+            const rawConfig = getUserCommissionInfoFromCache(vendedor);
             const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
-            vendedorInfo.comisionBs = calcularComision(vendedorInfo.commissionType, vendedorInfo.commissionValue, orderTotals.bs);
-            vendedorInfo.comisionUsd = calcularComision(vendedorInfo.commissionType, vendedorInfo.commissionValue, orderTotals.usd);
-            if (!vendedores[vendedor]) {
-                vendedores[vendedor] = {
-                    count: 0,
-                    comisionBs: 0,
-                    comisionUsd: 0
-                };
-            }
+            const vendedorInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden);
+
+            if (!vendedores[vendedor]) vendedores[vendedor] = { count: 0, comisionBs: 0, comisionUsd: 0 };
             vendedores[vendedor].count += 1;
             vendedores[vendedor].comisionBs += vendedorInfo.comisionBs;
             vendedores[vendedor].comisionUsd += vendedorInfo.comisionUsd;
             totalV_bs += vendedorInfo.comisionBs;
             totalV_usd += vendedorInfo.comisionUsd;
         }
-        // Motorizado
+
+        // Motorizados
         const motorizado = resolveAgent(ord, 'motorizado');
         if (motorizado && motorizado.length > 1) {
-            let motorizadoInfo = await getUserCommissionInfo(db, motorizado);
+            const rawConfig = getUserCommissionInfoFromCache(motorizado);
             const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
-            motorizadoInfo.comisionBs = calcularComision(motorizadoInfo.commissionType, motorizadoInfo.commissionValue, orderTotals.bs);
-            motorizadoInfo.comisionUsd = calcularComision(motorizadoInfo.commissionType, motorizadoInfo.commissionValue, orderTotals.usd);
-            if (!motorizados[motorizado]) {
-                motorizados[motorizado] = {
-                    count: 0,
-                    comisionBs: 0,
-                    comisionUsd: 0
-                };
-            }
+            const motorizadoInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden);
+
+            if (!motorizados[motorizado]) motorizados[motorizado] = { count: 0, comisionBs: 0, comisionUsd: 0 };
             motorizados[motorizado].count += 1;
             motorizados[motorizado].comisionBs += motorizadoInfo.comisionBs;
             motorizados[motorizado].comisionUsd += motorizadoInfo.comisionUsd;
@@ -689,98 +829,88 @@ async function renderAuditDay(fechaIso, cierresDelMes, orders) {
         }
     }
 
-    // RENDER CARDS PARA VENDEDORES
     const listDiv = document.getElementById("audit-orders-list");
     let html = '';
+    
     if (Object.keys(vendedores).length > 0) {
-        html += `<div style="border-bottom:2px solid #0284c7; margin-bottom:0.7em; padding-bottom:4px;">
-                    <span style="font-weight:bold;font-size:1.1em;color:#0284c7">👤Vendedores</span>
-                 </div>`;
+        html += `<h3 class="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 mt-4 mb-2"><i class="fa-solid fa-user text-[11px]"></i> Vendedores</h3><div class="space-y-2">`;
         for (const vName in vendedores) {
             const v = vendedores[vName];
             html += `
-            <div class="order-card">
-                <div class="order-header" style="cursor:pointer;">
-                    <div class="order-icon">👤</div>
-                    <div class="order-info">
-                        <div>
-                            <span class="order-id">${vName}</span>
-                            <span class="customer-name">• Vendedor</span>
-                        </div>
-                        <div class="agents">
-                            <span class="vendedor">Pedidos: <strong>${v.count}</strong></span>
-                        </div>
-                    </div>
-                    <div class="amounts-summary">
-                        ${commissionBadge('Comisión total', v.comisionBs, v.comisionUsd, 'purple')}
+            <div class="flex items-center justify-between p-3 border border-slate-100 rounded-xl text-xs bg-white hover:bg-slate-50/50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-user"></i></div>
+                    <div>
+                        <p class="font-bold text-slate-800">${vName} <span class="text-slate-400 font-normal text-[11px] ml-1">• Vendedor</span></p>
+                        <p class="text-[10px] text-blue-600 font-semibold uppercase tracking-wider mt-0.5">PEDIDOS TOTALES: ${v.count}</p>
                     </div>
                 </div>
-            </div>
-            `;
+                <div class="text-right bg-purple-50/60 border border-purple-100 px-3 py-1 rounded-lg">
+                    <p class="text-[9px] font-bold text-purple-400 uppercase tracking-wider">Acumulado</p>
+                    <p class="font-bold text-purple-700 font-mono">Bs ${v.comisionBs.toLocaleString('es-VE', {minimumFractionDigits:2})} / $ ${v.comisionUsd.toLocaleString('en-US', {minimumFractionDigits:2})}</p>
+                </div>
+            </div>`;
         }
+        html += `</div>`;
     }
 
-    // Separador visual para motorizados
     if (Object.keys(motorizados).length > 0) {
-        html += `<div style="margin: 1.2em 0 0.7em 0; border-bottom:2px solid #10b981; padding-bottom:4px;">
-                    <span style="font-weight:bold;font-size:1.1em;color:#10b981">🛵Motorizados</span>
-                 </div>`;
+        html += `<h3 class="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2 mt-4 mb-2"><i class="fa-solid fa-motorcycle text-[11px]"></i> Motorizados</h3><div class="space-y-2">`;
         for (const mName in motorizados) {
             const m = motorizados[mName];
             html += `
-            <div class="order-card">
-                <div class="order-header" style="cursor:pointer;">
-                    <div class="order-icon">🛵</div>
-                    <div class="order-info">
-                        <div>
-                            <span class="order-id">${mName}</span>
-                            <span class="customer-name">• Motorizado</span>
-                        </div>
-                        <div class="agents">
-                            <span class="motorizado">Pedidos: <strong>${m.count}</strong></span>
-                        </div>
-                    </div>
-                    <div class="amounts-summary">
-                        ${commissionBadge('Comisión total', m.comisionBs, m.comisionUsd, 'green')}
+            <div class="flex items-center justify-between p-3 border border-slate-100 rounded-xl text-xs bg-white hover:bg-slate-50/50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-emerald-50 text-emerald-500 rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-motorcycle"></i></div>
+                    <div>
+                        <p class="font-bold text-slate-800">${mName} <span class="text-slate-400 font-normal text-[11px] ml-1">• Motorizado</span></p>
+                        <p class="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mt-0.5">PEDIDOS TOTALES: ${m.count}</p>
                     </div>
                 </div>
-            </div>
-            `;
+                <div class="text-right bg-emerald-50/60 border border-emerald-100 px-3 py-1 rounded-lg">
+                    <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Acumulado</p>
+                    <p class="font-bold text-emerald-700 font-mono">Bs ${m.comisionBs.toLocaleString('es-VE', {minimumFractionDigits:2})} / $ ${m.comisionUsd.toLocaleString('en-US', {minimumFractionDigits:2})}</p>
+                </div>
+            </div>`;
         }
+        html += `</div>`;
     }
 
-    if (listDiv) listDiv.innerHTML = html.length ? html : '<div style="color:#aaa;padding:1em;">No hay órdenes.</div>';
+    if (!Object.keys(vendedores).length && !Object.keys(motorizados).length) {
+        html = `<div class="p-4 text-center text-slate-400 border border-slate-100 rounded-xl">No hay información de comisiones en los días seleccionados.</div>`;
+    }
+    
+    if (listDiv) listDiv.innerHTML = html;
 
-    // RESUMEN TOTAL
     const summaryDiv = document.getElementById("audit-summary-row");
     if (summaryDiv) {
         summaryDiv.innerHTML = `
-        <div class="audit-sum-card">
-          <div class="sum-label"><i class="fa-solid fa-user"></i> Total Vendedores</div>
-          <div class="sum-total">Bs ${totalV_bs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</div>
-          <div class="sum-sub">$${totalV_usd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+        <div class="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl shadow-sm">
+            <p class="text-xs font-bold text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-user text-[10px] text-slate-400"></i> Total Vendedores</p>
+            <p class="text-sm font-bold text-slate-800 font-mono mt-1">Bs ${totalV_bs.toLocaleString('es-VE', {minimumFractionDigits:2})}</p>
+            <p class="text-xs font-medium text-slate-400 font-mono">$${totalV_usd.toLocaleString('en-US', {minimumFractionDigits:2})}</p>
         </div>
-        <div class="audit-sum-card">
-          <div class="sum-label"><i class="fa-solid fa-motorcycle"></i> Total Motorizados</div>
-          <div class="sum-total">Bs ${totalM_bs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</div>
-          <div class="sum-sub">$${totalM_usd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-        </div>
-      `;
+        <div class="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl shadow-sm">
+            <p class="text-xs font-bold text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-motorcycle text-[10px] text-slate-400"></i> Total Motorizados</p>
+            <p class="text-sm font-bold text-slate-800 font-mono mt-1">Bs ${totalM_bs.toLocaleString('es-VE', {minimumFractionDigits:2})}</p>
+            <p class="text-xs font-medium text-slate-400 font-mono">$${totalM_usd.toLocaleString('en-US', {minimumFractionDigits:2})}</p>
+        </div>`;
     }
 
     let totalBs = totalV_bs + totalM_bs, totalUsd = totalV_usd + totalM_usd;
     const footerDiv = document.getElementById("audit-dark-footer");
     if (footerDiv) {
         footerDiv.innerHTML = `
-        <div>
-          <p class="label">Suma total de comisiones</p>
-          <div class="footer-total" style="font-size:1.8rem; font-weight:900; color:#0284c7;">Bs ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</div>
-        </div>
-        <div>
-          <div class="impact-val" style="font-size:1.8rem; font-weight:bold; color:#10b981;">$${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-          <p class="label" style="text-align:right">Impacto en caja</p>
-        </div>
-      `;
+        <div class="bg-slate-900 text-white p-5 rounded-xl flex justify-between items-center relative overflow-hidden shadow-md mt-6">
+            <div class="z-10">
+                <p class="text-[11px] opacity-60 font-semibold uppercase tracking-wider mb-0.5">Suma total de comisiones del período</p>
+                <p class="text-2xl font-mono font-bold text-blue-400">Bs ${totalBs.toLocaleString('es-VE', {minimumFractionDigits:2})}</p>
+            </div>
+            <div class="text-right z-10">
+                <p class="text-3xl font-mono font-bold text-emerald-400">$${totalUsd.toLocaleString('en-US', {minimumFractionDigits:2})}</p>
+                <p class="text-[10px] opacity-50 uppercase tracking-widest mt-1">Impacto total acumulado</p>
+            </div>
+        </div>`;
     }
 }
 
@@ -788,31 +918,35 @@ function calendarioInit() {
     const ahora = new Date();
     let stateMonth = ahora.getMonth() + 1;
     let stateYear = ahora.getFullYear();
-    let stateSelected = null;
+    
+    // --- NUEVO MANEJO DE SELECCIÓN MÚLTIPLE DE DÍAS ---
+    let stateSelectedSet = new Set(); 
     let cierresMes = {};
 
     async function renderMainCalendar() {
         cierresMes = await getCierresCajaForMonth(stateYear, stateMonth);
-        stateSelected = null;
-        await renderCalendar(stateMonth, stateYear, cierresMes, onDayClick, null);
+        stateSelectedSet.clear(); // Limpiamos al cambiar de mes
+        await renderCalendar(stateMonth, stateYear, cierresMes, onDayClick, stateSelectedSet);
 
-        const title = document.getElementById("selectedDateTitle");
-        const pill = document.getElementById("statusPill");
-        if (title) title.textContent = "Sin selección";
-        if (pill) {
-            pill.textContent = "● SELECCIONA UN DÍA";
-            pill.style = '';
-        }
+        if (document.getElementById("selectedDateTitle")) document.getElementById("selectedDateTitle").textContent = "Sin selección";
+        if (document.getElementById("statusPill")) document.getElementById("statusPill").innerHTML = '<span class="px-2.5 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wide">● SELECCIONE UN DÍA</span>';
         if (document.getElementById("audit-orders-list")) document.getElementById("audit-orders-list").innerHTML = "";
         if (document.getElementById("audit-summary-row")) document.getElementById("audit-summary-row").innerHTML = "";
         if (document.getElementById("audit-dark-footer")) document.getElementById("audit-dark-footer").innerHTML = "";
     }
 
     async function onDayClick(fechaIso) {
-        stateSelected = fechaIso; // Ejemplo: "2026-02-09"
-        await renderCalendar(stateMonth, stateYear, cierresMes, onDayClick, stateSelected);
-        const orders = await getOrdersForDay(fechaIso);
-        await renderAuditDay(fechaIso, cierresMes, orders);
+        if (stateSelectedSet.has(fechaIso)) {
+            stateSelectedSet.delete(fechaIso); // Si ya estaba seleccionado, se deselecciona
+        } else {
+            stateSelectedSet.add(fechaIso); // Si no estaba, se agrega
+        }
+        
+        await renderCalendar(stateMonth, stateYear, cierresMes, onDayClick, stateSelectedSet);
+        
+        const arrayFechas = Array.from(stateSelectedSet);
+        const orders = await getOrdersForMultipleDays(arrayFechas);
+        await renderAuditDaysAcumulado(stateSelectedSet, cierresMes, orders);
     }
 
     setTimeout(() => {
@@ -831,7 +965,6 @@ function calendarioInit() {
     renderMainCalendar();
 }
 
-// -------------- MAIN --------------
 document.addEventListener('DOMContentLoaded', async () => {
     await loadTotalsForToday();
     document.addEventListener('visibilitychange', () => {
@@ -839,11 +972,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     calendarioInit();
 });
-
-const calendarStyles = document.createElement("style");
-calendarStyles.innerHTML = `
-  .calendar-day-closed { background:#f0fdf4; border:1.5px solid #16a34a; color:#166534;}
-  .calendar-day-open { background:#fef2f2; border:1.5px solid #ef4444; color:#991b1b;}
-  .calendar-day.active-day { background:#1e293b; color:#fff; border:2.5px solid #0284c7;}
-`;
-document.head.appendChild(calendarStyles);
