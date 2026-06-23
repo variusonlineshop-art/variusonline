@@ -1,35 +1,27 @@
-<!doctype html>
-<html lang="es">
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Cierre de Caja — Varius</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Varius - Cierre de Caja e Historial</title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/app.css">
-    <link rel="stylesheet" href="assets/css/cierre.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .order-card .order-content {
-            display: none;
-            padding: 1em 0;
-        }
-
-        .order-card.open .order-content {
-            display: block;
-        }
-
-        .order-card .arrow-icon {
-            transition: transform 0.2s;
-        }
-
-        .order-card.open .arrow-icon {
-            transform: rotate(180deg);
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { background-color: #0f172a; color: white; }
+        .tab-inactive { background-color: white; color: #64748b; border: 1px solid #e2e8f0; }
+        .view-hidden { display: none; }
     </style>
 </head>
 
-<body>
+<body class="h-full text-slate-700 antialiased bg-slate-50">
+
     <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
     <header class="topbar">
         <div class="top-left">
@@ -43,190 +35,204 @@
         </div>
 
         <div class="top-search">
-            <!-- input eliminado intencionalmente -->
             <div id="presence-pill" class="presence-pill offline" role="status" aria-live="polite">
                 <span class="dot"></span>
                 <span class="label">Desconectado</span>
             </div>
-
             <div class="ticker-container">
                 <div class="ticker-wrapper">
-                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">
-                        $ Bs/USD Cargando...
-                    </div>
-                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">
-                        € Bs./EUR Cargando...
-                    </div>
+                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">$ Bs/USD Cargando...</div>
+                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">€ Bs./EUR Cargando...</div>
                 </div>
             </div>
         </div>
     </header>
+
     <div id="app-sidebar" class="sidebar"></div>
-    <main class="main cierre" id="main-cierre">
-        <div class="main-header">
-            <div class="top-tabs">
-                <button class="tab-btn active" data-tab="resumen">RESUMEN</button>
-                <button class="tab-btn" data-tab="calendario">CALENDARIO</button>
-            </div>
-        </div>
-        <!-- ----------- RESUMEN ------------- -->
-        <div id="tab-resumen">
-            <div class="cierre-header">
-                <div class="title-group">
-                    <h2>Cierre de Caja</h2>
-                    <p>RESUMEN DE OPERACIONES</p>
-                </div>
-                <button class="btn-finalize"><i class="fa-regular fa-circle-check"></i> Finalizar Caja del Día</button>
-            </div>
-            <div class="stats-row">
-                <div class="stat-card">
-                    <span class="stat-label">TOTAL COBRADO (BS)</span>
-                    <div class="stat-main">
-                        <span id="total-bs" class="stat-value">Bs 0,00</span>
-                        <div class="stat-icon green-bg"><i class="fa-solid fa-dollar-sign"></i></div>
-                    </div>
-                    <div class="progress-bar green-bar"></div>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">TOTAL COBRADO (USD)</span>
-                    <div class="stat-main">
-                        <span id="total-usd" class="stat-value">$0.00</span>
-                        <div class="stat-icon green-bg"><i class="fa-solid fa-dollar-sign"></i></div>
-                    </div>
-                    <div class="progress-bar green-bar"></div>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">TOTAL PEDIDOS</span>
-                    <div class="stat-main">
-                        <span id="total-orders" class="stat-value">0</span>
-                        <div class="stat-icon purple-bg"><i class="fa-solid fa-hashtag"></i></div>
-                    </div>
-                    <div class="progress-bar purple-bar"></div>
-                </div>
-            </div>
-            <div class="payment-methods-row" id="payment-methods-row"></div>
-            <div class="search-panel">
-                <div class="search-header">
-                    <div class="search-title">
-                        <i class="fa-solid fa-filter" style="color: #10b981;"></i> Panel de Búsqueda
-                    </div>
-                    <div class="clear-filters" onclick="clearFilters()">
-                        <i class="fa-solid fa-xmark"></i> Limpiar Filtros
-                    </div>
-                </div>
-                <div class="search-inputs">
-                    <div class="input-with-icon">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="search-input" placeholder="ID o Nombre de Cliente..."
-                            onkeyup="filterOrders()">
-                    </div>
-                    <select id="filter-vendedor" onchange="filterOrders()">
-                        <option value="">Vendedores (Todos)</option>
-                    </select>
-                    <select id="filter-motorizado" onchange="filterOrders()">
-                        <option value="">Motorizados (Todos)</option>
-                    </select>
-                    <select id="filter-pago" onchange="filterOrders()">
-                        <option value="">Forma de Pago (Todas)</option>
-                    </select>
-                </div>
-            </div>
-            <div class="header-date" id="header-date-row"
-                style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.3rem;"></div>
-            <div class="orders-list" id="orders-list"></div>
-            <div class="bottom-grid" id="bottom-grid"></div>
-        </div>
-        <!-- ----------- FIN RESUMEN ------------- -->
-        <!-- ----------- TAB CALENDARIO -------------- -->
-        <div id="tab-calendario" style="display: none;">
-            <div class="audit-dashboard">
-                <aside class="audit-sidebar">
-                    <div class="audit-sidebar-header">
-                        <p>HISTORIAL</p>
-                        <h2>Selecciona un día para auditar</h2>
-                    </div>
+    
+    <main class="main">
+        <div class="flex-1 overflow-y-auto p-6 space-y-6 max-w-[1600px] w-full mx-auto">
 
-                    <div class="audit-card">
-                        <div class="audit-calendar-header" id="calendar-month-label">Febrero 2026</div>
-                        <div class="calendar-controls">
-                            <button id="prev-month" aria-label="Mes anterior">&lt;</button>
-                            <button id="next-month" aria-label="Mes siguiente">&gt;</button>
-                        </div>
-                        <div class="audit-calendar-grid" id="calendar-grid">
-                            <!-- Aquí van los días del calendario -->
-                            <div class="day-name">D</div>
-                            <div class="day-name">L</div>
-                            <div class="day-name">M</div>
-                            <div class="day-name">M</div>
-                            <div class="day-name">J</div>
-                            <div class="day-name">V</div>
-                            <div class="day-name">S</div>
-                        </div>
-                    </div>
+            <!-- SELECTOR DE VISTAS -->
+            <div class="flex gap-1.5 bg-slate-200/60 p-1 rounded-lg w-fit shadow-inner">
+                <button id="btn-resumen" onclick="switchView('resumen')" class="px-5 py-1.5 text-xs font-bold rounded-md shadow-sm tab-active transition-all tracking-wide">RESUMEN</button>
+                <button id="btn-calendario" onclick="switchView('calendario')" class="px-5 py-1.5 text-xs font-bold rounded-md tab-inactive transition-all tracking-wide">CALENDARIO</button>
+            </div>
 
-                    <div class="card-summary">
-                        <h3>Exportación</h3>
-                        <p>Genera un documento profesional con el desglose de comisiones.</p>
-                        <button class="btn-save" id="btnExportar"><i class="fa-solid fa-file-pdf"></i> Descargar Reporte
-                            PDF</button>
+            <!-- ================= VISTA 1: RESUMEN ================= -->
+            <section id="view-resumen" class="space-y-6 transition-opacity duration-200">
+                
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Cierre de Caja</h1>
+                        <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-0.5">Resumen de Operaciones</p>
                     </div>
-                </aside>
+                    <button class="btn-finalize inline-flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm active:scale-95">
+                        <i class="fa-solid fa-circle-check"></i> Finalizar Caja Día
+                    </button>
+                </div>
 
-                <section class="audit-main-content">
-                    <header class="audit-header">
+                <!-- KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
                         <div>
-                            <span class="audit-status-pill" id="statusPill">● SELECCIONA UN DÍA</span>
-                            <h1 id="selectedDateTitle">Sin selección</h1>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL COBRADO (BS)</p>
+                            <h3 id="total-bs" class="text-2xl font-bold text-slate-900">Bs 0,00</h3>
                         </div>
-                    </header>
+                        <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">Bs</div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
+                        <div>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL COBRADO (USD)</p>
+                            <h3 id="total-usd" class="text-2xl font-bold text-slate-900">$0.00</h3>
+                        </div>
+                        <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">$</div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
+                        <div>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL PEDIDOS</p>
+                            <h3 id="total-orders" class="text-2xl font-bold text-slate-900">0</h3>
+                        </div>
+                        <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">#</div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500"></div>
+                    </div>
+                </div>
 
-                    <div class="audit-orders-list" id="audit-orders-list">
-                        <!-- Aquí se cargan las órdenes del día -->
+                <!-- FILTROS -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-chevron-down text-slate-400 text-[10px]"></i> Panel de Búsqueda</span>
+                        <button onclick="clearFilters()" class="text-xs text-slate-400 hover:text-red-500 transition font-medium"><i class="fa-solid fa-xmark mr-1"></i> Limpiar Filtros</button>
                     </div>
-                    <div class="audit-summary-row" id="audit-summary-row">
-                        <!-- Totales vendedores y motorizados -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div class="relative">
+                            <i class="fa-solid fa-address-card absolute left-3 top-3.5 text-slate-400 text-xs"></i>
+                            <input type="text" id="search-input" oninput="filterOrders()" placeholder="Nombre de Cliente..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:border-emerald-500 transition">
+                        </div>
+                        <select id="filter-vendedor" onchange="filterOrders()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
+                            <option value="">Vendedores (Todos)</option>
+                        </select>
+                        <select id="filter-motorizado" onchange="filterOrders()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
+                            <option value="">Motorizadas (Todos)</option>
+                        </select>
+                        <select id="filter-pago" onchange="filterOrders()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
+                            <option value="">Forma de Pago (Todos)</option>
+                        </select>
                     </div>
-                    <div class="audit-dark-footer" id="audit-dark-footer">
-                        <!-- Suma total del día -->
+                </div>
+
+                <!-- LISTADO DE PEDIDOS (Contenedor Dinámico) -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between" id="header-date-row">
+                        <!-- Fecha inyectada por JS -->
+                    </div>
+                    <div id="orders-list" class="space-y-4">
+                        <!-- Pedidos inyectados por JS -->
+                    </div>
+                </div>
+
+                <!-- CONTENEDOR INFERIOR (Conciliación y Totales) -->
+                <div id="bottom-grid" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- Inyectado por JS para mantener lógica de 'Caja Cerrada' -->
+                </div>
+            </section>
+
+            <!-- ================= VISTA 2: CALENDARIO ================= -->
+            <section id="view-calendario" class="view-hidden space-y-6 transition-opacity duration-200">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <!-- Panel Izquierdo (Calendario) -->
+                    <div class="lg:col-span-4 space-y-4">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                            <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">HISTORIAL</h2>
+                            <h3 class="text-base font-bold text-slate-800 mb-4">Selecciona un día para auditar</h3>
+
+                            <div class="text-center">
+                                <div class="flex items-center justify-between mb-4">
+                                    <button id="prev-month" class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                                    <span id="calendar-month-label" class="font-bold text-xs text-slate-700">Mes Año</span>
+                                    <button id="next-month" class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                                </div>
+                                <div id="calendar-grid">
+                                    <!-- Inyectado por JS -->
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
-                    <button id="btnGestionar" class="btn-audit-alert" style="display: none;">⚠️ GESTIONAR CIERRE DE CAJA
-                        PENDIENTE</button>
-                </section>
-            </div>
+                    <!-- Panel Derecho (Detalles del Día) -->
+                    <div class="lg:col-span-8 bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                            <div>
+                                <div id="statusPill" class="mb-2"></div>
+                                <h2 id="selectedDateTitle" class="text-xl font-bold text-slate-800 mt-1">Seleccione una fecha</h2>
+                            </div>
+                        </div>
+
+                        <!-- Listas de personal (Dinámico) -->
+                        <div id="audit-orders-list" class="space-y-3">
+                            <!-- Inyectado por JS -->
+                        </div>
+
+                        <!-- Totales Medios (Dinámico) -->
+                        <div id="audit-summary-row" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                             <!-- Inyectado por JS -->
+                        </div>
+
+                        <!-- Footer (Dinámico) -->
+                        <div id="audit-dark-footer">
+                             <!-- Inyectado por JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </div>
-        <!-- ----------- FIN TAB CALENDARIO -------------- -->
     </main>
     <div id="toast" role="status" aria-live="polite"></div>
+    
+    <script type="module" src="../assets/js/cierre-caja.js"></script>
     <script type="module" src="../assets/js/sidebar-loader.js"></script>
     <script type="module" src="../assets/js/session-timeout.js"></script>
-    <script type="module" src="../assets/js/cierre-caja.js"></script>
     <script type="module" src="../assets/js/money.cash.js"></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 
     <script>
-        // Inicializamos el calendario cuando cargue la página
-        document.addEventListener('DOMContentLoaded', () => {
-            const tabs = document.querySelectorAll('.tab-btn');
-            const resumen = document.getElementById('tab-resumen');
-            const calendario = document.getElementById('tab-calendario');
-            tabs.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    tabs.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    if (btn.dataset.tab === "resumen") {
-                        resumen.style.display = "";
-                        calendario.style.display = "none";
-                    } else {
-                        resumen.style.display = "none";
-                        calendario.style.display = "";
-                    }
-                });
-            });
-        });
+        function switchView(view) {
+            const resView = document.getElementById('view-resumen');
+            const calView = document.getElementById('view-calendario');
+            const btnRes = document.getElementById('btn-resumen');
+            const btnCal = document.getElementById('btn-calendario');
+
+            if (view === 'resumen') {
+                resView.classList.remove('view-hidden');
+                calView.classList.add('view-hidden');
+                btnRes.className = 'px-5 py-1.5 text-xs font-bold rounded-md shadow-sm tab-active transition-all tracking-wide';
+                btnCal.className = 'px-5 py-1.5 text-xs font-bold rounded-md tab-inactive transition-all tracking-wide';
+            } else {
+                resView.classList.add('view-hidden');
+                calView.className = 'space-y-6 transition-opacity duration-200'; 
+                calView.classList.remove('view-hidden');
+                btnRes.className = 'px-5 py-1.5 text-xs font-bold rounded-md tab-inactive transition-all tracking-wide';
+                btnCal.className = 'px-5 py-1.5 text-xs font-bold rounded-md shadow-sm tab-active transition-all tracking-wide';
+            }
+        }
+        
+        window.toggleDetails = function(id) {
+            const container = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                container.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
     </script>
 </body>
-
 </html>
