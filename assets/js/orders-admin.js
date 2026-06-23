@@ -48,6 +48,72 @@ window.handleAcceptDelivery = handleAcceptDelivery;
 window.openContactModal = openContactModal;
 
 window.ordersCache = {};
+
+// Variable global para almacenar las tasas del día
+let currentRates = { usd: null, eur: null };
+
+const API_SOURCES = [
+    {
+        name: 'DolarApi (Principal)',
+        async fetcher() {
+            const [resUsd, resEur] = await Promise.all([
+                fetch('https://ve.dolarapi.com/v1/dolares'),
+                fetch('https://ve.dolarapi.com/v1/euros')
+            ]);
+            if (!resUsd.ok || !resEur.ok) throw new Error("Error en respuesta de red");
+
+            const dataUsd = await resUsd.json();
+            const dataEur = await resEur.json();
+
+            // Búsqueda flexible por si la API cambia el nombre de las propiedades
+            const findOficial = (arr) => arr.find(i =>
+                (i.fuente && i.fuente.toLowerCase() === 'oficial') ||
+                (i.casa && i.casa.toLowerCase() === 'bcv') ||
+                (i.nombre && i.nombre.toLowerCase() === 'bcv')
+            );
+
+            const bcvUsd = findOficial(dataUsd);
+            const bcvEur = findOficial(dataEur);
+
+            if (!bcvUsd || !bcvEur) throw new Error("Tasas BCV no encontradas en el JSON");
+
+            return {
+                usd: bcvUsd.promedio,
+                eur: bcvEur.promedio
+            };
+        }
+    },
+    {
+        name: 'PyDolar (Respaldo)',
+        url: 'https://pydolarve.org/api/v1/dollar?page=bcv',
+        async fetcher() {
+            const res = await fetch(this.url);
+            if (!res.ok) throw new Error("Error en PyDolar");
+            const data = await res.json();
+            return {
+                usd: data.monitors?.usd?.price,
+                eur: data.monitors?.eur?.price
+            };
+        }
+    }
+];
+
+// Función para obtener las tasas al cargar la página
+async function loadExchangeRates() {
+    for (const source of API_SOURCES) {
+        try {
+            const rates = await source.fetcher();
+            if (rates.usd && rates.eur) {
+                currentRates = rates;
+                console.log(`Tasas cargadas exitosamente desde ${source.name}`);
+                break; // Si tiene éxito, salimos del bucle
+            }
+        } catch (e) {
+            console.warn(`Omitiendo fuente ${source.name} por error:`, e.message);
+        }
+    }
+}
+
 let productImgCache = {};
 
 /**
@@ -224,6 +290,31 @@ function fetchAndRenderOrders(filters = {}) {
                         });
                     }
 
+                    let tooltipHTML = "";
+                    if (currentRates.usd && currentRates.eur) {
+                        const orderTotalUsd = parseFloat(order.total || 0);
+                        const amountInBs = orderTotalUsd * currentRates.usd;
+                        const totalEur = orderTotalUsd * currentRates.eur;
+                        //const totalEur = amountInBs;
+
+                        tooltipHTML = `
+                            <div class="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-max bg-gray-800 text-white text-[11px] rounded-lg py-1.5 px-3 z-50 shadow-xl border border-gray-700">
+                                Total: <span class="font-bold text-yellow-400">&euro;${totalEur.toFixed(2)}</span>
+                                <br>
+                                <span class="text-[9px] text-gray-400 block mt-0.5 border-t border-gray-600 pt-0.5">
+                                    Tasa EUR: Bs ${currentRates.eur.toFixed(2)}
+                                </span>
+                            </div>
+                        `;
+                    } else {
+                        // Tooltip de error por si las APIs están caídas
+                        tooltipHTML = `
+                            <div class="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-max bg-red-800 text-white text-[11px] rounded-lg py-1.5 px-3 z-50 shadow-xl border border-red-700">
+                                Tasas del día no disponibles.
+                            </div>
+                        `;
+                    }
+
                     let orderTimeFormatted = "";
                     if (order.timestamp) {
                         // Si es un Timestamp de Firebase usará .toDate(), si no, creará un Date normal
@@ -278,9 +369,11 @@ function fetchAndRenderOrders(filters = {}) {
                             <i class="fa-regular fa-calendar text-sm"></i>
                             <span class="text-xs font-medium text-gray-500">${order.orderDate} ${orderTimeFormatted ? `• ${orderTimeFormatted}` : ''}</span>
                         </div>
-                        <div class="flex items-center gap-1">
+                        
+                        <div class="flex items-center gap-1 relative group cursor-help">
                             <span class="text-gray-400 text-sm">$</span>
                             <span class="text-base font-bold text-gray-800">${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
+                            ${tooltipHTML}
                         </div>
                     </div>
 
@@ -525,6 +618,20 @@ window.showOrderDetails = async function (orderId) {
     `;
     modal.classList.remove('hidden');
 
+    let modalEurHTML = "";
+    if (currentRates.usd && currentRates.eur) {
+        const totalUsd = parseFloat(order.total || 0);
+        const totalBs = totalUsd * currentRates.usd;
+        const totalEur = totalUsd * currentRates.eur;
+
+        const totalEurFormateado = totalEur.toLocaleString('es-ES', { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+        });
+        
+        modalEurHTML = `<span class="text-sm font-bold text-yellow-400 block mt-1 text-right">&euro; ${totalEurFormateado}</span>`;
+    }
+
     const items = order.items || [];
     const itemsWithImages = await Promise.all(items.map(async (item) => {
         const img = await fetchProductImg(item.productId);
@@ -591,7 +698,10 @@ window.showOrderDetails = async function (orderId) {
                     </div>
                     <div class="border-t border-gray-700 pt-3 flex justify-between items-center">
                         <span class="text-xs font-bold uppercase tracking-widest text-gray-400">Total a Pagar</span>
-                        <span class="text-2xl font-black text-white">$${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
+                        <div class="flex flex-col items-end">
+                            <span class="text-2xl font-black text-white leading-none">$${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
+                            ${modalEurHTML}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -687,7 +797,10 @@ async function checkPostponedOrders() {
     }
 }
 // === Inicialización automática ===
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+    // Primero cargamos las tasas
+    await loadExchangeRates();
+    // Luego aplicamos filtros y renderizamos
     window.applyAllFilters();
     setInterval(checkPostponedOrders, 30000);
 });
