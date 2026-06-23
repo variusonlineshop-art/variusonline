@@ -290,31 +290,6 @@ function fetchAndRenderOrders(filters = {}) {
                         });
                     }
 
-                    let tooltipHTML = "";
-                    if (currentRates.usd && currentRates.eur) {
-                        const orderTotalUsd = parseFloat(order.total || 0);
-                        const amountInBs = orderTotalUsd * currentRates.usd;
-                        const totalEur = orderTotalUsd * currentRates.eur;
-                        //const totalEur = amountInBs;
-
-                        tooltipHTML = `
-                            <div class="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-max bg-gray-800 text-white text-[11px] rounded-lg py-1.5 px-3 z-50 shadow-xl border border-gray-700">
-                                Total: <span class="font-bold text-yellow-400">&euro;${totalEur.toFixed(2)}</span>
-                                <br>
-                                <span class="text-[9px] text-gray-400 block mt-0.5 border-t border-gray-600 pt-0.5">
-                                    Tasa EUR: Bs ${currentRates.eur.toFixed(2)}
-                                </span>
-                            </div>
-                        `;
-                    } else {
-                        // Tooltip de error por si las APIs están caídas
-                        tooltipHTML = `
-                            <div class="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-max bg-red-800 text-white text-[11px] rounded-lg py-1.5 px-3 z-50 shadow-xl border border-red-700">
-                                Tasas del día no disponibles.
-                            </div>
-                        `;
-                    }
-
                     let orderTimeFormatted = "";
                     if (order.timestamp) {
                         // Si es un Timestamp de Firebase usará .toDate(), si no, creará un Date normal
@@ -370,10 +345,9 @@ function fetchAndRenderOrders(filters = {}) {
                             <span class="text-xs font-medium text-gray-500">${order.orderDate} ${orderTimeFormatted ? `• ${orderTimeFormatted}` : ''}</span>
                         </div>
                         
-                        <div class="flex items-center gap-1 relative group cursor-help">
+                        <div class="flex items-center gap-1">
                             <span class="text-gray-400 text-sm">$</span>
                             <span class="text-base font-bold text-gray-800">${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
-                            ${tooltipHTML}
                         </div>
                     </div>
 
