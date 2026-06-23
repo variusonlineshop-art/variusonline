@@ -77,6 +77,71 @@ async function fetchProductImg(productId) {
     return placeholder;
 }
 
+// Variable global para almacenar las tasas del día
+let currentRates = { usd: null, eur: null };
+
+const API_SOURCES = [
+    {
+        name: 'DolarApi (Principal)',
+        async fetcher() {
+            const [resUsd, resEur] = await Promise.all([
+                fetch('https://ve.dolarapi.com/v1/dolares'),
+                fetch('https://ve.dolarapi.com/v1/euros')
+            ]);
+            if (!resUsd.ok || !resEur.ok) throw new Error("Error en respuesta de red");
+
+            const dataUsd = await resUsd.json();
+            const dataEur = await resEur.json();
+
+            // Búsqueda flexible por si la API cambia el nombre de las propiedades
+            const findOficial = (arr) => arr.find(i =>
+                (i.fuente && i.fuente.toLowerCase() === 'oficial') ||
+                (i.casa && i.casa.toLowerCase() === 'bcv') ||
+                (i.nombre && i.nombre.toLowerCase() === 'bcv')
+            );
+
+            const bcvUsd = findOficial(dataUsd);
+            const bcvEur = findOficial(dataEur);
+
+            if (!bcvUsd || !bcvEur) throw new Error("Tasas BCV no encontradas en el JSON");
+
+            return {
+                usd: bcvUsd.promedio,
+                eur: bcvEur.promedio
+            };
+        }
+    },
+    {
+        name: 'PyDolar (Respaldo)',
+        url: 'https://pydolarve.org/api/v1/dollar?page=bcv',
+        async fetcher() {
+            const res = await fetch(this.url);
+            if (!res.ok) throw new Error("Error en PyDolar");
+            const data = await res.json();
+            return {
+                usd: data.monitors?.usd?.price,
+                eur: data.monitors?.eur?.price
+            };
+        }
+    }
+];
+
+// Función para obtener las tasas al cargar la página
+async function loadExchangeRates() {
+    for (const source of API_SOURCES) {
+        try {
+            const rates = await source.fetcher();
+            if (rates.usd && rates.eur) {
+                currentRates = rates;
+                console.log(`Tasas cargadas exitosamente desde ${source.name}`);
+                break; // Si tiene éxito, salimos del bucle
+            }
+        } catch (e) {
+            console.warn(`Omitiendo fuente ${source.name} por error:`, e.message);
+        }
+    }
+}
+
 /**
  * Renderiza el grid de órdenes con lógica condicional para órdenes suspendidas y filtro de rol
  * Ahora acepta un objeto filters: {search, seller, motorized, sort}
@@ -166,7 +231,7 @@ function fetchAndRenderOrders(filters = {}) {
                             phone.includes(searchTerm)
                         );
                     });
-                }                
+                }
                 // --- 5. Ordenar SIEMPRE del más nuevo al más viejo (Fecha + Hora) ---
                 ordersArr.sort((a, b) => {
                     // Extraemos los milisegundos para comparar numéricamente
@@ -273,8 +338,8 @@ function fetchAndRenderOrders(filters = {}) {
                             <div class="mb-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
                                 <p class="text-[10px] text-blue-600 font-bold uppercase italic">Reprogramado para:</p>
                                 <p class="text-xs font-bold text-gray-700">
-                                    ${order.postponeHistory && order.postponeHistory.length > 0 
-                                    ? `${order.postponeHistory[order.postponeHistory.length - 1].date} ${order.postponeHistory[order.postponeHistory.length - 1].time}` 
+                                    ${order.postponeHistory && order.postponeHistory.length > 0
+                                    ? `${order.postponeHistory[order.postponeHistory.length - 1].date} ${order.postponeHistory[order.postponeHistory.length - 1].time}`
                                     : 'No definida'}
                                 </p>
                             </div>
@@ -511,6 +576,20 @@ window.showOrderDetails = async function (orderId) {
     `;
     modal.classList.remove('hidden');
 
+    let modalEurHTML = "";
+    if (currentRates.usd && currentRates.eur) {
+        const totalUsd = parseFloat(order.total || 0);
+        const totalBs = totalUsd * currentRates.usd;
+        const totalEur = totalUsd * currentRates.eur;
+
+        const totalEurFormateado = totalEur.toLocaleString('es-ES', { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+        });
+        
+        modalEurHTML = `<span class="text-sm font-bold text-yellow-400 block mt-1 text-right">&euro; ${totalEurFormateado}</span>`;
+    }
+
     const items = order.items || [];
     const itemsWithImages = await Promise.all(items.map(async (item) => {
         const img = await fetchProductImg(item.productId);
@@ -577,7 +656,10 @@ window.showOrderDetails = async function (orderId) {
                     </div>
                     <div class="border-t border-gray-700 pt-3 flex justify-between items-center">
                         <span class="text-xs font-bold uppercase tracking-widest text-gray-400">Total a Pagar</span>
-                        <span class="text-2xl font-black text-white">$${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
+                        <div class="flex flex-col items-end">
+                            <span class="text-2xl font-black text-white leading-none">$${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
+                            ${modalEurHTML}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -639,13 +721,13 @@ window.closeModal = function () {
 
 async function checkPostponedOrders() {
     const ahora = new Date();
-    
+
     for (const id in window.ordersCache) {
         const order = window.ordersCache[id];
-        
+
         // Verificamos que la orden esté postergada y tenga historial
         if (order.status === "Postergado" && order.postponeHistory && order.postponeHistory.length > 0) {
-            
+
             // Obtenemos el último registro de postergación
             const lastPostpone = order.postponeHistory[order.postponeHistory.length - 1];
             const { date, time } = lastPostpone;
@@ -661,7 +743,7 @@ async function checkPostponedOrders() {
                         await updateDoc(doc(db, "orders", id), {
                             status: "Asignado", // Cambia a "Pendiente" o el que uses normalmente
                             lastUpdate: ahora.toISOString(),
-                            autoReactivated: true 
+                            autoReactivated: true
                         });
                         // El onSnapshot se encargará de refrescar la UI automáticamente
                     } catch (error) {
@@ -673,8 +755,10 @@ async function checkPostponedOrders() {
     }
 }
 // === Inicialización automática ===
-window.addEventListener('DOMContentLoaded', () => {
-    window.applyAllFilters();
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadExchangeRates();
+    await window.applyAllFilters();
+    
     setInterval(checkPostponedOrders, 30000);
 });
 
