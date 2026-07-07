@@ -864,7 +864,7 @@ function openPasswordModal(uid) {
 // Commission helpers & role logic
 // -----------------------------
 function shouldShowCommissionForRole(role) {
-    return role === 'vendedor' || role === 'motorizado';
+    return role === 'vendedor' || role === 'motorizado' || role === 'gerente';
 }
 function clearCommissionFields() {
     if (commissionPercentRadio) commissionPercentRadio.checked = false;
