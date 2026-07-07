@@ -14,6 +14,9 @@ import {
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { openPaymentModal } from './payment-modal.js';
 
+let currentPage = 1;
+const itemsPerPage = 20;
+
 // Permitirlo como handler global:
 window.openPaymentModalFromOrderId = function (orderId) {
     const order = window.ordersCache[orderId];
@@ -168,7 +171,6 @@ function fetchAndRenderOrders(filters = {}) {
     const auth = getAuth();
     let user = auth.currentUser;
 
-    // Esto permite Wait por el login si aún no se ha hecho
     function continuarConUsuario(user) {
         if (!user) {
             container.innerHTML = '<p class="text-center py-10 text-red-500">Debes iniciar sesión para ver órdenes.</p>';
@@ -179,7 +181,7 @@ function fetchAndRenderOrders(filters = {}) {
             let myRole = (myData.role || '').toLowerCase();
 
             let ordersQuery;
-            if (myRole === "administrador") {
+            if (myRole === "administrador" || myRole === "gerente") {
                 ordersQuery = collection(db, "orders");
             } else if (myRole === "motorizado") {
                 ordersQuery = query(
@@ -208,11 +210,18 @@ function fetchAndRenderOrders(filters = {}) {
                     ordersArr.push(order);
                 });
 
-                // Popula selects de vendedores y motorizados usando todas las órdenes
-                fillFilterOptions("filterSeller", ordersArr.map(o => [o.assignedSeller, o.assignedSellerName]));
-                fillFilterOptions("filterMotorized", ordersArr.map(o => [o.assignedMotorizedId, o.assignedMotorizedName]));
+                // OPTIMIZACIÓN: Solo repoblar filtros si no se ha seleccionado nada (evita bucle de desconexión)
+                const currentSeller = document.getElementById("filterSeller")?.value || "all";
+                const currentMotorized = document.getElementById("filterMotorized")?.value || "all";
+                
+                if (currentSeller === "all") {
+                    fillFilterOptions("filterSeller", ordersArr.map(o => [o.assignedSeller, o.assignedSellerName]));
+                }
+                if (currentMotorized === "all") {
+                    fillFilterOptions("filterMotorized", ordersArr.map(o => [o.assignedMotorizedId, o.assignedMotorizedName]));
+                }
 
-                // === Filtros ===
+                // === FILTRO GLOBAL (Busca en todo el set de datos inicial) ===
                 if (filters.seller && filters.seller !== "all") {
                     ordersArr = ordersArr.filter(o => o.assignedSeller === filters.seller);
                 }
@@ -232,22 +241,36 @@ function fetchAndRenderOrders(filters = {}) {
                         );
                     });
                 }
-                // --- 5. Ordenar SIEMPRE del más nuevo al más viejo (Fecha + Hora) ---
+
+                // --- Ordenar siempre de más nuevo a más viejo ---
                 ordersArr.sort((a, b) => {
-                    // Extraemos los milisegundos para comparar numéricamente
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.orderDate).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.orderDate).getTime();
-
-                    // Orden descendente: el más reciente arriba
                     return timeB - timeA;
                 });
 
-                // Renderizado
+                // ==========================================
+                // LÓGICA MATEMÁTICA DE LA PAGINACIÓN
+                // ==========================================
+                const totalItems = ordersArr.length;
+                const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+                // Si por un cambio de filtro la página actual queda fuera de rango, la reseteamos a la 1
+                if (currentPage > totalPages) {
+                    currentPage = 1;
+                }
+
+                // Segmentamos el array para mostrar únicamente los 20 elementos correspondientes a la página activa
+                const startIndex = (currentPage - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+                const paginatedOrders = ordersArr.slice(startIndex, endIndex);
+
+                // Renderizado de las Cards
                 let allCardsHTML = "";
-                if (ordersArr.length === 0) {
+                if (paginatedOrders.length === 0) {
                     allCardsHTML = '<p class="text-center py-10 text-gray-500">No hay órdenes que coincidan con los filtros.</p>';
                 } else {
-                    ordersArr.forEach((order) => {
+                    paginatedOrders.forEach((order) => {
                         const orderId = order._id;
                         const status = order.status || 'Pendiente';
                         const isSuspended = status === 'Suspendido';
@@ -266,28 +289,20 @@ function fetchAndRenderOrders(filters = {}) {
                                 ? order.paymentUpdatedAt.toDate()
                                 : new Date(order.paymentUpdatedAt);
 
-                            // 2. Formateamos la fecha al estilo local de Venezuela
                             paymentDateFormatted = pDate.toLocaleString('es-ES', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
+                                day: '2-digit', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit', hour12: true
                             });
                         }
 
                         let orderTimeFormatted = "";
                         if (order.timestamp) {
-                            // Si es un Timestamp de Firebase usará .toDate(), si no, creará un Date normal
                             const tDate = (typeof order.timestamp.toDate === 'function')
                                 ? order.timestamp.toDate()
                                 : new Date(order.timestamp);
 
                             orderTimeFormatted = tDate.toLocaleString('es-ES', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
+                                hour: '2-digit', minute: '2-digit', hour12: true
                             });
                         }
 
@@ -416,7 +431,7 @@ function fetchAndRenderOrders(filters = {}) {
                                     <button onclick="showOrderDetails('${orderId}')" title="Visualizar Orden" class="bg-green-200 flex-1 py-2 rounded-lg hover:bg-green-600 hover:shadow-sm hover:text-white text-green-700 transition-all">
                                         <i class="fa-regular fa-eye text-xs"></i>
                                     </button>
-                                    <button onclick="openEditOrder('${orderId}')" title="Editar Orden" class="bg-blue-200 flex-1 py-2 rounded-lg hover:bg-blue-600 hover:shadow-sm hover:text-white text-blue-700 transition-all">
+                                    <button onclick="openEditOrder('${orderId}', '${myRole}')" title="Editar Orden" class="bg-blue-200 flex-1 py-2 rounded-lg hover:bg-blue-600 hover:shadow-sm hover:text-white text-blue-700 transition-all">
                                         <i class="fa-regular fa-pen-to-square text-xs"></i>
                                     </button>
                                    ${(hasMotorized && !isSent && !isAccepted) ? `
@@ -447,6 +462,10 @@ function fetchAndRenderOrders(filters = {}) {
                 }
 
                 container.innerHTML = allCardsHTML;
+
+                // Renderizar los controles rotativos de la paginación
+                renderPaginationControls(totalPages, totalItems, filters);
+
                 if (window.startOrderNotificationsTimer) {
                     window.startOrderNotificationsTimer();
                 }
@@ -457,7 +476,6 @@ function fetchAndRenderOrders(filters = {}) {
         });
     }
 
-    // Autenticación dinámica
     if (user) {
         continuarConUsuario(user);
     } else {
@@ -467,6 +485,51 @@ function fetchAndRenderOrders(filters = {}) {
         });
     }
 }
+
+function renderPaginationControls(totalPages, totalItems, currentFilters) {
+    const navContainer = document.getElementById('pagination-container');
+    const infoText = document.getElementById('pagination-info');
+    const numbersContainer = document.getElementById('pagination-numbers');
+
+    if (!navContainer || !numbersContainer) return;
+    if (totalItems <= itemsPerPage) { navContainer.classList.add('hidden'); return; }
+    navContainer.classList.remove('hidden');
+
+    const startRange = ((currentPage - 1) * itemsPerPage) + 1;
+    const endRange = Math.min(currentPage * itemsPerPage, totalItems);
+    infoText.innerText = `Mostrando ${startRange}-${endRange} de ${totalItems} órdenes`;
+
+    let pages = [];
+    if (totalPages <= 8) { for (let i = 1; i <= totalPages; i++) pages.push(i); } 
+    else {
+        pages.push(1);
+        let start = Math.max(2, currentPage - 2);
+        let end = Math.min(totalPages - 1, currentPage + 2);
+        if (currentPage <= 4) end = 5;
+        else if (currentPage >= totalPages - 3) start = totalPages - 4;
+        if (start > 2) pages.push('...');
+        for (let i = start; i <= end; i++) pages.push(i);
+        if (end < totalPages - 1) pages.push('...');
+        pages.push(totalPages);
+    }
+
+    numbersContainer.innerHTML = pages.map(page => {
+        if (page === '...') return `<span class="px-3 py-1.5 text-gray-400 text-xs">...</span>`;
+        const isCurrent = page === currentPage;
+        return `
+            <button 
+                onclick="changePage(${page}, ${JSON.stringify(currentFilters).replace(/"/g, '&quot;')})"
+                class="px-3.5 py-1.5 rounded-xl text-xs font-bold ${isCurrent ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-600'}">
+                ${page}
+            </button>`;
+    }).join('');
+}
+
+window.changePage = function(pageNumber, currentFilters) {
+    currentPage = pageNumber;
+    fetchAndRenderOrders(currentFilters);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 /**
  * Llena un <select> con opciones únicas usando un array de arrays [id, nombre]
@@ -582,11 +645,11 @@ window.showOrderDetails = async function (orderId) {
         const totalBs = totalUsd * currentRates.usd;
         const totalEur = totalUsd * currentRates.eur;
 
-        const totalEurFormateado = totalEur.toLocaleString('es-ES', { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
+        const totalEurFormateado = totalEur.toLocaleString('es-ES', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         });
-        
+
         modalEurHTML = `<span class="text-sm font-bold text-yellow-400 block mt-1 text-right">&euro; ${totalEurFormateado}</span>`;
     }
 
@@ -758,16 +821,14 @@ async function checkPostponedOrders() {
 window.addEventListener('DOMContentLoaded', async () => {
     await loadExchangeRates();
     await window.applyAllFilters();
-    
+
     setInterval(checkPostponedOrders, 30000);
 });
 
 window.clearAllFilters = async function () {
-    // 1. Limpiar el input de búsqueda
     const searchInput = document.getElementById("globalSearch");
     if (searchInput) searchInput.value = "";
 
-    // 2. Regresar los selects a sus valores iniciales
     const sellerSelect = document.getElementById("filterSeller");
     if (sellerSelect) sellerSelect.value = "all";
 
@@ -777,6 +838,8 @@ window.clearAllFilters = async function () {
     const sortSelect = document.getElementById("filterSort");
     if (sortSelect) sortSelect.value = "newest";
 
-    // 3. Ejecutar la recarga con los valores ya limpios
+    // Reestablecemos el puntero a la primera página
+    currentPage = 1;
+
     await window.applyAllFilters();
 };
