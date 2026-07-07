@@ -29,7 +29,8 @@ const db = getFirestore(app);
 const ROLE_ROUTES = {
     vendedor: 'admin/vendedor.html',
     motorizado: 'admin/motorizado.html',
-    administrador: 'admin/administrador.html'
+    administrador: 'admin/administrador.html',
+    gerente: 'admin/gerente.html'
 };
 function redirectByRole(role) {
     const route = ROLE_ROUTES[role] || ROLE_ROUTES['vendedor'];
