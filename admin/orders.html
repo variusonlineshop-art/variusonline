@@ -141,6 +141,16 @@
 
             <div id="grid-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-10">
             </div>
+            <!-- ==========================================
+               CONTROLES DE PAGINACIÓN DINÁMICA
+               ========================================== -->
+            <div id="pagination-container"
+                class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-10 hidden">
+                <p id="pagination-info" class="text-xs font-medium text-gray-400"></p>
+                <div id="pagination-numbers" class="flex items-center gap-1.5 overflow-x-auto max-w-full py-1">
+                    <!-- Los números rotativos se generarán dinámicamente aquí -->
+                </div>
+            </div>
     </main>
 
     <div id="editOrderModal"
@@ -173,6 +183,16 @@
                     </div>
 
                     <div class="space-y-6">
+                        <div>
+                            <div id="sellerSelectContainer" class="hidden space-y-2 mb-4">
+                                <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Asignación de
+                                    Vendedores</h4>
+                                <select id="sellerSelect"
+                                    class="w-full p-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <option value="">Seleccionar Vendedor</option>
+                                </select>
+                            </div>
+                        </div>
                         <div>
                             <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Asignación de
                                 Motorizado</h4>
