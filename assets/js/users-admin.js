@@ -364,6 +364,7 @@ function renderTable() {
         if (u.role === 'administrador') roleColorClass = "bg-purple-50 text-purple-700 border-purple-100";
         else if (u.role === 'vendedor') roleColorClass = "bg-blue-50 text-blue-700 border-blue-100";
         else if (u.role === 'motorizado') roleColorClass = "bg-amber-50 text-amber-700 border-amber-100";
+        else if (u.role === 'gerente') roleColorClass = "bg-emerald-50 text-emerald-700 border-emerald-100";
 
         tdRole.innerHTML = `
         <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${roleColorClass}">
