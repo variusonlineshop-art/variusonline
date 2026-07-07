@@ -314,7 +314,7 @@ function fetchAndRenderOrders(filters = {}) {
 
                     const hasMotorized = order.assignedMotorizedId && order.assignedMotorizedId !== "";
                     const hasLocation = order.deliveryLocation?.lat && order.deliveryLocation?.lng;
-                    const showCobranzaBtn = myRole === "administrador" || myRole === "motorizado";
+                    const showCobranzaBtn = myRole === "administrador" || myRole === "motorizado" || myRole === "gerente";
 
                     allCardsHTML += `
                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow ${isSuspended ? 'opacity-80 grayscale-[0.5]' : ''}">
