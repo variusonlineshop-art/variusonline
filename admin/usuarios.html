@@ -5,38 +5,28 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Usuarios — Varius</title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
-    <link rel="stylesheet" href="assets/css/admin-users.css">
-    <style>
-        .pwd-input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#7c3aed',
+                        muted: '#6b7280',
+                    }
+                }
+            }
         }
-
-        .pwd-input-wrapper input[type="password"],
-        .pwd-input-wrapper input[type="text"] {
-            flex: 1;
-        }
-
-        .pwd-toggle {
-            position: absolute;
-            right: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            font-size: 18px;
-        }
-    </style>
+    </script>
 </head>
 
 <body>
     <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
-
+    <!-- Top bar -->
     <header class="topbar">
         <div class="top-left">
             <label for="nav-toggle" class="hamburger" aria-hidden="true">
@@ -54,281 +44,368 @@
                 <span class="dot"></span>
                 <span class="label">Desconectado</span>
             </div>
+
+            <div class="ticker-container">
+                <div class="ticker-wrapper">
+                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">
+                        $ Bs/USD Cargando...
+                    </div>
+                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">
+                        € Bs./EUR Cargando...
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 
     <div id="app-sidebar"></div>
 
-    <!-- Main content -->
     <main class="main">
-
-        <section class="table-wrap card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3>Gestión de Usuarios</h3>
-                <button id="openAddBtn" class="btn-add"><span class="plus">＋</span> Añadir usuario</button>
-            </div>
-
-            <!-- Filters -->
-            <section class="filters-card" style="margin-top:12px;">
-                <div class="search-row">
-                    <div class="search" style="min-width: auto;">
-                        <svg class="icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                            <path fill="currentColor"
-                                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16a6.471 6.471 0 004.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM10 15a5 5 0 110-10 5 5 0 010 10z">
-                            </path>
-                        </svg>
-                        <input id="searchInput" type="text" placeholder="Buscar por nombre o correo..."
-                            aria-label="Buscar usuarios" />
+        <div class="px-6 py-8">
+            <section class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <h3 class="text-xl font-bold text-slate-900">Gestión de Usuarios</h3>
+                    <!-- Contenedor de Botones en fila -->
+                    <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <button id="openAddRoleBtn"
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl transition shadow-sm">
+                            <span class="text-lg text-primary">⚡</span> Nuevo Rol
+                        </button>
+                        <button id="openAddBtn"
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition shadow-sm">
+                            <span class="text-lg">＋</span> Añadir usuario
+                        </button>
                     </div>
+                </div>
 
-                    <select id="roleFilter" class="filter-select">
-                        <option value="">Todos los roles</option>
-                        <option value="administrador">Administrador</option>
-                        <option value="vendedor">Vendedor</option>
-                        <option value="motorizado">Motorizado</option>
-                    </select>
+                <!-- Filters -->
+                <section class="bg-slate-50/60 rounded-xl border border-slate-200/60 p-4 mb-6">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="relative flex-1 min-w-[260px]">
+                            <span
+                                class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </span>
+                            <input id="searchInput" type="text"
+                                class="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-purple-100 transition"
+                                placeholder="Buscar por nombre o correo..." aria-label="Buscar usuarios" />
+                        </div>
 
-                    <select id="statusFilter" class="filter-select">
-                        <option value="">Todos los estados</option>
-                        <option value="Activo">Activo</option>
-                        <option value="Inactivo">Inactivo</option>
-                        <option value="Suspendido">Suspendido</option>
-                    </select>
-
-                    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
-                        <label for="perPageSelect"
-                            style="font-size:13px;color:var(--muted); margin-right:6px;">Mostrar</label>
-                        <select id="perPageSelect" class="filter-select">
-                            <option value="10">10</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="all">Todos</option>
+                        <!-- Roles dinámicos cargados por JS -->
+                        <select id="roleFilter"
+                            class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary transition min-w-[160px]">
+                            <option value="">Todos los roles</option>
                         </select>
-                    </div>
 
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button id="applyFilters" class="btn-apply">Aplicar filtros</button>
-                        <button id="clearFilters" class="btn-secondary">Limpiar</button>
+                        <select id="statusFilter"
+                            class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary transition min-w-[160px]">
+                            <option value="">Todos los estados</option>
+                            <option value="Activo">Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                            <option value="Suspendido">Suspendido</option>
+                        </select>
+
+                        <div class="sm:ml-auto flex items-center gap-2">
+                            <label for="perPageSelect"
+                                class="text-xs font-medium text-slate-400 uppercase tracking-wider">Mostrar</label>
+                            <select id="perPageSelect"
+                                class="bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition">
+                                <option value="10">10</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="all">Todos</option>
+                            </select>
+                        </div>
+
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button id="applyFilters"
+                                class="flex-1 sm:flex-none bg-primary text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-purple-700 transition">Aplicar</button>
+                            <button id="clearFilters"
+                                class="flex-1 sm:flex-none bg-white border border-slate-200 text-sm font-medium px-4 py-2 rounded-xl hover:bg-slate-50 transition text-slate-600">Limpiar</button>
+                        </div>
                     </div>
+                </section>
+
+                <div class="flex justify-between items-center text-sm text-slate-500 mb-3 px-1">
+                    <div id="pageInfo">0-0 de 0</div>
+                    <div class="flex gap-1">
+                        <button id="prevPage"
+                            class="p-1.5 border border-slate-200 bg-white hover:bg-slate-50 rounded-lg transition text-xs">◀</button>
+                        <button id="nextPage"
+                            class="p-1.5 border border-slate-200 bg-white hover:bg-slate-50 rounded-lg transition text-xs">▶</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                    <table id="usersTable" class="w-full text-left border-collapse" role="table">
+                        <thead>
+                            <tr
+                                class="bg-slate-50/70 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                <th class="px-6 py-3.5">Nombre</th>
+                                <th class="px-6 py-3.5">Rol</th>
+                                <th class="px-6 py-3.5">Teléfono</th>
+                                <th class="px-6 py-3.5">Fecha</th>
+                                <th class="px-6 py-3.5">Estado</th>
+                                <th class="px-6 py-3.5 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersBody" class="divide-y divide-slate-100 text-sm text-slate-700">
+                            <!-- JS render -->
+                        </tbody>
+                    </table>
                 </div>
             </section>
-
-            <div class="table-controls">
-                <div id="pageInfo">0-0 de 0</div>
-                <div class="pagination-controls">
-                    <button id="prevPage" class="icon-btn small">◀</button>
-                    <button id="nextPage" class="icon-btn small">▶</button>
-                </div>
-            </div>
-
-            <div class="table-scroll" style="margin-top:6px;">
-                <table id="usersTable" role="table" aria-label="Tabla de usuarios">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Rol</th>
-                            <th>Teléfono</th>
-                            <th>Fecha</th> <!-- nueva columna -->
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersBody"><!-- JS render --></tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Modal Agregar / Editar usuario (REEMPLAZADO y adaptado al estilo de prueba.html) -->
-        <div id="userModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
-            <div class="modal-content">
-                <header class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; gap:12px; align-items:center;">
-                        <div style="background:#f1f5f9; padding:8px; border-radius:10px; color:#7c3aed;">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <path d="M12 12a5 5 0 100-10 5 5 0 000 10z" fill="#7c3aed"></path>
-                                <path d="M2 22a10 10 0 0120 0" fill="#7c3aed" opacity="0.08"></path>
+        </div>
+        <!-- Modal Agregar / Editar usuario -->
+        <div id="userModal"
+            class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden"
+            aria-hidden="true" role="dialog" aria-modal="true">
+            <div
+                class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-100 transform transition-all">
+                <header
+                    class="flex items-center justify-between border-b border-slate-100 p-6 sticky top-0 bg-white z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-purple-50 p-2.5 rounded-xl text-primary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 12a5 5 0 100-10 5 5 0 000 10z"></path>
+                                <path d="M2 22a10 10 0 0120 0" opacity="0.15"></path>
                             </svg>
                         </div>
                         <div>
-                            <h2 id="modalTitle" style="margin:0;">Agregar Usuario</h2>
-                            <p style="margin:0; font-size:0.85rem; color:var(--muted)">Segmentado por contacto,
-                                seguridad y pagos</p>
+                            <h2 id="modalTitle" class="text-lg font-bold text-slate-900">Agregar Usuario</h2>
+                            <p class="text-xs text-slate-400">Segmentado por contacto, seguridad y pagos</p>
                         </div>
                     </div>
-                    <button id="closeModal" class="close-btn" aria-label="Cerrar"
-                        style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
+                    <button id="closeModal" class="text-slate-400 hover:text-slate-600 text-2xl"
+                        aria-label="Cerrar">&times;</button>
                 </header>
 
-                <form id="userForm" class="modal-form" novalidate>
+                <form id="userForm" class="p-6 space-y-6" novalidate>
                     <input type="hidden" id="userId" />
-                    <!-- Hidden status: el select visible fue removido; este input mantiene el valor -->
                     <input type="hidden" id="u_status" />
 
-                    <div class="modal-body">
-
-                        <div class="section-card">
-                            <div class="form-group">
-                                <label for="u_name">Nombre Completo <span class="required">*</span></label>
-                                <input id="u_name" type="text" placeholder="Ej: Juan Pérez" />
-                                <div id="u_name_alert" class="input-alert"></div>
-                            </div>
-
-                            <div class="grid-fixed-2">
-                                <div class="form-group">
-                                    <label for="u_email_local">Correo Electrónico <span
-                                            class="required">*</span></label>
-                                    <input id="u_email_local" type="text" placeholder="usuario"
-                                        aria-describedby="u_email_alert" />
-                                    <div id="u_email_alert" class="input-alert"></div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="u_email_ext">Extensión Email</label>
-                                    <select id="u_email_ext">
-                                        <option value="gmail.com">@gmail.com</option>
-                                        <option value="hotmail.com">@hotmail.com</option>
-                                        <option value="outlook.com">@outlook.com</option>
-                                        <option value="yahoo.com">@yahoo.com</option>
-                                        <option value="otro">Otro</option>
-                                    </select>
-                                    <input id="u_email_ext_custom" type="text" placeholder="dominio.com"
-                                        style="display:none;margin-top:8px;" />
-                                </div>
-                            </div>
-
-                            <div class="grid-fixed-2" style="margin-top:12px;">
-                                <div class="form-group">
-                                    <label for="u_operator">Operadora</label>
-                                    <select id="u_operator">
-                                        <option value="">Seleccionar</option>
-                                        <option value="414">0414</option>
-                                        <option value="424">0424</option>
-                                        <option value="412">0412</option>
-                                        <option value="422">0422</option>
-                                        <option value="416">0416</option>
-                                        <option value="426">0426</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="u_phone_local">Teléfono</label>
-                                    <input id="u_phone_local" type="tel" inputmode="numeric" maxlength="7"
-                                        placeholder="4723636" />
-                                    <div id="u_phone_alert" class="input-alert"></div>
-                                </div>
-                            </div>
+                    <!-- Bloque Datos Principales -->
+                    <div class="bg-slate-50/50 p-5 rounded-xl border border-slate-100 space-y-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label for="u_name" class="text-xs font-semibold text-slate-600">Nombre Completo <span
+                                    class="text-red-500">*</span></label>
+                            <input id="u_name" type="text"
+                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-purple-100"
+                                placeholder="Ej: Juan Pérez" />
+                            <div id="u_name_alert" class="text-xs mt-1 hidden"></div>
                         </div>
 
-                        <div class="section-card">
-                            <div class="form-group">
-                                <label for="u_role">Rol del Sistema <span class="required">*</span></label>
-                                <select id="u_role">
-                                    <option value="">Seleccionar...</option>
-                                    <option value="administrador">Administrador</option>
-                                    <option value="vendedor">Vendedor</option>
-                                    <option value="motorizado">Motorizado</option>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="flex flex-col gap-1.5">
+                                <label for="u_email_local" class="text-xs font-semibold text-slate-600">Correo
+                                    Electrónico <span class="text-red-500">*</span></label>
+                                <input id="u_email_local" type="text"
+                                    class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-purple-100"
+                                    placeholder="usuario" />
+                                <div id="u_email_alert" class="text-xs mt-1 hidden"></div>
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label for="u_email_ext" class="text-xs font-semibold text-slate-600">Extensión
+                                    Email</label>
+                                <select id="u_email_ext"
+                                    class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary">
+                                    <option value="gmail.com">@gmail.com</option>
+                                    <option value="hotmail.com">@hotmail.com</option>
+                                    <option value="outlook.com">@outlook.com</option>
+                                    <option value="yahoo.com">@yahoo.com</option>
+                                    <option value="otro">Otro</option>
                                 </select>
-                                <div id="u_role_alert" class="input-alert"></div>
-                            </div>
-
-                            <div class="grid-fixed-2" style="margin-top:12px;">
-                                <div class="form-group">
-                                    <label for="u_password">Contraseña <span class="required">*</span></label>
-                                    <div class="pwd-input-wrapper">
-                                        <input id="u_password" type="password" minlength="6" maxlength="8"
-                                            placeholder="6 a 8 caracteres" />
-                                    </div>
-                                    <div id="u_password_alert" class="input-alert"></div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="u_password_confirm">Confirmar <span class="required">*</span></label>
-                                    <div class="pwd-input-wrapper">
-                                        <input id="u_password_confirm" type="password" minlength="6" maxlength="8"
-                                            placeholder="Repite la contraseña" />
-                                    </div>
-                                    <div id="u_password_confirm_alert" class="input-alert"></div>
-                                </div>
-                            </div>
-                            <div style="font-size:13px;color:#6b7280;margin-top:-6px;margin-bottom:6px;">
-                                La contraseña debe tener 6 a 8 caracteres e incluir: <strong>mayúscula</strong>,
-                                <strong>minúscula</strong>, <strong>número</strong> y <strong>carácter
-                                    especial</strong>.
+                                <input id="u_email_ext_custom" type="text"
+                                    class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary mt-2 hidden"
+                                    placeholder="dominio.com" />
                             </div>
                         </div>
 
-                        <!-- Comisión: envuelta en contenedor con id para control desde JS -->
-                        <div id="commissionSection" class="section-card" style="display:none;">
-                            <label style="display:block; margin-bottom:8px;">Esquema de Comisiones</label>
-                            <div style="display:flex; gap:18px; align-items:center;">
-                                <label class="radio-option"
-                                    style="display:flex; gap:8px; align-items:center; cursor:pointer;">
-                                    <input id="commission_percent_radio" type="radio" name="commissionType"
-                                        value="percent"> % Porcentaje
-                                </label>
-                                <label class="radio-option"
-                                    style="display:flex; gap:8px; align-items:center; cursor:pointer;">
-                                    <input id="commission_amount_radio" type="radio" name="commissionType"
-                                        value="amount"> Bs Monto
-                                </label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="flex flex-col gap-1.5">
+                                <label for="u_operator" class="text-xs font-semibold text-slate-600">Operadora</label>
+                                <select id="u_operator"
+                                    class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary">
+                                    <option value="">Seleccionar</option>
+                                    <option value="414">0414</option>
+                                    <option value="424">0424</option>
+                                    <option value="412">0412</option>
+                                    <option value="422">0422</option>
+                                    <option value="416">0416</option>
+                                    <option value="426">0426</option>
+                                </select>
                             </div>
-
-                            <div id="commission_percent_box" class="hidden-input"
-                                style="margin-top:10px; display:none;">
-                                <input id="commission_percent" type="number" min="0" max="100"
-                                    placeholder="Ingrese porcentaje %" />
-                            </div>
-                            <div id="commission_amount_box" class="hidden-input" style="margin-top:10px; display:none;">
-                                <input id="commission_amount" type="number" min="0" placeholder="Ingrese monto en Bs" />
+                            <div class="flex flex-col gap-1.5">
+                                <label for="u_phone_local" class="text-xs font-semibold text-slate-600">Teléfono</label>
+                                <input id="u_phone_local" type="tel" inputmode="numeric" maxlength="7"
+                                    class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary"
+                                    placeholder="4723636" />
+                                <div id="u_phone_alert" class="text-xs mt-1 hidden"></div>
                             </div>
                         </div>
-
                     </div>
 
-                    <footer class="modal-footer">
-                        <button type="button" id="cancelBtn" class="btn btn-cancel btn-secondary">Cancelar</button>
-                        <button type="submit" class="btn btn-save btn-add">Guardar Usuario</button>
+                    <!-- Bloque Credenciales y Rol -->
+                    <div class="bg-slate-50/50 p-5 rounded-xl border border-slate-100 space-y-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label for="u_role" class="text-xs font-semibold text-slate-600">Rol del Sistema <span
+                                    class="text-red-500">*</span></label>
+                            <select id="u_role"
+                                class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                            <div id="u_role_alert" class="text-xs mt-1 hidden"></div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="flex flex-col gap-1.5">
+                                <label for="u_password" class="text-xs font-semibold text-slate-600">Contraseña <span
+                                        class="text-red-500">*</span></label>
+                                <div
+                                    class="relative flex items-center bg-white border border-slate-200 rounded-xl focus-within:border-primary focus-within:ring-2 focus-within:ring-purple-100 overflow-hidden">
+                                    <input id="u_password" type="password" minlength="6" maxlength="8"
+                                        class="w-full px-4 py-2.5 text-sm border-0 focus:outline-none focus:ring-0"
+                                        placeholder="6 a 8 caracteres" />
+                                </div>
+                                <div id="u_password_alert" class="text-xs mt-1 hidden"></div>
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label for="u_password_confirm" class="text-xs font-semibold text-slate-600">Confirmar
+                                    <span class="text-red-500">*</span></label>
+                                <div
+                                    class="relative flex items-center bg-white border border-slate-200 rounded-xl focus-within:border-primary focus-within:ring-2 focus-within:ring-purple-100 overflow-hidden">
+                                    <input id="u_password_confirm" type="password" minlength="6" maxlength="8"
+                                        class="w-full px-4 py-2.5 text-sm border-0 focus:outline-none focus:ring-0"
+                                        placeholder="Repite la contraseña" />
+                                </div>
+                                <div id="u_password_confirm_alert" class="text-xs mt-1 hidden"></div>
+                            </div>
+                        </div>
+                        <div
+                            class="text-[11px] text-slate-400 bg-white p-3 rounded-lg border border-slate-100 leading-relaxed">
+                            La contraseña debe tener de 6 a 8 caracteres e incluir: <strong>mayúscula</strong>,
+                            <strong>minúscula</strong>, <strong>número</strong> y <strong>carácter especial</strong>.
+                        </div>
+                    </div>
+
+                    <!-- Comisión -->
+                    <div id="commissionSection" class="bg-slate-50/50 p-5 rounded-xl border border-slate-100 hidden">
+                        <label class="text-xs font-semibold text-slate-600 block mb-3">Esquema de Comisiones</label>
+                        <div class="flex gap-6 items-center mb-3">
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input id="commission_percent_radio" type="radio" name="commissionType" value="percent"
+                                    class="w-4 h-4 text-primary focus:ring-primary"> % Porcentaje
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input id="commission_amount_radio" type="radio" name="commissionType" value="amount"
+                                    class="w-4 h-4 text-primary focus:ring-primary"> Bs Monto
+                            </label>
+                        </div>
+
+                        <div id="commission_percent_box" class="hidden">
+                            <input id="commission_percent" type="number" min="0" max="100"
+                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary"
+                                placeholder="Ingrese porcentaje %" />
+                        </div>
+                        <div id="commission_amount_box" class="hidden">
+                            <input id="commission_amount" type="number" min="0"
+                                class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary"
+                                placeholder="Ingrese monto en Bs" />
+                        </div>
+                    </div>
+
+                    <footer class="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                        <button type="button" id="cancelBtn"
+                            class="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-xl transition">Cancelar</button>
+                        <button type="submit"
+                            class="px-5 py-2.5 bg-primary hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition shadow-sm">Guardar
+                            Usuario</button>
                     </footer>
                 </form>
             </div>
         </div>
 
-        <div id="modalPermissions" class="modal-permissions hidden" aria-hidden="true"
-            style="display:none;position:fixed;z-index:99;">
-            <div class="modal-content"
-                style="max-width:520px;background:#fff;border-radius:14px;padding:2.2em 2em 1.5em 2em;box-shadow:0 8px 32px #c7b8fa42;">
-                <h2 style="margin:0 0 12px 0;font-size:1.3em;letter-spacing:.02em;">Permisos de acceso</h2>
-                <label style="display:flex;align-items:center;gap:8px;font-size:.98em;margin-bottom:9px;">
+        <!-- MODAL NUEVO ROL (AÑADIDO NUEVO) -->
+        <div id="roleModal"
+            class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden"
+            aria-hidden="true" role="dialog" aria-modal="true">
+            <div
+                class="bg-white rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transform transition-all overflow-hidden">
+                <header class="flex items-center justify-between border-b border-slate-100 p-5 bg-white">
+                    <h2 class="text-md font-bold text-slate-900">Crear Nuevo Rol del Sistema</h2>
+                    <button id="closeRoleModal" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+                </header>
+                <form id="roleForm" class="p-5 space-y-4">
+                    <div class="flex flex-col gap-1.5">
+                        <label for="new_role_id" class="text-xs font-semibold text-slate-600">ID del Rol (Minúsculas sin
+                            espacios)</label>
+                        <input id="new_role_id" type="text" required
+                            class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary"
+                            placeholder="ej: supervisor, auditor" />
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="new_role_name" class="text-xs font-semibold text-slate-600">Nombre Visible</label>
+                        <input id="new_role_name" type="text" required
+                            class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary"
+                            placeholder="ej: Supervisor de Almacén" />
+                    </div>
+                    <footer class="flex justify-end gap-3 pt-2">
+                        <button type="button" id="cancelRoleBtn"
+                            class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm rounded-xl">Cancelar</button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-primary hover:bg-purple-700 text-white text-sm font-medium rounded-xl shadow-sm">Guardar
+                            Rol</button>
+                    </footer>
+                </form>
+            </div>
+        </div>
+
+        <!-- Permissions Modal -->
+        <div id="modalPermissions"
+            class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden"
+            aria-hidden="true">
+            <div class="bg-white rounded-2xl p-6 max-w-lg w-full border border-slate-100 shadow-xl">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">Permisos de acceso</h2>
+                <label class="flex items-center gap-2 text-sm text-slate-700 mb-4 cursor-pointer">
                     <input type="checkbox" id="permissionsSelectAll"
-                        style="accent-color:#7c3aed;transform:scale(1.20);" />
+                        class="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary" />
                     <span>Seleccionar todas las páginas</span>
                 </label>
-                <div id="permissionsPagesGrid"
-                    style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:flex-start;margin-bottom:1.1em;">
+                <div id="permissionsPagesGrid" class="grid grid-cols-2 gap-3 mb-4"></div>
+                <div class="mb-5 flex items-center gap-1.5 text-sm">
+                    <span id="permissionsSelectedCount" class="font-bold text-primary text-base">0</span>
+                    <span class="text-slate-400">páginas seleccionadas</span>
                 </div>
-                <div style="margin-bottom:1em;display:flex;align-items:center;gap:6px;">
-                    <span id="permissionsSelectedCount" style="font-weight:600;font-size:1.06em;color:#7c3aed;">0</span>
-                    <span style="color:var(--muted,#7f7f7f);font-size:13px;">páginas seleccionadas</span>
-                </div>
-                <div>
-                    <button id="savePermissionsBtn" class="btn btn-save btn-add">Guardar</button>
-                    <button id="cancelPermissionsBtn" class="btn btn-cancel btn-secondary"
-                        style="margin-left:14px;">Cancelar</button>
+                <div class="flex justify-end gap-3">
+                    <button id="cancelPermissionsBtn"
+                        class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-sm">Cancelar</button>
+                    <button id="savePermissionsBtn"
+                        class="px-4 py-2 bg-primary hover:bg-purple-700 text-white rounded-xl text-sm font-medium shadow-sm">Guardar</button>
                 </div>
             </div>
         </div>
 
-        <!-- Loading modal: mostrado mientras se crea/actualiza el usuario -->
-        <div id="loadingModal" class="modal hidden" aria-hidden="true" role="status" aria-live="polite">
-            <div class="modal-content loading-modal-content" role="presentation" aria-hidden="true">
-                <div class="loading-spinner" aria-hidden="true"></div>
-                <div id="loadingText" style="margin-top:12px; font-weight:700;">Creando usuario...</div>
+        <!-- Loading modal -->
+        <div id="loadingModal"
+            class="fixed inset-0 z-[100] bg-slate-900/30 backdrop-blur-sm flex items-center justify-center hidden"
+            role="status" aria-live="polite">
+            <div
+                class="bg-white rounded-2xl p-6 flex flex-col items-center border border-slate-100 shadow-xl max-w-xs text-center">
+                <div class="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-primary mb-4"></div>
+                <div id="loadingText" class="text-sm font-bold text-slate-800">Creando usuario...</div>
             </div>
         </div>
-
-        <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     </main>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script type="module" src="../assets/js/sidebar-loader.js"></script>
     <script type="module" src="../assets/js/users-admin.js"></script>
     <script type="module" src="../assets/js/session-timeout.js"></script>
+    <script type="module" src="../assets/js/money.cash.js"></script>
 </body>
 
 </html>
