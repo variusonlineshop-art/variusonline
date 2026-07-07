@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Panel — Varius</title>
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="../assets/css/presence.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        #map {
+            height: 200px;
+            width: 100%;
+            border-radius: 12px;
+            margin-top: 10px;
+        }
+
+        .product-img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .sidebar {
+            z-index: 10 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
+    <!-- Top bar -->
+    <header class="topbar">
+        <div class="top-left">
+            <label for="nav-toggle" class="hamburger" aria-hidden="true">
+                <span class="hamburger-box"><span class="hamburger-inner"></span></span>
+            </label>
+            <a class="brand" href="./" aria-label="Dashboard">
+                <img src="assets/img/logo.png" alt="Varius" width="14%">
+                <span class="brand-text">VARIUS</span>
+            </a>
+        </div>
+
+        <div class="top-search">
+            <!-- input eliminado intencionalmente -->
+            <div id="presence-pill" class="presence-pill offline" role="status" aria-live="polite">
+                <span class="dot"></span>
+                <span class="label">Desconectado</span>
+            </div>
+
+            <div class="ticker-container">
+                <div class="ticker-wrapper">
+                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">
+                        $ Bs/USD Cargando...
+                    </div>
+                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">
+                        € Bs./EUR Cargando...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="app-sidebar"></div>
+
+    <!-- Main content -->
+    <main class="main">
+        <div class="px-6 py-8">
+            <!---**KPIS CARD**--->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
+
+                <div onclick="abrirModalStock()"
+                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-red-500 group-hover:text-white transition-colors">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Stock
+                            Crítico</p>
+                        <h3 class="text-2xl font-black text-gray-800" id="kpi-stock">0</h3>
+                        <div class="w-full bg-gray-100 h-1 rounded-full mt-3 overflow-hidden">
+                            <div class="bg-red-500 h-full" style="width: 75%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <i class="fa-solid fa-truck-ramp-box"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+                            Pedidos Hoy</p>
+                        <h3 class="text-2xl font-black text-gray-800" id="kpi-orders">18</h3>
+                    </div>
+                </div>
+
+                <div onclick="window.abrirModalVentasDia()"
+                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-green-500 group-hover:text-white transition-colors">
+                            <i class="fa-solid fa-cash-register"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+                            Ventas del Día</p>
+                        <h3 class="text-2xl font-black text-gray-800" id="kpi-ventas-dia-value">$0.00</h3>
+                        <div class="w-full bg-gray-100 h-1 rounded-full mt-3 overflow-hidden">
+                            <div id="kpi-ventas-dia-bar" class="bg-green-500 h-full transition-all duration-700"
+                                style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="modal-ventas-dia" class="fixed inset-0 z-[1500] hidden flex items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="cerrarModalVentasDia()">
+                    </div>
+                    <div
+                        class="relative bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden transform transition-all border border-white/20">
+                        <div id="modalVentasDiaBody">
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                            <i class="fa-solid fa-vault"></i>
+                        </div>
+                        <button class="text-gray-300 hover:text-purple-500 transition-colors">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </button>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+                            Balance de Caja</p>
+                        <h3 class="text-2xl font-black text-gray-800" id="kpi-cash">$00.00</h3>
+                    </div>
+                </div>
+            </div>
+            <!---**ACCIONES RAPIDAS**--->
+            <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-6">
+                <div class="border-b border-gray-50 pb-4 mb-6">
+                    <h2 class="text-lg font-bold text-gray-800">Acciones Rápidas</h2>
+                    <p class="text-xs text-gray-400">Accesos directos a los módulos principales</p>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+                    <a href="cierre-caja.html"
+                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all group">
+                        <i
+                            class="fa-solid fa-cash-register text-xl mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">Cierre Caja</span>
+                    </a>
+                    <a href="crm.html"
+                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all group">
+                        <i class="fa-solid fa-address-card text-xl mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">CRM</span>
+                    </a>
+                </div>
+            </div>
+            <!---**FILTROS**--->
+            <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-8">
+                <div class="flex flex-col gap-6">
+                    <div
+                        class="border-b border-gray-50 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-800">Gestión de Órdenes</h2>
+                            <p class="text-xs text-gray-400">Gestiona y filtra los pedidos de la plataforma</p>
+                        </div>
+
+                        <button onclick="openCreateOrderModal()"
+                            class="bg-blue-600 text-white font-bold rounded-2xl py-2.5 px-5 hover:bg-blue-700 hover:shadow-md transition-all text-sm flex items-center gap-2 transform active:scale-95">
+                            <i class="fa-solid fa-plus"></i>
+                            Crear Nueva Orden
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-end">
+                        <div class="xl:col-span-1">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                                Buscador (Cliente, ID, Teléfono)
+                            </label>
+                            <div class="relative group">
+                                <i
+                                    class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-blue-500 transition-colors"></i>
+                                <input type="text" id="globalSearch" oninput="applyAllFilters()"
+                                    placeholder="Escribe para buscar..."
+                                    class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Vendedor</label>
+                            <select id="filterSeller" onchange="applyAllFilters()"
+                                class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                                <option value="all">Todos los Vendedores</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Motorizado</label>
+                            <select id="filterMotorized" onchange="applyAllFilters()"
+                                class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                                <option value="all">Todos los Motorizados</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Cronología</label>
+                            <select id="filterSort" onchange="applyAllFilters()"
+                                class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                                <option value="newest">Más recientes</option>
+                                <option value="oldest">Más antiguos</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-end">
+                            <button onclick="clearAllFilters()"
+                                class="w-full p-3 bg-red-50 text-red-500 font-bold rounded-2xl hover:bg-red-500 hover:text-white transition-all text-sm flex items-center justify-center gap-2 group">
+                                <i class="fa-solid fa-eraser group-hover:rotate-12 transition-transform"></i>
+                                Limpiar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="grid-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-10">
+            </div>
+    </main>
+
+    <div id="modal-stock-critico" class="fixed inset-0 z-[1500] hidden flex items-center justify-center p-4 sm:p-6">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
+        <div
+            class="relative bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden transform transition-all">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-black text-gray-800 leading-none">Stock Crítico</h2>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Inventario por
+                            agotarse</p>
+                    </div>
+                </div>
+                <button onclick="cerrarModalStock()"
+                    class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="modal-stock-body" class="p-6 max-h-[60vh] overflow-y-auto bg-gray-50/50">
+            </div>
+
+            <div class="p-6 bg-white border-t border-gray-100 flex justify-end">
+                <button onclick="cerrarModalStock()"
+                    class="px-8 py-3 bg-gray-800 text-white rounded-2xl font-bold text-sm hover:bg-gray-700 transition-all shadow-lg shadow-gray-200">
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- MODAL VENTAS DEL DIA -->
+    <div id="modal-ventas-dia" class="fixed inset-0 z-[1500] hidden items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="cerrarModalVentasDia()"></div>
+        <div
+            class="relative bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl overflow-hidden border border-white/20">
+            <div id="modalVentasDiaBody"></div>
+        </div>
+    </div>
+
+    <div id="modal-mapa-orden" class="fixed inset-0 z-[1600] hidden items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onclick="cerrarModalMapa()"></div>
+        <div class="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h3 class="font-black text-gray-800">Ubicación de Entrega</h3>
+                <button onclick="cerrarModalMapa()"
+                    class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="map-container" style="height: 450px; width: 100%;"></div>
+            <div class="p-4 bg-gray-50 text-center">
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">Cargado mediante Leaflet
+                    OpenStreetMap</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="editOrderModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            <div class="p-6 border-b flex justify-between items-center bg-gray-50">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">Editar Orden</h3>
+                    <p id="editOrderToken" class="text-xs text-gray-400"></p>
+                </div>
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wider">Productos en el Pedido
+                            </h4>
+                            <button onclick="showProductSelector()"
+                                class="text-xs bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-all">
+                                <i class="fa-solid fa-plus mr-1"></i> Agregar Producto
+                            </button>
+                        </div>
+
+                        <div id="editItemsContainer" class="space-y-3">
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div>
+                            <div id="sellerSelectContainer" class="hidden space-y-2 mb-4">
+                                <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Asignación de
+                                    Vendedores</h4>
+                                <select id="sellerSelect"
+                                    class="w-full p-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <option value="">Seleccionar Vendedor</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Asignación de
+                                Motorizado</h4>
+                            <select id="motorizedSelect" onchange="handleMotorizedChange()"
+                                class="w-full p-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">Seleccionar Motorizado</option>
+                            </select>
+                            <div id="motorizedCommentContainer" class="mt-3 hidden">
+                                <textarea id="motorizedComment" placeholder="Motivo del cambio o comentario..."
+                                    class="w-full p-3 rounded-xl border border-gray-200 text-sm h-24 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-900 rounded-2xl p-6 text-white">
+                            <h4 class="text-xs font-bold text-blue-400 uppercase mb-4 tracking-widest">Resumen de
+                                Totales</h4>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-400">Subtotal</span>
+                                    <span id="editSubtotal">$0.00</span>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-700 pt-4 flex justify-between items-center">
+                                <span class="font-bold">TOTAL</span>
+                                <span id="editTotal" class="text-2xl font-black text-white">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                <button onclick="closeEditModal()"
+                    class="px-6 py-2.5 rounded-xl text-gray-500 font-bold hover:bg-gray-200 transition-all">Cancelar</button>
+                <button onclick="saveOrderChanges()"
+                    class="px-8 py-2.5 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 transition-all">Guardar
+                    Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="productSelectorModal" class="fixed inset-0 bg-black/40 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl">
+            <h4 class="font-bold mb-4">Agregar Producto</h4>
+            <input type="text" id="productSearchInput" oninput="filterProducts()" placeholder="Buscar producto..."
+                class="w-full p-2 mb-4 border rounded-lg text-sm">
+            <div id="productList" class="max-h-60 overflow-y-auto space-y-2"></div>
+            <button onclick="closeProductSelector()" class="w-full mt-4 py-2 text-gray-400 text-sm">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="postponeModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl overflow-hidden">
+            <div class="text-center mb-6">
+                <div
+                    class="w-16 h-16 bg-yellow-100 text-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fa-regular fa-clock"></i>
+                </div>
+                <h3 class="text-xl font-black text-gray-800">Postergar Entrega</h3>
+                <p class="text-gray-400 text-xs">Selecciona la nueva fecha y hora de entrega</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Fecha</label>
+                    <input type="date" id="postponeDate"
+                        class="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora</label>
+                    <input type="time" id="postponeTime"
+                        class="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Comentario / Motivo</label>
+                    <textarea id="postponeComment" placeholder="Ej: Cliente no se encontraba en casa..."
+                        class="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm h-24 resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-8">
+                <button onclick="closePostponeModal()"
+                    class="flex-1 py-4 rounded-2xl font-bold text-gray-400 hover:bg-gray-100 transition-all">
+                    Cancelar
+                </button>
+                <button id="savePostponeBtn" onclick="savePostpone()"
+                    class="flex-[2] py-4 rounded-2xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
+                    Confirmar Postergación
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="orderModal"
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            <div class="p-6 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="text-xl font-bold text-gray-800">Detalles de la Orden</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <div id="modalBody" class="p-6 overflow-y-auto">
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl transform transition-all text-center">
+            <div id="confirmIcon" class="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl">
+            </div>
+            <h3 id="confirmTitle" class="text-xl font-black text-gray-800 mb-2"></h3>
+            <p id="confirmMessage" class="text-gray-500 text-sm mb-8 leading-relaxed"></p>
+
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()"
+                    class="flex-1 py-3 rounded-xl font-bold text-gray-400 hover:bg-gray-100 transition-all">
+                    Cancelar
+                </button>
+                <button id="confirmBtnAction"
+                    class="flex-1 py-3 rounded-xl font-bold text-white shadow-lg transform active:scale-95 transition-all">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="paymentModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] hidden flex items-center justify-center p-4">
+        <div
+            class="bg-white w-full max-w-lg max-h-[95vh] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col transform transition-all border border-gray-100">
+
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 tracking-tight">Registrar Cobranza</h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Transacción en curso
+                        </p>
+                    </div>
+                </div>
+                <button id="paymentModalClose"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
+
+                <div class="bg-slate-50 rounded-3xl p-5 border border-slate-100 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-100">
+                            <i class="fa-solid fa-file-invoice-dollar text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 font-medium">Cobranza al Cliente:</p>
+                            <p id="pmCustomerName" class="text-sm font-bold text-gray-800 leading-tight"></p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p id="pmTotal" class="text-2xl font-black text-gray-900 leading-none">$ 0.00</p>
+                        <p id="pmTotalBs" class="text-[11px] font-bold text-blue-500 mt-1"></p>
+                    </div>
+                </div>
+
+                <form id="paymentForm">
+                    <!-- Métodos -->
+                    <div class="payment-method" data-method="cash"
+                        style="display:flex; align-items:center; gap:12px; padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
+                        <label style="display:flex; gap:8px; align-items:center;">
+                            <input type="checkbox" class="pm-check" data-method="cash">
+                            <span>Efectivo (Bs.)</span>
+                        </label>
+                        <input type="text" inputmode="decimal" class="pm-amount" data-method="cash" value="0"
+                            style="margin-left:auto; width:140px;" disabled>
+                    </div>
+
+                    <div class="payment-method" data-method="usd"
+                        style="display:flex; align-items:center; gap:12px; padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
+                        <label style="display:flex; gap:8px; align-items:center;">
+                            <input type="checkbox" class="pm-check" data-method="usd">
+                            <span>Dólares (USD)</span>
+                        </label>
+                        <input type="text" inputmode="decimal" class="pm-amount" data-method="usd" value="0"
+                            style="margin-left:auto; width:140px;" disabled>
+                    </div>
+
+                    <div class="payment-method" data-method="mobile"
+                        style="display:flex; align-items:center; gap:12px; padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
+                        <label style="display:flex; gap:8px; align-items:center;">
+                            <input type="checkbox" class="pm-check" data-method="mobile">
+                            <span>Pago Móvil (Bs.)</span>
+                        </label>
+                        <input type="text" inputmode="decimal" class="pm-amount" data-method="mobile" value="0"
+                            style="margin-left:auto; width:140px;" disabled>
+                    </div>
+
+                    <!-- Mobile bank + reference (hidden until mobile checked) -->
+                    <div id="pmMobileDetails" style="display:none; margin-bottom:10px; gap:8px; align-items:center;">
+                        <label for="pmMobileBank"
+                            style="font-size:13px; color:var(--muted); display:block; margin-bottom:4px;">Banco</label>
+                        <select id="pmMobileBank"
+                            style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); margin-bottom:8px;">
+                            <option value="">Selecciona banco</option>
+                            <option value="banco_de_venezuela" data-logo="../assets/img/bdv.png">Banco de Venezuela
+                            </option>
+                            <option value="banesco" data-logo="../assets/img/banesco.png">Banesco</option>
+                            <option value="mercantil" data-logo="../assets/img/mercantil.png">Mercantil</option>
+                            <option value="provincial" data-logo="../assets/img/provincial.png">Banco Provincial
+                            </option>
+                            <option value="bicentenario" data-logo="../assets/img/bicentenario.png">Banco Bicentenario
+                            </option>
+                            <option value="bnc" data-logo="../assets/img/bnc.png">Banco Nacional de Crédito (BNC)
+                            </option>
+                            <option value="exterior" data-logo="../assets/img/exterior.png">Banco Exterior</option>
+                            <option value="bancamiga" data-logo="../assets/img/bancamiga.png">Banca Amiga</option>
+                            <option value="others" data-logo="../assets/img/others.png">Otros</option>
+                        </select>
+
+                        <label for="pmMobileRef"
+                            style="font-size:13px; color:var(--muted); display:block; margin-bottom:4px;">Referencia /
+                            Nº</label>
+                        <input id="pmMobileRef" type="text" placeholder="Número de referencia"
+                            style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border);">
+                    </div>
+
+                    <div class="payment-method" data-method="paypal"
+                        style="display:flex; align-items:center; gap:12px; padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
+                        <label style="display:flex; gap:8px; align-items:center;">
+                            <input type="checkbox" class="pm-check" data-method="paypal">
+                            <span>PayPal (USD)</span>
+                        </label>
+                        <input type="text" inputmode="decimal" class="pm-amount" data-method="paypal" value="0"
+                            style="margin-left:auto; width:140px;" disabled>
+                    </div>
+
+                    <div class="payment-method" data-method="other"
+                        style="display:flex; align-items:center; gap:12px; padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
+                        <label style="display:flex; gap:8px; align-items:center;">
+                            <input type="checkbox" class="pm-check" data-method="other">
+                            <span>Otros</span>
+                        </label>
+                        <input type="text" inputmode="decimal" class="pm-amount" data-method="other" value="0"
+                            style="margin-left:auto; width:140px;" disabled>
+                    </div>
+
+                    <!-- Conversión: 3 opciones excluyentes -->
+                    <div class="card" style="padding:12px; margin-bottom:10px;">
+                        <div style="font-weight:600; margin-bottom:8px;">Conversión / tasa (para convertir USD ↔ Bs)
+                        </div>
+
+                        <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+                            <label style="display:flex; gap:8px; align-items:center;">
+                                <input type="checkbox" class="pm-conv-check" data-conv="usd_bcv">
+                                <span>$ Bs (BCV)</span>
+                            </label>
+
+                            <label style="display:flex; gap:8px; align-items:center;">
+                                <input type="checkbox" class="pm-conv-check" data-conv="eur_bcv">
+                                <span>Euro Bs (BCV)</span>
+                            </label>
+
+                            <label style="display:flex; gap:8px; align-items:center;">
+                                <input type="checkbox" class="pm-conv-check" data-conv="assign">
+                                <span>Asignar</span>
+                            </label>
+                        </div>
+
+                        <div id="pmAssignRateWrap" style="display:none; margin-top:6px;">
+                            <label for="pmAssignRate"
+                                style="font-size:13px; color:var(--muted); display:block; margin-bottom:4px;">Tasa
+                                personalizada (Bs por
+                                USD)</label>
+                            <input id="pmAssignRate" type="text" inputmode="decimal" min="0" step="0.01"
+                                placeholder="Ej. 12.34" style="width:160px;">
+                        </div>
+
+                        <div id="pmConvInfo" style="margin-top:8px; font-size:13px; color:var(--muted);"></div>
+
+                        <div style="margin-top:8px;">
+                            <button type="button" id="pmApplyConversion" class="btn-secondary"
+                                style="width:100%;">Convertir resto a
+                                Pago Móvil / Efectivo (Bs)</button>
+                        </div>
+                    </div>
+
+                    <div class="card" style="padding:12px; margin-top:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-weight:600">Total recibido:</div>
+                            <div id="pmReceived" style="font-weight:700">$. 0.00</div>
+                        </div>
+                        <div
+                            style="margin-top:8px; display:flex; justify-content:space-between; gap:8px; align-items:center;">
+                            <div>
+                                <input type="checkbox" id="pmAmountCorrect" checked>
+                                <label for="pmAmountCorrect" style="color:var(--muted); font-size:13px;">Monto
+                                    correcto</label>
+                            </div>
+                            <div id="pmRemaining" style="font-size:13px; color:var(--muted);">Resto: $. 0.00</div>
+                        </div>
+                        <div id="pmError" style="color:var(--danger); margin-top:8px; display:none;"></div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="p-6 bg-gray-50/50 flex flex-col gap-3">
+                <button id="pmConfirmBtn"
+                    class="w-full py-4 rounded-2xl bg-blue-600 text-white font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-[0.98] text-sm uppercase tracking-widest">
+                    Confirmar Cobranza
+                </button>
+                <button id="pmCancelBtn"
+                    class="w-full py-3 rounded-2xl bg-transparent text-gray-400 font-bold hover:bg-gray-100 transition-all text-sm">
+                    Cancelar y Salir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="contactModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
+            <div
+                class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl">
+                <i class="fa-solid fa-comments"></i>
+            </div>
+            <h3 class="text-xl font-black text-gray-800 mb-2">Contactar Cliente</h3>
+            <p class="text-gray-500 text-sm mb-8">Selecciona la vía de comunicación preferida:</p>
+
+            <div class="flex flex-col gap-3">
+                <a id="contactCallBtn" href="#"
+                    class="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-white bg-emerald-500 shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all">
+                    <i class="fa-solid fa-phone"></i>
+                    Llamar ahora
+                </a>
+
+                <button id="contactChatBtn"
+                    class="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-white bg-blue-600 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
+                    <i class="fa-solid fa-message"></i>
+                    Ir al Chat
+                </button>
+
+                <button onclick="closeContactModal()"
+                    class="mt-2 py-3 text-gray-400 font-bold hover:text-gray-600 transition-all text-sm">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createOrderModal"
+        class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white rounded-3xl w-full max-w-2xl h-[85vh] flex flex-col shadow-2xl overflow-hidden relative">
+
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                    <h3 class="text-lg font-black text-gray-800" id="createOrderTitle">Nueva Orden - Paso 1/2</h3>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest" id="createOrderSubtitle">
+                        Selección de Productos</p>
+                </div>
+                <button onclick="closeCreateOrderModal()"
+                    class="w-8 h-8 flex items-center justify-center bg-gray-200 text-gray-500 hover:bg-red-100 hover:text-red-500 rounded-full transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="step1Container" class="flex-1 overflow-hidden flex flex-col">
+                <div class="p-3 bg-blue-50/50 border-b border-blue-100 flex items-center gap-2 px-6">
+                    <i class="fa-solid fa-basket-shopping text-blue-500"></i>
+                    <p class="text-xs text-blue-700 font-medium">Ajusta las cantidades. El total se calculará
+                        automáticamente.</p>
+                </div>
+
+                <div id="newOrderProductsList" class="flex-1 overflow-y-auto p-6 space-y-3 bg-gray-50/30">
+                </div>
+
+                <div
+                    class="p-5 border-t border-gray-100 bg-white flex justify-between items-center shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)]">
+                    <div>
+                        <p class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Calculado</p>
+                        <p class="text-2xl font-black text-gray-800" id="newOrderTotal">$0.00</p>
+                    </div>
+                    <button id="btnNextStep" onclick="goToStep2()" disabled
+                        class="bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-2xl py-3 px-8 hover:bg-blue-700 transition-all shadow-md flex items-center gap-2 transform active:scale-95 disabled:active:scale-100">
+                        Siguiente Paso <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="step2Container" class="hidden flex-1 overflow-y-auto p-6 flex flex-col">
+                <div class="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-6 flex gap-3 items-start">
+                    <i class="fa-regular fa-address-card text-orange-500 mt-0.5"></i>
+                    <p class="text-xs text-orange-700 font-medium leading-relaxed">Completa los datos del cliente para
+                        finalizar. <strong class="font-bold">Todos los campos con (*) son obligatorios.</strong></p>
+                </div>
+
+                <div class="space-y-5 flex-1">
+                    <div>
+                        <label
+                            class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-2 ml-1">Nombre
+                            y Apellido <span class="text-red-500">*</span></label>
+                        <input type="text" id="newOrderCustomerName" placeholder="Ej: Juan Pérez"
+                            class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all placeholder-gray-400">
+                    </div>
+
+                    <div>
+                        <label
+                            class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-2 ml-1">Teléfono
+                            de contacto <span class="text-red-500">*</span></label>
+                        <div class="flex gap-2">
+                            <select id="newOrderPhoneCode"
+                                class="w-28 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all cursor-pointer font-medium text-gray-700 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%234A5568%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center]">
+                                <option value="0414">0414</option>
+                                <option value="0424">0424</option>
+                                <option value="0412">0412</option>
+                                <option value="0416">0416</option>
+                                <option value="0426">0426</option>
+                                <option value="0212">0212</option>
+                            </select>
+                            <input type="text" id="newOrderPhoneNumber" placeholder="Ej: 1234567" maxlength="7"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                class="flex-1 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all placeholder-gray-400">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-2 ml-1">Dirección
+                            Completa <span class="text-red-500">*</span></label>
+                        <textarea id="newOrderAddress"
+                            placeholder="Ej: Av. Principal, Edificio Don Pepe, Piso 2, Apto 24..." rows="3"
+                            class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all resize-none placeholder-gray-400"></textarea>
+                    </div>
+                </div>
+
+                <div class="pt-6 mt-4 flex justify-between gap-4 border-t border-gray-100">
+                    <button onclick="goToStep1()"
+                        class="py-3 px-6 rounded-2xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all flex items-center gap-2 transform active:scale-95">
+                        <i class="fa-solid fa-arrow-left"></i> Volver
+                    </button>
+                    <button id="btnSubmitNewOrder" onclick="submitNewOrder()"
+                        class="flex-1 bg-emerald-500 text-white font-bold rounded-2xl py-3 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transform active:scale-95">
+                        <i class="fa-solid fa-check"></i> Crear Orden Ahora
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script type="module" src="../assets/js/bank-select.js"></script>
+    <script type="module" src="../assets/js/orders-admin.js"></script>
+    <script type="module" src="../assets/js/create-order.js"></script>
+    <script type="module" src="../assets/js/order-notifications.js"></script>
+    <script type="module" src="../assets/js/sidebar-loader.js"></script>
+    <script type="module" src="../assets/js/session-timeout.js"></script>
+    <script type="module" src="../assets/js/kpis.js"></script>
+    <script type="module" src="../assets/js/kpis-ventas-dia.js"></script>
+    <script type="module" src="../assets/js/money.cash.js"></script>
+
+</body>
+
+</html>
