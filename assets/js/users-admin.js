@@ -17,6 +17,7 @@ import {
     orderBy,
     where
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
 // Inicializa Firebase (solo si no está)
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -49,6 +50,15 @@ const applyFiltersBtn = document.getElementById('applyFilters');
 const clearFiltersBtn = document.getElementById('clearFilters');
 const loadingModal = document.getElementById('loadingModal');
 const loadingText = document.getElementById('loadingText');
+
+// NUEVOS ELEMENTOS PARA ROLES (Sincronizados con tu HTML)
+const openAddRoleBtn = document.getElementById('openAddRoleBtn');
+const roleModal = document.getElementById('roleModal');
+const closeRoleModalBtn = document.getElementById('closeRoleModal');
+const cancelRoleBtn = document.getElementById('cancelRoleBtn');
+const roleForm = document.getElementById('roleForm');
+const uRoleSelect = document.getElementById('u_role');
+
 // Commission DOM
 const commissionSection = document.getElementById('commissionSection');
 const commissionPercentRadio = document.getElementById('commission_percent_radio');
@@ -57,6 +67,7 @@ const commissionPercentBox = document.getElementById('commission_percent_box');
 const commissionAmountBox = document.getElementById('commission_amount_box');
 const commissionPercentInput = document.getElementById('commission_percent');
 const commissionAmountInput = document.getElementById('commission_amount');
+
 // Password inputs & toggles
 const pwdInput = document.getElementById('u_password');
 const pwdConfirmInput = document.getElementById('u_password_confirm');
@@ -78,6 +89,7 @@ function clearAllAlerts() {
 
 let allUsers = [];
 let filteredUsers = [];
+let systemRoles = []; // Almacena los roles cargados de la BD
 let currentPage = 1;
 let presenceMap = {};
 let modalMode = 'add'; // 'add' or 'edit'
@@ -103,9 +115,10 @@ function hideLoading() {
 
 // Utils
 function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
 function roleClass(role) {
     if (!role) return 'role-vendedor';
-    switch (role) {
+    switch (role.toLowerCase()) {
         case 'administrador': return 'role-admin';
         case 'vendedor': return 'role-vendedor';
         case 'motorizado': return 'role-motorizado';
@@ -132,6 +145,96 @@ function isPhoneFormatValid(phone) {
     const len = phone.length;
     return len >= PHONE_MIN_DIGITS && len <= PHONE_MAX_DIGITS;
 }
+
+// LÓGICA COLECTIVA DE ROLES DINÁMICOS
+async function loadSystemRoles() {
+    try {
+        const snap = await getDocs(collection(db, 'roles'));
+        systemRoles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Si la colección está vacía en una base de datos nueva, creamos los por defecto
+        if (systemRoles.length === 0) {
+            const defaultRoles = [
+                { id: 'administrador', name: 'Administrador' },
+                { id: 'vendedor', name: 'Vendedor' },
+                { id: 'motorizado', name: 'Motorizado' }
+            ];
+            for (const r of defaultRoles) {
+                await setDoc(doc(db, 'roles', r.id), { name: r.name, createdAt: serverTimestamp() });
+            }
+            systemRoles = defaultRoles;
+        }
+        renderRoleSelects();
+    } catch (err) {
+        console.error('Error cargando roles del sistema', err);
+        showToast('Error al cargar los roles.');
+    }
+}
+
+function renderRoleSelects() {
+    if (uRoleSelect && roleFilter) {
+        // Preservar la opción por defecto en cada select
+        uRoleSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        roleFilter.innerHTML = '<option value="">Todos los roles</option>';
+
+        systemRoles.forEach(role => {
+            const optForm = document.createElement('option');
+            optForm.value = role.id;
+            optForm.textContent = role.name;
+            uRoleSelect.appendChild(optForm);
+
+            const optFilter = document.createElement('option');
+            optFilter.value = role.id;
+            optFilter.textContent = role.name;
+            roleFilter.appendChild(optFilter);
+        });
+    }
+}
+
+// Open/Close para el modal de Roles
+openAddRoleBtn?.addEventListener('click', () => {
+    if (roleModal) {
+        roleModal.classList.remove('hidden');
+        roleModal.setAttribute('aria-hidden', 'false');
+        roleForm.reset();
+    }
+});
+const closeRoleModal = () => {
+    if (roleModal) {
+        roleModal.classList.add('hidden');
+        roleModal.setAttribute('aria-hidden', 'true');
+    }
+};
+closeRoleModalBtn?.addEventListener('click', closeRoleModal);
+cancelRoleBtn?.addEventListener('click', closeRoleModal);
+
+roleForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('new_role_id').value.trim().toLowerCase();
+    const name = document.getElementById('new_role_name').value.trim();
+
+    if (!id || !name) return;
+
+    showLoading('Guardando nuevo rol...');
+    try {
+        const roleRef = doc(db, 'roles', id);
+        const check = await getDoc(roleRef);
+        if (check.exists()) {
+            showToast('El ID de este rol ya existe.');
+            hideLoading();
+            return;
+        }
+        await setDoc(roleRef, { name: name, createdAt: serverTimestamp() });
+        showToast('Rol creado correctamente.');
+        closeRoleModal();
+        await loadSystemRoles();
+    } catch (err) {
+        console.error(err);
+        showToast('Error al guardar el rol.');
+    } finally {
+        hideLoading();
+    }
+});
 
 // Firestore duplicates
 async function isEmailTaken(email, excludeId = null) {
@@ -213,86 +316,129 @@ function renderTable() {
 
     if (pageInfo) pageInfo.textContent = `${total ? start + 1 : 0}-${Math.min(start + perPage, total)} de ${total}`;
 
+    // Dentro de renderTable() en users-admin.js
     usersBody.innerHTML = '';
     for (const u of pageItems) {
         const state = presenceMap[u.id] || 'offline';
-        const dotClass = state === 'online' ? 'online-dot' : 'offline-dot';
+        const isOnline = state === 'online';
         const tr = document.createElement('tr');
 
+        // Clases dinámicas para la fila según el estado
+        tr.className = "group border-b border-slate-100 hover:bg-slate-50/70 transition-colors duration-200";
+
         const statusLower = (u.status || '').toLowerCase();
-        if (statusLower === 'suspendido') tr.classList.add('row-suspendido');
-        else if (statusLower === 'inactivo') tr.classList.add('row-inactivo');
+        if (statusLower === 'suspendido') tr.classList.add('bg-rose-50/30');
+        else if (statusLower === 'inactivo') tr.classList.add('bg-slate-50/40');
 
         const formatName = (name) => {
             if (!name) return '—';
             return name.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
         };
 
+        // 1. Columna de Nombre y Email (Con Avatar dinámico)
         const tdName = document.createElement('td');
+        tdName.className = "px-6 py-4 whitespace-nowrap";
+        const initials = formatName(u.name).split(' ').map(n => n[0]).join('').slice(0, 2);
+
         tdName.innerHTML = `
-            <div class="user-cell">
-                <div class="${dotClass}" title="${state === 'online' ? 'Conectado' : 'Desconectado'}" aria-hidden="true"></div>
-                <div class="user-meta-stack">
-                    <div class="user-name">${escapeHtml(formatName(u.name))}</div>
-                    <div class="user-email">${escapeHtml((u.email || '').toLowerCase())}</div>
-                </div>
+        <div class="flex items-center gap-3">
+            <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-purple-50 text-primary font-bold text-sm border border-purple-100/50 uppercase tracking-wider shrink-0">
+                ${initials}
+                <span class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}" title="${isOnline ? 'Conectado' : 'Desconectado'}"></span>
             </div>
-        `;
+            <div class="flex flex-col">
+                <span class="font-semibold text-slate-800 leading-tight">${escapeHtml(formatName(u.name))}</span>
+                <span class="text-xs text-slate-400 mt-0.5 font-normal">${escapeHtml((u.email || '').toLowerCase())}</span>
+            </div>
+        </div>
+    `;
 
+        // 2. Columna de Rol (Badges estilizados)
         const tdRole = document.createElement('td');
-        tdRole.innerHTML = `<span class="role-badge ${roleClass(u.role)}" style="text-transform: capitalize;">${escapeHtml(u.role || '')}</span>`;
+        tdRole.className = "px-6 py-4 whitespace-nowrap";
+        const roleObj = systemRoles.find(r => r.id === u.role);
+        const printableRole = roleObj ? roleObj.name : u.role;
 
+        // Clases personalizadas de Tailwind para los roles
+        let roleColorClass = "bg-slate-100 text-slate-700 border-slate-200";
+        if (u.role === 'administrador') roleColorClass = "bg-purple-50 text-purple-700 border-purple-100";
+        else if (u.role === 'vendedor') roleColorClass = "bg-blue-50 text-blue-700 border-blue-100";
+        else if (u.role === 'motorizado') roleColorClass = "bg-amber-50 text-amber-700 border-amber-100";
+
+        tdRole.innerHTML = `
+        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${roleColorClass}">
+            ${escapeHtml(printableRole || '')}
+        </span>
+    `;
+
+        // 3. Columna de Teléfono
         const tdPhone = document.createElement('td');
-        tdPhone.textContent = u.phone || '';
+        tdPhone.className = "px-6 py-4 whitespace-nowrap text-slate-600 font-medium font-mono text-xs";
+        tdPhone.textContent = u.phone || '—';
 
+        // 4. Columna de Fechas (Formato compacto y limpio)
         const tdDate = document.createElement('td');
-        const createdStr = u.createdAt ? formatTimestamp(u.createdAt) : '';
-        const updatedStr = u.updatedAt ? formatTimestamp(u.updatedAt) : '';
-        let dateHtml = `<div class="date-cell"><div><strong>FC:</strong> ${escapeHtml(createdStr)}</div>`;
-        if ((u.status || '').toLowerCase() === 'suspendido' && updatedStr) {
-            dateHtml += `<div><strong>FS:</strong> ${escapeHtml(updatedStr)}</div>`;
+        tdDate.className = "px-6 py-4 whitespace-nowrap text-xs text-slate-500 space-y-1";
+        const createdStr = u.createdAt ? formatTimestamp(u.createdAt).split(',')[0] : '';
+        const updatedStr = u.updatedAt ? formatTimestamp(u.updatedAt).split(',')[0] : '';
+
+        let dateHtml = `<div><span class="text-slate-400 font-medium">Alta:</span> ${escapeHtml(createdStr)}</div>`;
+        if (statusLower === 'suspendido' && updatedStr) {
+            dateHtml += `<div><span class="text-rose-400 font-medium">Susp:</span> ${escapeHtml(updatedStr)}</div>`;
         }
-        dateHtml += `</div>`;
         tdDate.innerHTML = dateHtml;
 
+        // 5. Columna de Estado (Píldoras de estado refinadas)
         const tdStatus = document.createElement('td');
-        tdStatus.innerHTML = `<span class="status-badge ${statusClass(u.status)}">${escapeHtml(u.status || 'Activo')}</span>`;
+        tdStatus.className = "px-6 py-4 whitespace-nowrap";
 
+        let statusColorClass = "bg-emerald-50 text-emerald-700 border-emerald-100";
+        if (statusLower === 'inactivo') statusColorClass = "bg-slate-100 text-slate-600 border-slate-200";
+        else if (statusLower === 'suspendido') statusColorClass = "bg-rose-50 text-rose-700 border-rose-100";
+
+        tdStatus.innerHTML = `
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusColorClass}">
+            ${escapeHtml(u.status || 'Activo')}
+        </span>
+    `;
+
+        // 6. Botones de Acción (Estilo unificado, moderno y con efectos hover)
         const tdActions = document.createElement('td');
-        const isActive = ((u.status || '').toLowerCase() === 'activo');
-        const toggleClass = isActive ? 'btn-inactivate' : 'btn-activate';
-        const toggleAction = isActive ? 'inactivate' : 'activate';
-        const toggleTitle = isActive ? 'Inactivar' : 'Activar';
+        tdActions.className = "px-6 py-4 whitespace-nowrap text-right text-sm font-medium";
+
+        const isActive = (statusLower === 'activo');
 
         tdActions.innerHTML = `
-            <div class="actions">
-                <button class="btn-small btn-view" data-id="${u.id}" title="Editar" aria-label="Editar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
-                        <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/>
-                    </svg>
-                </button>
-                <button class="btn-small ${toggleClass} btn-toggle-status" data-id="${u.id}" data-action="${toggleAction}" title="${toggleTitle}">
-                    ${isActive ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-slash-circle" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="M11.354 4.646a.5.5 0 0 0-.708 0l-6 6a.5.5 0 0 0 .708.708l6-6a.5.5 0 0 0 0-.708"/></svg>' : '✔'}
-                </button>
-                <button class="btn-small btn-suspender" data-id="${u.id}" title="Suspender" aria-label="Suspender">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
-                    </svg>
-                </button>
-                <button class="btn-small btn-permissions" data-id="${u.id}" title="Administrar permisos" aria-label="Permisos">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-columns-gap" viewBox="0 0 16 16">
-                        <path d="M6 1v3H1V1zM1 0a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1zm14 12v3h-5v-3zm-5-1a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1zM6 8v7H1V8zM1 7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1zm14-6v7h-5V1zm-5-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1z"/>
-                    </svg>
-                </button>
-                <button class="btn-small btn-password" data-id="${u.id}" title="Cambiar contraseña" aria-label="Cambiar contraseña">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-key" viewBox="0 0 16 16">
-                        <path d="M0 8a4 4 0 0 1 7.465-2H14a.5.5 0 0 1 .354.146l1.5 1.5a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0L13 9.207l-.646.647a.5.5 0 0 1-.708 0L11 9.207l-.646.647a.5.5 0 0 1-.708 0L9 9.207l-.646.647A.5.5 0 0 1 8 10h-.535A4 4 0 0 1 0 8m4-3a3 3 0 1 0 2.712 4.285A.5.5 0 0 1 7.163 9h.63l.853-.854a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .708 0l.646.647.793-.793-1-1h-6.63a.5.5 0 0 1-.451-.285A3 3 0 0 0 4 5"/>
-                        <path d="M4 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
-                    </svg>
-                </button>
-            </div>`;
+        <div class="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+            <!-- Editar -->
+            <button class="btn-view p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl border border-slate-200/60 transition shadow-sm" data-id="${u.id}" title="Editar">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            </button>
+            
+            <!-- Activar / Inactivar -->
+            <button class="btn-toggle-status p-2 ${isActive ? 'bg-amber-50 hover:bg-amber-100 text-amber-600 hover:text-amber-700' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700'} rounded-xl border border-transparent transition shadow-sm" data-id="${u.id}" data-action="${isActive ? 'inactivate' : 'activate'}" title="${isActive ? 'Inactivar' : 'Activar'}">
+                ${isActive ?
+                `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>` :
+                `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`
+            }
+            </button>
+            
+            <!-- Suspender -->
+            <button class="btn-suspender p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 rounded-xl border border-transparent transition shadow-sm" data-id="${u.id}" title="Suspender">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-14v4M1 7h22M9 3h6"/></svg>
+            </button>
+            
+            <!-- Permisos -->
+            <button class="btn-permissions p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700 rounded-xl border border-transparent transition shadow-sm" data-id="${u.id}" title="Permisos">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            </button>
+            
+            <!-- Llave de Contraseña -->
+            <button class="btn-password p-2 bg-teal-50 hover:bg-teal-100 text-teal-600 hover:text-teal-700 rounded-xl border border-transparent transition shadow-sm" data-id="${u.id}" title="Cambiar Contraseña">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 4a2 2 0 01-2 2H5a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1h3l3 3H17v2h4z"/></svg>
+            </button>
+        </div>
+    `;
 
         tr.appendChild(tdName);
         tr.appendChild(tdRole);
@@ -311,43 +457,135 @@ function renderTable() {
             if (docSnap) openModal('edit', docSnap);
         });
     });
+
+    // ---------- MODAL DE CONFIRMACIÓN PERSONALIZADO ----------
+    function showCustomConfirm({ title, message, confirmText = 'Aceptar', cancelText = 'Cancelar', variant = 'primary', onConfirm }) {
+        let modal = document.getElementById('customConfirmModal');
+
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'customConfirmModal';
+            modal.className = 'fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+
+            modal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transform transition-all overflow-hidden p-6 space-y-4">
+                <div class="flex items-start gap-3.5">
+                    <div id="confirmIconContainer" class="p-2.5 rounded-xl shrink-0">
+                        <!-- Icono Dinámico -->
+                        <svg id="confirmIcon" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"></svg>
+                    </div>
+                    <div>
+                        <h3 id="confirmTitle" class="text-base font-bold text-slate-900"></h3>
+                        <p id="confirmMessage" class="text-sm text-slate-500 mt-1 leading-relaxed"></p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2 border-t border-slate-50">
+                    <button id="confirmCancelBtn" type="button" class="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium rounded-xl transition"></button>
+                    <button id="confirmSuccessBtn" type="button" class="px-4 py-2.5 text-sm font-semibold rounded-xl transition shadow-sm"></button>
+                </div>
+            </div>
+        `;
+            document.body.appendChild(modal);
+        }
+
+        // Configurar Variantes visuales
+        const iconContainer = modal.querySelector('#confirmIconContainer');
+        const icon = modal.querySelector('#confirmIcon');
+        const successBtn = modal.querySelector('#confirmSuccessBtn');
+
+        if (variant === 'danger') {
+            iconContainer.className = 'p-2.5 rounded-xl shrink-0 bg-rose-50 text-rose-600';
+            icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>`;
+            successBtn.className = 'px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-xl transition shadow-sm';
+        } else if (variant === 'warning') {
+            iconContainer.className = 'p-2.5 rounded-xl shrink-0 bg-amber-50 text-amber-600';
+            icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>`;
+            successBtn.className = 'px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl transition shadow-sm';
+        } else { // primary / success
+            iconContainer.className = 'p-2.5 rounded-xl shrink-0 bg-purple-50 text-primary';
+            icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>`;
+            successBtn.className = 'px-4 py-2.5 bg-primary hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition shadow-sm';
+        }
+
+        // Inyectar contenido
+        modal.querySelector('#confirmTitle').textContent = title;
+        modal.querySelector('#confirmMessage').textContent = message;
+        modal.querySelector('#confirmCancelBtn').textContent = cancelText;
+        successBtn.textContent = confirmText;
+
+        // Mostrar modal
+        modal.classList.remove('hidden');
+
+        // Manejadores de eventos limpios
+        const closeModal = () => modal.classList.add('hidden');
+
+        modal.querySelector('#confirmCancelBtn').onclick = () => closeModal();
+
+        successBtn.onclick = () => {
+            closeModal();
+            if (typeof onConfirm === 'function') onConfirm();
+        };
+    }
+
     usersBody.querySelectorAll('.btn-suspender').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', (e) => {
             const id = e.currentTarget.getAttribute('data-id');
-            if (!confirm('¿Suspender usuario? Esto marcará su estado como "suspendido".')) return;
-            try {
-                showLoading('Suspendiendo usuario...');
-                await updateDoc(doc(db, 'users', id), { status: 'suspendido', updatedAt: serverTimestamp() });
-                showToast('Usuario suspendido.');
-                await loadUsers();
-            } catch (err) {
-                console.error('Error suspending user', err);
-                showToast('Error al suspender usuario.');
-            } finally {
-                hideLoading();
-            }
+
+            showCustomConfirm({
+                title: '¿Suspender usuario?',
+                message: 'Esta acción cambiará el estado del usuario a "suspendido", restringiendo de inmediato su acceso al sistema.',
+                confirmText: 'Sí, suspender',
+                cancelText: 'Cancelar',
+                variant: 'danger',
+                onConfirm: async () => {
+                    try {
+                        showLoading('Suspendiendo usuario...');
+                        await updateDoc(doc(db, 'users', id), { status: 'suspendido', updatedAt: serverTimestamp() });
+                        showToast('Usuario suspendido.');
+                        await loadUsers();
+                    } catch (err) {
+                        console.error('Error suspending user', err);
+                        showToast('Error al suspender usuario.');
+                    } finally {
+                        hideLoading();
+                    }
+                }
+            });
         });
     });
     usersBody.querySelectorAll('.btn-toggle-status').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', (e) => {
             const id = e.currentTarget.getAttribute('data-id');
             const action = e.currentTarget.getAttribute('data-action');
             const newStatus = action === 'inactivate' ? 'Inactivo' : 'Activo';
-            const confirmMsg = action === 'inactivate' ? '¿Inactivar usuario?' : '¿Activar usuario?';
-            if (!confirm(confirmMsg)) return;
-            try {
-                showLoading(newStatus === 'Activo' ? 'Activando...' : 'Inactivando...');
-                await updateDoc(doc(db, 'users', id), { status: newStatus, updatedAt: serverTimestamp() });
-                showToast(`Usuario ${newStatus === 'Activo' ? 'activado' : 'inactivado'}.`);
-                await loadUsers();
-            } catch (err) {
-                console.error('Error toggling status', err);
-                showToast('Error cambiando estado.');
-            } finally {
-                hideLoading();
-            }
+
+            showCustomConfirm({
+                title: newStatus === 'Activo' ? '¿Activar usuario?' : '¿Inactivar usuario?',
+                message: newStatus === 'Activo'
+                    ? 'El usuario recuperará todos sus accesos asignados de manera normal.'
+                    : 'El usuario pasará a estar inactivo temporalmente.',
+                confirmText: newStatus === 'Activo' ? 'Sí, activar' : 'Sí, inactivar',
+                cancelText: 'Volver',
+                variant: newStatus === 'Activo' ? 'primary' : 'warning',
+                onConfirm: async () => {
+                    try {
+                        showLoading(newStatus === 'Activo' ? 'Activando...' : 'Inactivando...');
+                        await updateDoc(doc(db, 'users', id), { status: newStatus, updatedAt: serverTimestamp() });
+                        showToast(`Usuario ${newStatus === 'Activo' ? 'activado' : 'inactivado'}.`);
+                        await loadUsers();
+                    } catch (err) {
+                        console.error('Error toggling status', err);
+                        showToast('Error cambiando estado.');
+                    } finally {
+                        hideLoading();
+                    }
+                }
+            });
         });
     });
+
     usersBody.querySelectorAll('.btn-password').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const id = e.currentTarget.getAttribute('data-id');
@@ -362,97 +600,181 @@ function renderTable() {
     });
 }
 
-const PAGES = [
-    { key: 'panel', label: 'Panel', icon: '🏠' },
-    { key: 'usuarios', label: 'Usuarios', icon: '👥' },
-    { key: 'productos', label: 'Productos', icon: '📦' },
-    { key: 'categoria', label: 'Categoría', icon: '🏷️' },
-    { key: 'pedidos', label: 'Pedidos', icon: '📝' },
-    { key: 'cierre_caja', label: 'Cierre de Caja', icon: '💰' },
-    { key: 'crm', label: 'CRM', icon: '🖥️' },
-    //{ key: 'chat', label: 'Chat', icon: '💬' },
-    { key: 'visitas', label: 'Visitas', icon: '👁️' },
-    { key: 'routes', label: 'Rutas', icon: '📍' }
-];
-
+// Reemplazar la función openPermissionsModal por esta versión mejorada
 async function openPermissionsModal(userId) {
     const modal = document.getElementById('modalPermissions');
-    const grid = document.getElementById('permissionsPagesGrid');
-    const countEl = document.getElementById('permissionsSelectedCount');
-    const selectAllEl = document.getElementById('permissionsSelectAll');
-    if (!modal || !grid || !countEl || !selectAllEl) return;
+    const permissionsContainer = document.getElementById('permissionsContainer') || document.getElementById('permissionsPagesGrid');
 
-    const userObj = allUsers.find(u => u.id === userId);
-    const current = Array.isArray(userObj?.allowedPages) ? userObj.allowedPages : [];
-    let selected = [...current];
-
-    // Renderiza tarjetas
-    grid.innerHTML = '';
-    PAGES.forEach(pg => {
-        const card = document.createElement('div');
-        card.className = 'perm-card' + (selected.includes(pg.key) ? ' selected' : '');
-        card.setAttribute('data-key', pg.key);
-        card.innerHTML = `
-      <div class="icon">${pg.icon}</div>
-      <div style="font-size:.96em;">${pg.label}</div>
-      <span class="checkmark" aria-hidden="true">
-        <svg viewBox="0 0 16 16"><path fill="#7c3aed" d="M6.173 12.067a.75.75 0 0 1-1.06 0l-2.18-2.215a.75.75 0 1 1 1.067-1.055l1.646 1.67 4.345-4.345a.75.75 0 0 1 1.06 1.06l-4.878 4.885z"/></svg>
-      </span>
-    `;
-        card.addEventListener('click', () => {
-            if (selected.includes(pg.key)) {
-                selected = selected.filter(k => k !== pg.key);
-                card.classList.remove('selected');
-            } else {
-                selected.push(pg.key);
-                card.classList.add('selected');
-            }
-            updatePermissionsCount();
-            selectAllEl.checked = selected.length === PAGES.length;
-        });
-        grid.appendChild(card);
-    });
-    // Función para actualizar cantidad
-    function updatePermissionsCount() {
-        countEl.textContent = selected.length;
-        // Reflejar visual en tarjetas
-        grid.querySelectorAll('.perm-card').forEach(cardEl => {
-            const key = cardEl.getAttribute('data-key');
-            if (selected.includes(key)) cardEl.classList.add('selected');
-            else cardEl.classList.remove('selected');
-        });
+    if (!modal || !permissionsContainer) {
+        console.warn('Modal de permisos o contenedor no encontrado', { modal: !!modal, permissionsContainer: !!permissionsContainer });
+        return;
     }
-    updatePermissionsCount();
-    selectAllEl.checked = selected.length === PAGES.length;
 
-    // Checkbox "Seleccionar todas"
-    selectAllEl.onchange = () => {
-        if (selectAllEl.checked) {
-            selected = PAGES.map(pg => pg.key);
-        } else {
-            selected = [];
-        }
-        updatePermissionsCount();
-    };
+    if (!userId) {
+        console.warn('openPermissionsModal llamado sin userId');
+        return;
+    }
 
-    modal.style.display = 'flex'; modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false');
-    document.getElementById('cancelPermissionsBtn').onclick = () => {
-        modal.style.display = 'none'; modal.classList.add('hidden');
-    };
-    document.getElementById('savePermissionsBtn').onclick = async () => {
+    // Intentar sacar el usuario desde memoria; si no existe, cargar desde Firestore
+    let userObj = allUsers.find(u => u.id === userId);
+    let allowedPages = Array.isArray(userObj?.allowedPages) ? userObj.allowedPages : [];
+
+    if (!userObj) {
         try {
-            showLoading('Actualizando permisos...');
-            await updateDoc(doc(db, 'users', userId), { allowedPages: selected });
-            showToast('Permisos guardados');
-            modal.style.display = 'none'; modal.classList.add('hidden');
-            await loadUsers();
+            const snap = await getDoc(doc(db, 'users', userId));
+            if (snap.exists()) {
+                userObj = { id: snap.id, ...snap.data() };
+                allowedPages = Array.isArray(userObj.allowedPages) ? userObj.allowedPages : [];
+            } else {
+                console.warn('Documento de usuario no encontrado en Firestore para id=', userId);
+            }
         } catch (err) {
-            showToast('Error guardando permisos');
-        } finally {
-            hideLoading();
+            console.error('Error fetching user doc', err);
         }
-    };
+    }
+
+    // Normalizar allowedPages para comparar con mod.id
+    const allowedNorm = (allowedPages || []).map(p => String(p).trim().toLowerCase());
+
+    console.log('openPermissionsModal userId=', userId, 'allowedPages=', allowedPages, 'allowedNorm=', allowedNorm);
+
+    const modules = [
+        { id: 'panel', name: 'Panel', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>' },
+        { id: 'usuarios', name: 'Usuarios', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>' },
+        { id: 'productos', name: 'Productos', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>' },
+        { id: 'categoria', name: 'Categoría', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>' },
+        { id: 'pedidos', name: 'Pedidos', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' },
+        { id: 'cierre_caja', name: 'Cierre de Caja', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' },
+        { id: 'crm', name: 'CRM', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' },
+        { id: 'visitas', name: 'Visitas', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>' },
+        { id: 'routes', name: 'Rutas', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' }
+    ];
+
+    // Limpiar contenedor
+    permissionsContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 p-4";
+    permissionsContainer.innerHTML = '';
+
+    // Renderizar tarjetas y sincronizar estado
+    modules.forEach(mod => {
+        const hasPermission = allowedNorm.includes(mod.id);
+        console.log('module', mod.id, 'hasPermission=', hasPermission);
+
+        const card = document.createElement('label');
+        card.className = `
+            relative flex items-center justify-between p-3.5 rounded-xl border cursor-pointer select-none
+            transition-all duration-200 group
+            ${hasPermission ? 'bg-purple-50/60 border-purple-200 hover:border-purple-300' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'}
+        `;
+
+        card.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${hasPermission ? 'bg-purple-500 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}">
+                    ${mod.icon}
+                </div>
+                <span class="text-sm font-semibold ${hasPermission ? 'text-purple-900' : 'text-slate-700'}">${mod.name}</span>
+            </div>
+
+            <input type="checkbox" class="permission-checkbox sr-only" data-module="${mod.id}">
+
+            <div class="w-8 h-5 bg-slate-200 rounded-full transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+        `;
+
+        permissionsContainer.appendChild(card);
+
+        const checkbox = card.querySelector('input.permission-checkbox');
+        const iconBox = card.querySelector('.rounded-lg');
+        const labelText = card.querySelector('span');
+        const switchVisual = card.querySelector('.w-8.h-5');
+
+        const onChange = () => {
+            const isChecked = checkbox.checked;
+            if (isChecked) {
+                card.classList.remove('bg-white', 'border-slate-200', 'hover:bg-slate-50', 'hover:border-slate-300');
+                card.classList.add('bg-purple-50/60', 'border-purple-200', 'hover:border-purple-300');
+                if (iconBox) { iconBox.classList.remove('bg-slate-100', 'text-slate-500', 'group-hover:bg-slate-200'); iconBox.classList.add('bg-purple-500', 'text-white'); }
+                if (labelText) { labelText.classList.remove('text-slate-700'); labelText.classList.add('text-purple-900'); }
+                if (switchVisual) { switchVisual.classList.add('!bg-purple-600', 'after:translate-x-full', 'after:border-white'); }
+            } else {
+                card.classList.remove('bg-purple-50/60', 'border-purple-200', 'hover:border-purple-300');
+                card.classList.add('bg-white', 'border-slate-200', 'hover:bg-slate-50', 'hover:border-slate-300');
+                if (iconBox) { iconBox.classList.remove('bg-purple-500', 'text-white'); iconBox.classList.add('bg-slate-100', 'text-slate-500', 'group-hover:bg-slate-200'); }
+                if (labelText) { labelText.classList.remove('text-purple-900'); labelText.classList.add('text-slate-700'); }
+                if (switchVisual) { switchVisual.classList.remove('!bg-purple-600', 'after:translate-x-full', 'after:border-white'); }
+            }
+
+            const countEl = document.getElementById('permissionsSelectedCount');
+            if (countEl) countEl.textContent = permissionsContainer.querySelectorAll('.permission-checkbox:checked').length;
+
+            const selectAll = document.getElementById('permissionsSelectAll');
+            if (selectAll) {
+                const total = permissionsContainer.querySelectorAll('.permission-checkbox').length;
+                const checked = permissionsContainer.querySelectorAll('.permission-checkbox:checked').length;
+                selectAll.checked = (total > 0 && checked === total);
+                selectAll.indeterminate = (checked > 0 && checked < total);
+            }
+        };
+
+        checkbox.addEventListener('change', onChange);
+
+        // Forzar estado inicial y disparar el change para sincronizar clases
+        checkbox.checked = hasPermission;
+        setTimeout(() => checkbox.dispatchEvent(new Event('change')), 0);
+    });
+
+    // Inicializar contador y selectAll
+    const countEl = document.getElementById('permissionsSelectedCount');
+    if (countEl) countEl.textContent = permissionsContainer.querySelectorAll('.permission-checkbox:checked').length;
+
+    const selectAll = document.getElementById('permissionsSelectAll');
+    if (selectAll) {
+        selectAll.checked = permissionsContainer.querySelectorAll('.permission-checkbox:checked').length === permissionsContainer.querySelectorAll('.permission-checkbox').length;
+        selectAll.indeterminate = false;
+        selectAll.onchange = () => {
+            const check = selectAll.checked;
+            permissionsContainer.querySelectorAll('.permission-checkbox').forEach(cb => { cb.checked = check; cb.dispatchEvent(new Event('change')); });
+        };
+    }
+
+    // Mostrar modal
+    modal.style.setProperty('display', 'flex', 'important');
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+
+    // Cerrar modal
+    const closeBtn = document.getElementById('cancelPermissionsBtn') || document.getElementById('closePermissionsModal');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.setProperty('display', 'none', 'important');
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+        };
+    }
+
+    // Guardar cambios
+    const saveBtn = document.getElementById('savePermissionsBtn');
+    if (saveBtn) {
+        saveBtn.onclick = async () => {
+            const selectedModules = Array.from(permissionsContainer.querySelectorAll('.permission-checkbox:checked')).map(cb => cb.getAttribute('data-module'));
+            try {
+                showLoading('Actualizando permisos...');
+                await updateDoc(doc(db, 'users', userId), { allowedPages: selectedModules, updatedAt: serverTimestamp() });
+                showToast('Permisos guardados correctamente.');
+                modal.style.setProperty('display', 'none', 'important');
+                modal.classList.add('hidden');
+                modal.setAttribute('aria-hidden', 'true');
+                await loadUsers();
+            } catch (err) {
+                console.error('Error guardando permisos', err);
+                showToast('Error guardando permisos');
+            } finally {
+                hideLoading();
+            }
+        };
+    }
 }
+
+// Exponer la función al scope global (fuera de la función)
+window.openPermissionsModal = openPermissionsModal;
 
 // ---------- MODAL CAMBIO CONTRASEÑA ----------
 function openPasswordModal(uid) {
@@ -492,7 +814,6 @@ function openPasswordModal(uid) {
         const confirmPw = document.getElementById('pw_new_confirm').value;
         let ok = true;
 
-        // Validaciones robustas
         if (!newPw) {
             setInputAlert('pw_new_alert', 'Campo requerido', true); ok = false;
         } else if (
@@ -557,10 +878,12 @@ function updateCommissionVisibilityByRole(role) {
     if (!commissionSection) return;
     if (shouldShowCommissionForRole(role)) {
         commissionSection.style.display = 'block';
+        commissionSection.classList.remove('hidden'); // Forzar remoción de clase Tailwind
         if (commissionPercentRadio) commissionPercentRadio.setAttribute('required', 'true');
         if (commissionAmountRadio) commissionAmountRadio.setAttribute('required', 'true');
     } else {
         commissionSection.style.display = 'none';
+        commissionSection.classList.add('hidden');
         if (commissionPercentRadio) commissionPercentRadio.removeAttribute('required');
         if (commissionAmountRadio) commissionAmountRadio.removeAttribute('required');
         clearCommissionFields();
@@ -571,17 +894,23 @@ function showCommissionBoxes() {
     if (!commissionPercentBox || !commissionAmountBox) return;
     if (commissionPercentRadio && commissionPercentRadio.checked) {
         commissionPercentBox.style.display = 'block';
+        commissionPercentBox.classList.remove('hidden');
         commissionAmountBox.style.display = 'none';
+        commissionAmountBox.classList.add('hidden');
         commissionPercentInput?.setAttribute('required', 'true');
         commissionAmountInput?.removeAttribute('required');
     } else if (commissionAmountRadio && commissionAmountRadio.checked) {
         commissionAmountBox.style.display = 'block';
+        commissionAmountBox.classList.remove('hidden');
         commissionPercentBox.style.display = 'none';
+        commissionPercentBox.classList.add('hidden');
         commissionAmountInput?.setAttribute('required', 'true');
         commissionPercentInput?.removeAttribute('required');
     } else {
         commissionPercentBox.style.display = 'none';
+        commissionPercentBox.classList.add('hidden');
         commissionAmountBox.style.display = 'none';
+        commissionAmountBox.classList.add('hidden');
         commissionPercentInput?.removeAttribute('required');
         commissionAmountInput?.removeAttribute('required');
     }
@@ -597,18 +926,17 @@ function getCommissionFromForm() {
     }
     return { commissionType: null, commissionValue: null };
 }
+
 // -----------------------------
-// Password toggles (limpieza y control)
+// Password toggles
 // -----------------------------
 function createToggleBtn() {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'icon-btn small pwd-toggle';
+    btn.className = 'icon-btn small pwd-toggle absolute right-3 text-slate-400 hover:text-slate-600 focus:outline-none';
     btn.setAttribute('aria-pressed', 'false');
     btn.setAttribute('aria-label', 'Mostrar / ocultar contraseña');
     btn.textContent = '👁️';
-    btn.style.marginLeft = '8px';
-    btn.style.padding = '4px';
     btn.style.fontSize = '14px';
     return btn;
 }
@@ -630,9 +958,8 @@ function removePasswordToggles() {
 function showPasswordTogglesIfNeeded() {
     if (!pwdInput || !pwdConfirmInput) return;
     const bothHaveText = (pwdInput.value && pwdInput.value.length > 0) && (pwdConfirmInput.value && pwdConfirmInput.value.length > 0);
-    // Usa el contenedor nuevo en vez de parentNode directo
-    const pwdParent = pwdInput.closest('.pwd-input-wrapper') || pwdInput.parentNode;
-    const pwdConfirmParent = pwdConfirmInput.closest('.pwd-input-wrapper') || pwdConfirmInput.parentNode;
+    const pwdParent = pwdInput.parentNode;
+    const pwdConfirmParent = pwdConfirmInput.parentNode;
 
     if (bothHaveText) {
         if (!pwdToggle) {
@@ -674,10 +1001,8 @@ if (pwdInput && pwdConfirmInput) {
 function validateForm(values, isEdit = false) {
     let ok = true;
     clearAllAlerts();
-    // Nombre
     if (!values.name || !values.name.trim()) { setInputAlert('u_name_alert', 'El nombre es requerido.', true); ok = false; }
-    // Correo
-    const emailAlertEl = document.getElementById('u_email_alert');
+
     const emailExtSelectEl = document.getElementById('u_email_ext');
     const emailExtCustomEl = document.getElementById('u_email_ext_custom');
     if (!values.email) { setInputAlert('u_email_alert', 'Correo requerido.', true); ok = false; }
@@ -686,19 +1011,17 @@ function validateForm(values, isEdit = false) {
         const custom = (emailExtCustomEl?.value || '').trim();
         if (!custom) { setInputAlert('u_email_alert', 'Ingresa la extensión de correo.', true); ok = false; }
         else if (!DOMAIN_REGEX.test(custom)) { setInputAlert('u_email_alert', 'Dominio inválido.', true); ok = false; }
-        else setInputAlert('u_email_alert', '', false);
-    } else { setInputAlert('u_email_alert', '', false); }
-    // Teléfono
+    }
+
     const operator = (document.getElementById('u_operator')?.value || '').trim();
     const phoneLocal = (document.getElementById('u_phone_local')?.value || '').trim();
     const fullPhone = values.phone || '';
     if (!operator) { setInputAlert('u_phone_alert', 'Selecciona la operadora.', true); ok = false; }
     else if (phoneLocal.length !== 7) { setInputAlert('u_phone_alert', 'El número local debe tener 7 dígitos.', true); ok = false; }
     else if (!isPhoneFormatValid(fullPhone)) { setInputAlert('u_phone_alert', `Teléfono inválido. Debe tener entre ${PHONE_MIN_DIGITS} y ${PHONE_MAX_DIGITS} dígitos.`, true); ok = false; }
-    else setInputAlert('u_phone_alert', '', false);
-    // Rol
-    if (!values.role || !values.role.trim()) { setInputAlert('u_role_alert', 'Selecciona un rol.', true); ok = false; } else setInputAlert('u_role_alert', '', false);
-    // Contraseña
+
+    if (!values.role || !values.role.trim()) { setInputAlert('u_role_alert', 'Selecciona un rol.', true); ok = false; }
+
     if (!isEdit || (values.password || values.confirm)) {
         const pw = values.password || '';
         const confirm = values.confirm || '';
@@ -710,13 +1033,10 @@ function validateForm(values, isEdit = false) {
         if (!okLen || !okUpper || !okLower || !okNumber || !okSpecial) {
             setInputAlert('u_password_alert', 'La contraseña debe tener 6-8 caracteres e incluir mayúscula, minúscula, número y carácter especial.', true);
             ok = false;
-        } else setInputAlert('u_password_alert', '', false);
-        if (pw !== confirm) { setInputAlert('u_password_confirm_alert', 'Las contraseñas no coinciden.', true); ok = false; } else setInputAlert('u_password_confirm_alert', '', false);
-    } else {
-        setInputAlert('u_password_alert', '', false);
-        setInputAlert('u_password_confirm_alert', '', false);
+        }
+        if (pw !== confirm) { setInputAlert('u_password_confirm_alert', 'Las contraseñas no coinciden.', true); ok = false; }
     }
-    // Comisión
+
     if (shouldShowCommissionForRole(values.role)) {
         if (!values.commissionType) { showToast('Selecciona el tipo de comisión (porcentaje o monto).'); ok = false; }
         else {
@@ -735,7 +1055,7 @@ function validateForm(values, isEdit = false) {
 }
 
 // -----------------------------
-// Form submit (Cloud Function) with Firestore fallback to persist commissions
+// Form submit (Cloud Function)
 // -----------------------------
 userForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -748,7 +1068,6 @@ userForm?.addEventListener('submit', async (e) => {
     const password = document.getElementById('u_password')?.value;
     const confirm = document.getElementById('u_password_confirm')?.value;
 
-    // comisión
     const commission = getCommissionFromForm();
     const commissionType = commission.commissionType;
     const commissionValue = commission.commissionValue;
@@ -757,7 +1076,6 @@ userForm?.addEventListener('submit', async (e) => {
     const isEdit = !!userId;
     if (!validateForm(values, isEdit)) return;
 
-    // duplicados
     try {
         const emailTaken = await isEmailTaken(email, isEdit ? userId : null);
         if (emailTaken) { setInputAlert('u_email_alert', 'El correo ya está registrado.', true); return; }
@@ -774,7 +1092,6 @@ userForm?.addEventListener('submit', async (e) => {
 
     try {
         if (!isEdit) {
-            // build payload
             const payload = { name, email, phone, role, status, password };
             if (commissionType) {
                 payload.commissionType = commissionType;
@@ -782,14 +1099,11 @@ userForm?.addEventListener('submit', async (e) => {
             }
             let idToken = null;
             try {
-                if (!auth || !auth.currentUser) {
-                    console.warn('[users-admin] auth.currentUser NO disponible al crear usuario.');
-                } else {
+                if (auth && auth.currentUser) {
                     idToken = await auth.currentUser.getIdToken(true);
                 }
-            } catch (tErr) {
-                console.error('[users-admin] Error obteniendo idToken:', tErr);
-            }
+            } catch (tErr) { console.error(tErr); }
+
             const headers = { 'Content-Type': 'application/json' };
             if (idToken) headers['Authorization'] = 'Bearer ' + idToken;
             const res = await fetch(CREATE_USER_FUNCTION_URL, {
@@ -797,83 +1111,47 @@ userForm?.addEventListener('submit', async (e) => {
                 headers,
                 body: JSON.stringify(payload),
             });
-            let textBody = '';
+
+            let textBody = await res.text();
             let jsonBody = null;
-            try {
-                textBody = await res.text();
-                try { jsonBody = JSON.parse(textBody); } catch (_) { /* no JSON */ }
-            } catch (readErr) { }
+            try { jsonBody = JSON.parse(textBody); } catch (_) { }
+
             if (!res.ok) {
                 let userMsg = 'Error creando usuario.';
-                try {
-                    const parsed = JSON.parse(textBody || '{}');
-                    if (parsed && parsed.error) userMsg = parsed.error;
-                    else if (parsed && parsed.message) userMsg = parsed.message;
-                } catch (_) { }
+                if (jsonBody && jsonBody.error) userMsg = jsonBody.error;
                 showToast(userMsg);
                 return;
             }
-            // CREACIÓN EXITOSA en el backend. Aseguramos campos de comisión en Firestore:
+
             try {
                 if (jsonBody && jsonBody.uid) {
                     const uid = jsonBody.uid;
                     const userRef = doc(db, 'users', uid);
                     const userSnap = await getDoc(userRef);
-                    const baseData = {
-                        name,
-                        email,
-                        phone: normalizePhone(phone),
-                        role,
-                        status,
-                        emailLower: (email || '').toLowerCase(),
-                    };
+                    const baseData = { name, email, phone: normalizePhone(phone), role, status, emailLower: email.toLowerCase() };
                     if (!userSnap.exists()) {
                         const toSet = { ...baseData, createdAt: serverTimestamp() };
-                        if (commissionType) {
-                            toSet.commissionType = commissionType;
-                            toSet.commissionValue = commissionValue;
-                        }
+                        if (commissionType) { toSet.commissionType = commissionType; toSet.commissionValue = commissionValue; }
                         await setDoc(userRef, toSet);
                     } else {
                         const toUpdate = {};
-                        if (commissionType) {
-                            toUpdate.commissionType = commissionType;
-                            toUpdate.commissionValue = commissionValue;
-                        }
+                        if (commissionType) { toUpdate.commissionType = commissionType; toUpdate.commissionValue = commissionValue; }
                         if (Object.keys(toUpdate).length) await updateDoc(userRef, toUpdate);
                     }
-                } else {
-                    // Si no devuelve uid, intentamos localizar por emailLower
-                    const emailLower = (email || '').toLowerCase();
-                    if (emailLower) {
-                        const q = query(collection(db, 'users'), where('emailLower', '==', emailLower));
-                        const snap = await getDocs(q);
-                        if (!snap.empty) {
-                            const firstDoc = snap.docs[0];
-                            const updateObj = {};
-                            if (commissionType) {
-                                updateObj.commissionType = commissionType;
-                                updateObj.commissionValue = commissionValue;
-                            }
-                            if (Object.keys(updateObj).length) {
-                                await updateDoc(doc(db, 'users', firstDoc.id), updateObj);
-                            }
-                        }
-                    }
                 }
-            } catch (fireErr) {
-                // no interrumpimos: usuario ya fue creado en backend
-            }
+            } catch (fireErr) { console.error(fireErr); }
             showToast('Usuario creado correctamente.');
         } else {
             const updateObj = { name, phone, role, status, updatedAt: serverTimestamp() };
             if (commissionType) {
                 updateObj.commissionType = commissionType;
                 updateObj.commissionValue = commissionValue;
+            } else {
+                updateObj.commissionType = null;
+                updateObj.commissionValue = null;
             }
             await updateDoc(doc(db, 'users', userId), updateObj);
-            if (password) showToast('Datos actualizados. Email para restablecer contraseña enviado.');
-            else showToast('Usuario actualizado.');
+            showToast('Usuario actualizado.');
         }
         closeModal();
         await loadUsers();
@@ -884,9 +1162,6 @@ userForm?.addEventListener('submit', async (e) => {
     }
 });
 
-// -----------------------------
-// Modal open/close (limpieza de toggles integrada)
-// -----------------------------
 function getFullEmailFromForm() {
     const localEl = document.getElementById('u_email_local');
     const extSelectEl = document.getElementById('u_email_ext');
@@ -904,9 +1179,7 @@ function getFullPhoneFromForm() {
 }
 
 function openModal(mode = 'add', data = null) {
-    // limpiar toggles y valores residuales
     removePasswordToggles();
-
     modalMode = mode;
     const titleEl = document.getElementById('modalTitle');
     const userIdEl = document.getElementById('userId');
@@ -914,7 +1187,6 @@ function openModal(mode = 'add', data = null) {
     if (userIdEl) userIdEl.value = data?.id || '';
     if (document.getElementById('u_name')) document.getElementById('u_name').value = data?.name || '';
 
-    // email split
     const emailLocalEl = document.getElementById('u_email_local');
     const emailExtSelect = document.getElementById('u_email_ext');
     const emailExtCustom = document.getElementById('u_email_ext_custom');
@@ -941,7 +1213,6 @@ function openModal(mode = 'add', data = null) {
         }
     }
 
-    // phone split
     const operatorEl = document.getElementById('u_operator');
     const phoneLocalEl = document.getElementById('u_phone_local');
     const phoneStored = data?.phone || '';
@@ -969,11 +1240,8 @@ function openModal(mode = 'add', data = null) {
     if (pwdInput) pwdInput.value = '';
     if (pwdConfirmInput) pwdConfirmInput.value = '';
 
-    ['u_name_alert', 'u_email_alert', 'u_phone_alert', 'u_password_alert', 'u_password_confirm_alert', 'u_role_alert'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.textContent = '';
-    });
+    clearAllAlerts();
 
-    // Required flags
     const setRequired = (id, req) => { const el = document.getElementById(id); if (!el) return; if (req) el.setAttribute('required', 'true'); else el.removeAttribute('required'); };
     const addRequired = mode === 'add';
     setRequired('u_email_local', addRequired);
@@ -987,7 +1255,6 @@ function openModal(mode = 'add', data = null) {
     if (emailExtSelect && emailExtSelect.value === 'otro' && addRequired) emailExtCustom.setAttribute('required', 'true');
     else if (emailExtCustom) emailExtCustom.removeAttribute('required');
 
-    // rellenar comisiones si vienen en data
     const cType = data?.commissionType || '';
     const cValue = data?.commissionValue != null ? data.commissionValue : '';
     if (commissionPercentRadio) commissionPercentRadio.checked = cType === 'percent';
@@ -995,7 +1262,6 @@ function openModal(mode = 'add', data = null) {
     if (commissionPercentInput) commissionPercentInput.value = (cType === 'percent' && cValue !== '') ? cValue : '';
     if (commissionAmountInput) commissionAmountInput.value = (cType === 'amount' && cValue !== '') ? cValue : '';
 
-    // mostrar/ocultar sección de comisiones según rol actual
     const currentRole = document.getElementById('u_role')?.value || '';
     updateCommissionVisibilityByRole(currentRole);
 
@@ -1130,6 +1396,9 @@ onAuthStateChanged(auth, async (user) => {
             const r = s.data().role;
             if (r !== 'administrador') { window.location.href = `/admin/${r}.html`; return; }
         } else { window.location.href = 'index.html'; return; }
-    } catch (err) { }
+    } catch (err) { console.error(err); }
+
+    // CARGAR PRIMERO LOS ROLES Y LUEGO LOS USUARIOS
+    await loadSystemRoles();
     await loadUsers();
 });
