@@ -219,7 +219,8 @@ window.savePostpone = async function () {
    ========================================== */
 window.closeEditModal = () => document.getElementById('editOrderModal').classList.add('hidden');
 
-export async function openEditOrder(orderId) {
+// 1. Modificar la firma de openEditOrder para aceptar el rol del usuario actual
+export async function openEditOrder(orderId, userRole = "") {
     const order = window.ordersCache[orderId];
     if (!order) return;
 
@@ -229,9 +230,41 @@ export async function openEditOrder(orderId) {
     document.getElementById('editOrderToken').innerText = `Referencia: ${order.cartToken || orderId}`;
     document.getElementById('editOrderModal').classList.remove('hidden');
 
+    // --- NUEVA LÓGICA DE ROLES PARA VENDEDORES ---
+    const sellerContainer = document.getElementById('sellerSelectContainer');
+    const normalizedRole = userRole.toLowerCase();
+
+    if (normalizedRole === "administrador" || normalizedRole === "gerente") {
+        if (sellerContainer) sellerContainer.classList.remove('hidden');
+        await loadActiveSellers(order.assignedSeller); // Carga y preselecciona el vendedor actual
+    } else {
+        if (sellerContainer) sellerContainer.classList.add('hidden');
+    }
+    // ---------------------------------------------
+
     await loadActiveMotorized(order.assignedMotorizedId);
     await loadActiveProducts();
     renderEditingItems();
+}
+
+// 2. Nueva función auxiliar para cargar los usuarios con rol 'vendedor'
+async function loadActiveSellers(currentSellerId) {
+    const q = query(collection(db, "users"), where("role", "==", "vendedor"));
+    const snapshot = await getDocs(q);
+    const select = document.getElementById('sellerSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Sistema / Sin vendedor asignado</option>';
+    snapshot.forEach(docSnap => {
+        const user = docSnap.data();
+        if (user.status === "Activo" || user.status === "ACTIVE") {
+            const option = document.createElement('option');
+            option.value = docSnap.id;
+            option.text = user.name || user.fullName || "Vendedor sin nombre";
+            if (docSnap.id === currentSellerId) option.selected = true;
+            select.appendChild(option);
+        }
+    });
 }
 
 async function loadActiveMotorized(currentId) {
@@ -451,6 +484,20 @@ window.saveOrderChanges = async function () {
     const motorizedName = motorizedSelect.options[motorizedSelect.selectedIndex].text;
     const comment = document.getElementById('motorizedComment').value;
 
+    // --- RECOLECTAR VALORES DE VENDEDOR ---
+    const sellerSelect = document.getElementById('sellerSelect');
+    const sellerContainer = document.getElementById('sellerSelectContainer');
+    
+    let sellerId = currentEditingOrder.assignedSeller || "";
+    let sellerName = currentEditingOrder.assignedSellerName || "Sistema";
+
+    // Solo actualizamos si el select está visible para el usuario actual
+    if (sellerSelect && sellerContainer && !sellerContainer.classList.contains('hidden')) {
+        sellerId = sellerSelect.value;
+        sellerName = sellerSelect.selectedIndex > 0 ? sellerSelect.options[sellerSelect.selectedIndex].text : "Sistema";
+    }
+    // --------------------------------------
+
     const finalTotal = editingItems.reduce((acc, item) => acc + (parseFloat(item.price) * item.quantity), 0);
 
     const updateData = {
@@ -458,6 +505,9 @@ window.saveOrderChanges = async function () {
         total: finalTotal.toFixed(2),
         assignedMotorizedId: motorizedId,
         assignedMotorizedName: motorizedId ? motorizedName : "Sin asignar",
+        // Nuevos campos agregados a la mutación de Firestore:
+        assignedSeller: sellerId,
+        assignedSellerName: sellerId ? sellerName : "Sistema",
         lastUpdate: new Date().toISOString()
     };
 
