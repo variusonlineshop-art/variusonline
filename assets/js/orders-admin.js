@@ -180,7 +180,7 @@ function fetchAndRenderOrders(filters = {}) {
             let myRole = (myData.role || '').toLowerCase();
 
             let ordersQuery;
-            if (myRole === "administrador") {
+            if (myRole === "administrador" || myRole === "gerente") {
                 ordersQuery = collection(db, "orders");
             } else if (myRole === "motorizado") {
                 ordersQuery = query(collection(db, "orders"), where("assignedMotorizedId", "==", user.uid));
@@ -435,7 +435,7 @@ function fetchAndRenderOrders(filters = {}) {
                             <button onclick="showOrderDetails('${orderId}')" title="Visualizar Orden" class="bg-green-200 flex-1 py-2 rounded-lg hover:bg-green-600 hover:shadow-sm hover:text-white text-green-700 transition-all">
                                 <i class="fa-regular fa-eye text-xs"></i>
                             </button>
-                            <button onclick="openEditOrder('${orderId}')" title="Editar Orden" class="bg-blue-200 flex-1 py-2 rounded-lg hover:bg-blue-600 hover:shadow-sm hover:text-white text-blue-700 transition-all">
+                            <button onclick="openEditOrder('${orderId}', '${myRole}')" title="Editar Orden" class="bg-blue-200 flex-1 py-2 rounded-lg hover:bg-blue-600 hover:shadow-sm hover:text-white text-blue-700 transition-all">
                                 <i class="fa-regular fa-pen-to-square text-xs"></i>
                             </button>
                            ${(hasMotorized && !isSent && !isAccepted) ? `
