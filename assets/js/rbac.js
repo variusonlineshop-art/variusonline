@@ -22,7 +22,7 @@ export async function getUserRole(uid) {
 export function applyUiRestrictions(role) {
     try {
         // admin has all rights -> nothing to hide
-        if (role === 'administrador') {
+        if (role === 'administrador' || role === 'gerente') {
             // ensure admin-only elements are shown
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
             document.querySelectorAll('.seller-only').forEach(el => el.style.display = '');
