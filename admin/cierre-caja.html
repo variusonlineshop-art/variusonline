@@ -13,10 +13,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .tab-active { background-color: #0f172a; color: white; }
-        .tab-inactive { background-color: white; color: #64748b; border: 1px solid #e2e8f0; }
-        .view-hidden { display: none; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tab-active {
+            background-color: #0f172a;
+            color: white;
+        }
+
+        .tab-inactive {
+            background-color: white;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .view-hidden {
+            display: none;
+        }
     </style>
 </head>
 
@@ -41,61 +56,78 @@
             </div>
             <div class="ticker-container">
                 <div class="ticker-wrapper">
-                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">$ Bs/USD Cargando...</div>
-                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">€ Bs./EUR Cargando...</div>
+                    <div id="rate-usd" class="ticker-item font-mono text-emerald-400 font-bold text-sm md:text-base">$
+                        Bs/USD Cargando...</div>
+                    <div id="rate-eur" class="ticker-item font-mono text-blue-400 font-bold text-sm md:text-base">€
+                        Bs./EUR Cargando...</div>
                 </div>
             </div>
         </div>
     </header>
 
     <div id="app-sidebar" class="sidebar"></div>
-    
+
     <main class="main">
         <div class="flex-1 overflow-y-auto p-6 space-y-6 max-w-[1600px] w-full mx-auto">
 
             <!-- SELECTOR DE VISTAS -->
             <div class="flex gap-1.5 bg-slate-200/60 p-1 rounded-lg w-fit shadow-inner">
-                <button id="btn-resumen" onclick="switchView('resumen')" class="px-5 py-1.5 text-xs font-bold rounded-md shadow-sm tab-active transition-all tracking-wide">RESUMEN</button>
-                <button id="btn-calendario" onclick="switchView('calendario')" class="px-5 py-1.5 text-xs font-bold rounded-md tab-inactive transition-all tracking-wide">CALENDARIO</button>
+                <button id="btn-resumen" onclick="switchView('resumen')"
+                    class="px-5 py-1.5 text-xs font-bold rounded-md shadow-sm tab-active transition-all tracking-wide">RESUMEN</button>
+                <button id="btn-calendario" onclick="switchView('calendario')"
+                    class="px-5 py-1.5 text-xs font-bold rounded-md tab-inactive transition-all tracking-wide">CALENDARIO</button>
             </div>
 
             <!-- ================= VISTA 1: RESUMEN ================= -->
             <section id="view-resumen" class="space-y-6 transition-opacity duration-200">
-                
+
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Cierre de Caja</h1>
-                        <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-0.5">Resumen de Operaciones</p>
+                        <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-0.5">Resumen de
+                            Operaciones</p>
                     </div>
-                    <button class="btn-finalize inline-flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm active:scale-95">
+                    <button
+                        class="btn-finalize inline-flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-sm active:scale-95">
                         <i class="fa-solid fa-circle-check"></i> Finalizar Caja Día
                     </button>
                 </div>
 
                 <!-- KPIs -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
+                    <div
+                        class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL COBRADO (BS)</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL COBRADO (BS)
+                            </p>
                             <h3 id="total-bs" class="text-2xl font-bold text-slate-900">Bs 0,00</h3>
                         </div>
-                        <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">Bs</div>
+                        <div
+                            class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">
+                            Bs</div>
                         <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
+                    <div
+                        class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL COBRADO (USD)</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL COBRADO
+                                (USD)</p>
                             <h3 id="total-usd" class="text-2xl font-bold text-slate-900">$0.00</h3>
                         </div>
-                        <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">$</div>
+                        <div
+                            class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">
+                            $</div>
                         <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
+                    <div
+                        class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
                         <div>
                             <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL PEDIDOS</p>
                             <h3 id="total-orders" class="text-2xl font-bold text-slate-900">0</h3>
                         </div>
-                        <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">#</div>
+                        <div
+                            class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">
+                            #</div>
                         <div class="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500"></div>
                     </div>
                 </div>
@@ -103,21 +135,30 @@
                 <!-- FILTROS -->
                 <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-chevron-down text-slate-400 text-[10px]"></i> Panel de Búsqueda</span>
-                        <button onclick="clearFilters()" class="text-xs text-slate-400 hover:text-red-500 transition font-medium"><i class="fa-solid fa-xmark mr-1"></i> Limpiar Filtros</button>
+                        <span class="text-xs font-bold text-slate-700 flex items-center gap-2"><i
+                                class="fa-solid fa-chevron-down text-slate-400 text-[10px]"></i> Panel de
+                            Búsqueda</span>
+                        <button onclick="clearFilters()"
+                            class="text-xs text-slate-400 hover:text-red-500 transition font-medium"><i
+                                class="fa-solid fa-xmark mr-1"></i> Limpiar Filtros</button>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div class="relative">
                             <i class="fa-solid fa-address-card absolute left-3 top-3.5 text-slate-400 text-xs"></i>
-                            <input type="text" id="search-input" oninput="filterOrders()" placeholder="Nombre de Cliente..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:border-emerald-500 transition">
+                            <input type="text" id="search-input" oninput="filterOrders()"
+                                placeholder="Nombre de Cliente..."
+                                class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:border-emerald-500 transition">
                         </div>
-                        <select id="filter-vendedor" onchange="filterOrders()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
+                        <select id="filter-vendedor" onchange="filterOrders()"
+                            class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
                             <option value="">Vendedores (Todos)</option>
                         </select>
-                        <select id="filter-motorizado" onchange="filterOrders()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
+                        <select id="filter-motorizado" onchange="filterOrders()"
+                            class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
                             <option value="">Motorizadas (Todos)</option>
                         </select>
-                        <select id="filter-pago" onchange="filterOrders()" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
+                        <select id="filter-pago" onchange="filterOrders()"
+                            class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 text-slate-600 transition">
                             <option value="">Forma de Pago (Todos)</option>
                         </select>
                     </div>
@@ -143,24 +184,60 @@
             <section id="view-calendario" class="view-hidden space-y-6 transition-opacity duration-200">
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                    <!-- Panel Izquierdo (Calendario) -->
+                    <!-- Panel Izquierdo (Calendario y Filtro por Rango) -->
                     <div class="lg:col-span-4 space-y-4">
-                        <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                            <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">HISTORIAL</h2>
-                            <h3 class="text-base font-bold text-slate-800 mb-4">Selecciona un día para auditar</h3>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                            <div>
+                                <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                                    HISTORIAL</h2>
+                                <h3 class="text-base font-bold text-slate-800">Selecciona un día o rango</h3>
+                            </div>
 
-                            <div class="text-center">
+                            <!-- FILTRO DESDE / HASTA -->
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/60 space-y-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label
+                                            class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Desde</label>
+                                        <input type="date" id="filter-date-from"
+                                            class="w-full text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:border-blue-500 text-slate-700">
+                                    </div>
+                                    <div>
+                                        <label
+                                            class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hasta</label>
+                                        <input type="date" id="filter-date-to"
+                                            class="w-full text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:border-blue-500 text-slate-700">
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 pt-1">
+                                    <button id="btn-apply-range"
+                                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 rounded-md transition-colors shadow-sm">
+                                        Filtrar Rango
+                                    </button>
+                                    <button id="btn-clear-range"
+                                        class="px-2.5 bg-slate-200 hover:bg-slate-300 text-slate-600 text-xs font-bold rounded-md transition-colors">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- CALENDARIO -->
+                            <div class="text-center pt-2">
                                 <div class="flex items-center justify-between mb-4">
-                                    <button id="prev-month" class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-                                    <span id="calendar-month-label" class="font-bold text-xs text-slate-700">Mes Año</span>
-                                    <button id="next-month" class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                                    <button id="prev-month"
+                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"><i
+                                            class="fa-solid fa-chevron-left text-xs"></i></button>
+                                    <span id="calendar-month-label" class="font-bold text-xs text-slate-700">Mes
+                                        Año</span>
+                                    <button id="next-month"
+                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"><i
+                                            class="fa-solid fa-chevron-right text-xs"></i></button>
                                 </div>
                                 <div id="calendar-grid">
                                     <!-- Inyectado por JS -->
                                 </div>
                             </div>
                         </div>
-
                     </div>
 
                     <!-- Panel Derecho (Detalles del Día) -->
@@ -168,7 +245,8 @@
                         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
                                 <div id="statusPill" class="mb-2"></div>
-                                <h2 id="selectedDateTitle" class="text-xl font-bold text-slate-800 mt-1">Seleccione una fecha</h2>
+                                <h2 id="selectedDateTitle" class="text-xl font-bold text-slate-800 mt-1">Seleccione una
+                                    fecha</h2>
                             </div>
                         </div>
 
@@ -179,12 +257,12 @@
 
                         <!-- Totales Medios (Dinámico) -->
                         <div id="audit-summary-row" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                             <!-- Inyectado por JS -->
+                            <!-- Inyectado por JS -->
                         </div>
 
                         <!-- Footer (Dinámico) -->
                         <div id="audit-dark-footer">
-                             <!-- Inyectado por JS -->
+                            <!-- Inyectado por JS -->
                         </div>
                     </div>
                 </div>
@@ -193,7 +271,7 @@
         </div>
     </main>
     <div id="toast" role="status" aria-live="polite"></div>
-    
+
     <script type="module" src="../assets/js/cierre-caja.js"></script>
     <script type="module" src="../assets/js/sidebar-loader.js"></script>
     <script type="module" src="../assets/js/session-timeout.js"></script>
@@ -215,14 +293,14 @@
                 btnCal.className = 'px-5 py-1.5 text-xs font-bold rounded-md tab-inactive transition-all tracking-wide';
             } else {
                 resView.classList.add('view-hidden');
-                calView.className = 'space-y-6 transition-opacity duration-200'; 
+                calView.className = 'space-y-6 transition-opacity duration-200';
                 calView.classList.remove('view-hidden');
                 btnRes.className = 'px-5 py-1.5 text-xs font-bold rounded-md tab-inactive transition-all tracking-wide';
                 btnCal.className = 'px-5 py-1.5 text-xs font-bold rounded-md shadow-sm tab-active transition-all tracking-wide';
             }
         }
-        
-        window.toggleDetails = function(id) {
+
+        window.toggleDetails = function (id) {
             const container = document.getElementById(id);
             const icon = document.getElementById('icon-' + id);
             if (container.classList.contains('hidden')) {
@@ -235,4 +313,5 @@
         }
     </script>
 </body>
+
 </html>
