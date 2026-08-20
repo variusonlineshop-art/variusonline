@@ -1060,39 +1060,86 @@ function calendarioInit() {
     let stateMonth = ahora.getMonth() + 1;
     let stateYear = ahora.getFullYear();
 
-    // --- NUEVO MANEJO DE SELECCIÓN MÚLTIPLE DE DÍAS ---
     let stateSelectedSet = new Set();
     let cierresMes = {};
 
     async function renderMainCalendar() {
         cierresMes = await getCierresCajaForMonth(stateYear, stateMonth);
-        stateSelectedSet.clear(); // Limpiamos al cambiar de mes
         await renderCalendar(stateMonth, stateYear, cierresMes, onDayClick, stateSelectedSet);
 
-        if (document.getElementById("selectedDateTitle")) document.getElementById("selectedDateTitle").textContent = "Sin selección";
-        if (document.getElementById("statusPill")) document.getElementById("statusPill").innerHTML = '<span class="px-2.5 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wide">● SELECCIONE UN DÍA</span>';
-        if (document.getElementById("audit-orders-list")) document.getElementById("audit-orders-list").innerHTML = "";
-        if (document.getElementById("audit-summary-row")) document.getElementById("audit-summary-row").innerHTML = "";
-        if (document.getElementById("audit-dark-footer")) document.getElementById("audit-dark-footer").innerHTML = "";
+        if (stateSelectedSet.size === 0) {
+            if (document.getElementById("selectedDateTitle")) document.getElementById("selectedDateTitle").textContent = "Sin selección";
+            if (document.getElementById("statusPill")) document.getElementById("statusPill").innerHTML = '<span class="px-2.5 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wide">● SELECCIONE UN DÍA O RANGO</span>';
+            if (document.getElementById("audit-orders-list")) document.getElementById("audit-orders-list").innerHTML = "";
+            if (document.getElementById("audit-summary-row")) document.getElementById("audit-summary-row").innerHTML = "";
+            if (document.getElementById("audit-dark-footer")) document.getElementById("audit-dark-footer").innerHTML = "";
+        }
     }
 
-    async function onDayClick(fechaIso) {
-        if (stateSelectedSet.has(fechaIso)) {
-            stateSelectedSet.delete(fechaIso); // Si ya estaba seleccionado, se deselecciona
-        } else {
-            stateSelectedSet.add(fechaIso); // Si no estaba, se agrega
-        }
-
+    async function processSelection() {
         await renderCalendar(stateMonth, stateYear, cierresMes, onDayClick, stateSelectedSet);
-
         const arrayFechas = Array.from(stateSelectedSet);
         const orders = await getOrdersForMultipleDays(arrayFechas);
         await renderAuditDaysAcumulado(stateSelectedSet, cierresMes, orders);
     }
 
+    async function onDayClick(fechaIso) {
+        if (stateSelectedSet.has(fechaIso)) {
+            stateSelectedSet.delete(fechaIso);
+        } else {
+            stateSelectedSet.add(fechaIso);
+        }
+        await processSelection();
+    }
+
+    // --- MANEJO DEL FILTRO POR RANGO (DESDE / HASTA) ---
+    async function applyRangeFilter() {
+        const fromVal = document.getElementById("filter-date-from")?.value;
+        const toVal = document.getElementById("filter-date-to")?.value;
+
+        if (!fromVal || !toVal) {
+            showToast("Por favor selecciona ambas fechas (Desde y Hasta).");
+            return;
+        }
+
+        const dFrom = new Date(fromVal + 'T00:00:00');
+        const dTo = new Date(toVal + 'T00:00:00');
+
+        if (dFrom > dTo) {
+            showToast("La fecha 'Desde' no puede ser mayor que 'Hasta'.");
+            return;
+        }
+
+        stateSelectedSet.clear();
+        let current = new Date(dFrom);
+
+        while (current <= dTo) {
+            const key = current.toISOString().slice(0, 10);
+            stateSelectedSet.add(key);
+            current.setDate(current.getDate() + 1);
+        }
+
+        // Si la primera fecha seleccionada cae en otro mes/año, cambiamos la vista del calendario a ese mes
+        stateMonth = dFrom.getMonth() + 1;
+        stateYear = dFrom.getFullYear();
+
+        cierresMes = await getCierresCajaForMonth(stateYear, stateMonth);
+        await processSelection();
+    }
+
+    function clearRangeFilter() {
+        if (document.getElementById("filter-date-from")) document.getElementById("filter-date-from").value = "";
+        if (document.getElementById("filter-date-to")) document.getElementById("filter-date-to").value = "";
+        stateSelectedSet.clear();
+        renderMainCalendar();
+    }
+
     setTimeout(() => {
         const prev = document.getElementById("prev-month");
         const next = document.getElementById("next-month");
+        const btnApply = document.getElementById("btn-apply-range");
+        const btnClear = document.getElementById("btn-clear-range");
+
         if (prev) prev.onclick = async () => {
             stateMonth -= 1; if (stateMonth < 1) { stateMonth = 12; stateYear--; }
             await renderMainCalendar();
@@ -1101,6 +1148,8 @@ function calendarioInit() {
             stateMonth += 1; if (stateMonth > 12) { stateMonth = 1; stateYear++; }
             await renderMainCalendar();
         };
+        if (btnApply) btnApply.onclick = applyRangeFilter;
+        if (btnClear) btnClear.onclick = clearRangeFilter;
     }, 200);
 
     renderMainCalendar();
