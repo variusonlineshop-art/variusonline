@@ -1,6 +1,6 @@
 import { firebaseConfig } from './firebase-config.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getFirestore, collection, getDocs, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -10,8 +10,13 @@ const auth = getAuth();
 let map, directionsService, directionsRenderer;
 let markers = [];
 let allOrders = [];
+let filteredOrders = [];
 let watchId = null;
 let motorizadoMarker = null;
+
+// Variables de paginación
+let currentPage = 1;
+const itemsPerPage = 10;
 
 function initMap() {
     map = new google.maps.Map(document.getElementById('delivery-map'), {
@@ -27,7 +32,106 @@ function initMap() {
         suppressMarkers: false
     });
 
+    setupSearchAndPagination();
     loadData();
+}
+
+function setupSearchAndPagination() {
+    const searchInput = document.getElementById('customer-search');
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        filteredOrders = allOrders.filter(order => {
+            const cData = order.customerData || {};
+            const name = (cData.Customname || "").toLowerCase();
+            const phone = (cData.phone || "").toLowerCase();
+            return name.includes(query) || phone.includes(query);
+        });
+        currentPage = 1;
+        updateView();
+    });
+}
+
+function updateView() {
+    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const ordersToRender = filteredOrders.slice(start, end);
+
+    renderCustomerList(ordersToRender);
+    renderPaginationControls(totalPages);
+}
+
+function renderPaginationControls(totalPages) {
+    const paginationContainer = document.getElementById('pagination-container');
+    paginationContainer.innerHTML = "";
+
+    if (totalPages <= 1) return;
+
+    // Botón Anterior
+    const prevBtn = document.createElement('button');
+    prevBtn.className = `px-2 py-1 rounded-md text-gray-600 hover:bg-gray-200 ${currentPage === 1 ? 'opacity-40 cursor-not-allowed' : ''}`;
+    prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; updateView(); } };
+    paginationContainer.appendChild(prevBtn);
+
+    // Algoritmo para la rotación de números (1, 2... 7, 8, 9)
+    const maxVisibleButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisibleButtons / 2));
+    let endPage = startPage + maxVisibleButtons - 1;
+
+    if (endPage > totalPages) {
+        endPage = totalPages;
+        startPage = Math.max(1, endPage - maxVisibleButtons + 1);
+    }
+
+    if (startPage > 1) {
+        appendPageButton(paginationContainer, 1);
+        if (startPage > 2) {
+            const dots = document.createElement('span');
+            dots.className = "px-1 text-gray-400";
+            dots.innerText = "...";
+            paginationContainer.appendChild(dots);
+        }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        appendPageButton(paginationContainer, i);
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            const dots = document.createElement('span');
+            dots.className = "px-1 text-gray-400";
+            dots.innerText = "...";
+            paginationContainer.appendChild(dots);
+        }
+        appendPageButton(paginationContainer, totalPages);
+    }
+
+    // Botón Siguiente
+    const nextBtn = document.createElement('button');
+    nextBtn.className = `px-2 py-1 rounded-md text-gray-600 hover:bg-gray-200 ${currentPage === totalPages ? 'opacity-40 cursor-not-allowed' : ''}`;
+    nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; updateView(); } };
+    paginationContainer.appendChild(nextBtn);
+}
+
+function appendPageButton(container, pageNum) {
+    const btn = document.createElement('button');
+    const isActive = pageNum === currentPage;
+    btn.className = `px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+        isActive ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200 bg-white'
+    }`;
+    btn.innerText = pageNum;
+    btn.onclick = () => {
+        currentPage = pageNum;
+        updateView();
+    };
+    container.appendChild(btn);
 }
 
 window.iniciarNavegacionGPS = function (destLat, destLng) {
@@ -158,7 +262,8 @@ async function loadData() {
         const snap = await getDocs(collection(db, "orders"));
         allOrders = [];
         snap.forEach(doc => allOrders.push({ id: doc.id, ...doc.data() }));
-        renderCustomerList(allOrders);
+        filteredOrders = [...allOrders];
+        updateView();
     } catch (e) { console.error(e); }
 }
 
