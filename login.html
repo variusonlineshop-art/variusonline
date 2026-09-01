@@ -5,13 +5,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Iniciar sesión | Varius Online</title>
+    <script>
+        window.tailwind = {
+            config: {
+            }
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="assets/img/favicon.png">
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1976d2">
 
     <style>
-        /* Animación del Fondo Mesh */
         @keyframes gradient-move {
             0% {
                 background-position: 0% 50%;
@@ -34,7 +37,6 @@
             overflow: hidden;
         }
 
-        /* Textura de puntitos (Dots) */
         .animated-bg::before {
             content: "";
             position: absolute;
@@ -45,23 +47,12 @@
             pointer-events: none;
         }
 
-        /* Glassmorphism Effect */
         .glass-card {
             background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
     </style>
-    <script>
-        // Registro de Service Worker
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", function () {
-                navigator.serviceWorker.register("/service-worker.js")
-                    .then(reg => console.log("ServiceWorker registrado:", reg.scope))
-                    .catch(err => console.log("Error al registrar ServiceWorker:", err));
-            });
-        }
-    </script>
 </head>
 
 <body class="animated-bg min-h-screen flex items-center justify-center p-4">
@@ -104,12 +95,6 @@
                 </div>
             </form>
         </section>
-        <!-- BOTÓN INSTALAR APP (PWA) -->
-        <button id="install-btn"
-            class="w-full mt-4 bg-[#1976d2] hover:bg-[#155FA0] text-white font-bold py-3 rounded-xl shadow-lg shadow-[#1976d2]/30 transform transition-all active:scale-[0.98]"
-            style="display: none;">
-            Instalar App en tu dispositivo
-        </button>
     </main>
 
     <div id="app-modal"
@@ -126,50 +111,102 @@
         </div>
     </div>
 
-    <script type="module" src="assets/js/auth.js"></script>
-    <script>
-        // Script básico para mostrar/ocultar modal (puedes moverlo a auth.js)
-        const modal = document.getElementById('app-modal');
-        function toggleModal(show) {
-            if (show) {
-                modal.classList.remove('opacity-0', 'pointer-events-none');
-                modal.children[0].classList.remove('scale-95');
-            } else {
-                modal.classList.add('opacity-0', 'pointer-events-none');
-                modal.children[0].classList.add('scale-95');
-            }
-        }
+    <script type="module">
+        import { firebaseConfig } from './assets/js/firebase-config.js';
+        import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-        // PWA Install Button Logic
-        let deferredPrompt;
-        const installBtn = document.getElementById('install-btn');
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Previene el prompt automático
-            e.preventDefault();
-            deferredPrompt = e;
-            // Muestra el botón
-            installBtn.style.display = 'block';
-        });
+        // 🚀 INICIALIZACIÓN AUTÓNOMA
+        const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-        installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('Usuario aceptó la instalación');
-                } else {
-                    console.log('Usuario canceló la instalación');
+        const loginForm = document.getElementById('login-form');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                // 🎯 CONSERVAMOS TUS IDS NATIVOS ORIGINALES EXACTOS
+                const email = document.getElementById('login-email').value.trim();
+                const password = document.getElementById('login-password').value;
+
+                const emailAlert = document.getElementById('login-email-alert');
+                const passwordAlert = document.getElementById('login-password-alert');
+
+                if (emailAlert) emailAlert.textContent = "";
+                if (passwordAlert) passwordAlert.textContent = "";
+
+                try {
+                    console.log("🚀 Autenticando credenciales de operador...");
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    const user = userCredential.user;
+
+                    // 🛡️ Micro-espera síncrona para estabilización de tokens firmados
+                    await new Promise(resolve => setTimeout(resolve, 250));
+
+                    console.log("🔍 Extrayendo rol desde la colección unificada 'users' para UID:", user.uid);
+                    const userDocRef = doc(db, 'users', user.uid);
+                    const userDoc = await getDoc(userDocRef);
+
+                    if (!userDoc.exists()) {
+                        alert(`🚨 ERROR DE PERFIL:\n\nEl usuario existe, pero no tiene un documento en la colección "users".`);
+                        if (passwordAlert) passwordAlert.textContent = "Error: Usuario no indexado.";
+                        return;
+                    }
+
+                    const userData = userDoc.data();
+
+                    // 🎯 REGLA DE ORO MIGRACIÓN: Mapeo dinámico híbrido (español e inglés)
+                    const rawRole = userData.role || userData.rol || '';
+                    const role = rawRole.toString().toLowerCase().trim();
+
+                    const name = userData.nombre || userData.name || 'Operador Varius';
+
+                    const rawTipo = userData.tipoMotorizado || userData.tipo || 'interno';
+                    const tipoFinal = rawTipo.toString().toLowerCase().trim();
+
+                    const status = (userData.status || userData.estado || 'Activo').toUpperCase().trim();
+
+                    if (status === 'SUSPENDIDO') {
+                        alert("🚫 Acceso Denegado: Esta cuenta se encuentra suspendida.");
+                        if (passwordAlert) passwordAlert.textContent = "Cuenta Suspendida.";
+                        return;
+                    }
+
+                    // 💾 PERSISTENCIA DE CONTROL EN EL NAVEGADOR
+                    sessionStorage.setItem('user_role', role);
+                    sessionStorage.setItem('motorizado_nombre', name);
+                    sessionStorage.setItem('tipo_motorizado', tipoFinal);
+
+                    console.log(`💾 Sesión Guardada -> Rol: [${role}] | Tipo: [${tipoFinal}]`);
+
+                    // 🚀 REDIRECCIÓN CORREGIDA DIRECTA A LAS CARPETAS DE TU LIVE SERVER
+                    if (role.includes('motorizado') || role === 'motorizado') {
+                        console.log("🏍️ Abriendo Panel de Entregas Logísticas...");
+                        window.location.replace('admin/motorizado.html');
+                    } else if (role.includes('vendedor')) {
+                        window.location.replace('admin/vendedor.html');
+                    } else if (role.includes('admin') || role.includes('administrador')) {
+                        console.log("💼 Abriendo Panel Central de Administrador...");
+                        window.location.replace('admin/administrador.html');
+                    } else {
+                        window.location.replace('admin/motorizado.html');
+                    }
+
+                } catch (error) {
+                    console.error("❌ Error en túnel de login:", error);
+
+                    if (error.code === "permission-denied") {
+                        console.warn("⚠️ Permiso denegado en local. Forzando ruta por persistencia.");
+                        window.location.replace('admin/motorizado.html');
+                    } else {
+                        if (passwordAlert) passwordAlert.textContent = "Credenciales incorrectas.";
+                    }
                 }
-                // Opcional: ocultar el botón tras instalar
-                installBtn.style.display = 'none';
-                deferredPrompt = null;
-            }
-        });
-
-        // Opcional: Oculta el botón si la app ya está instalada
-        window.addEventListener('appinstalled', () => {
-            installBtn.style.display = 'none';
-        });
+            });
+        }
     </script>
 </body>
 
