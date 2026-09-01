@@ -1,21 +1,45 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-import { getFirestore, collection, query, orderBy, limit, onSnapshot, getDocs, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js"; // 🔐 Sensor de sesión activa
+import { 
+    getFirestore, 
+    collection, 
+    query, 
+    orderBy, 
+    limit, 
+    onSnapshot, 
+    getDocs, 
+    getCountFromServer, 
+    where, 
+    Timestamp 
+} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js"; 
+
+// ⚙️ IMPORTACIÓN DE CONFIGURACIÓN
+// Nota: Asegúrate de que 'firebase-config.js' tenga: export const firebaseConfig = { ... }
 import { firebaseConfig } from "./firebase-config.js";
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app); // Inicializamos autenticación
+const auth = getAuth(app); 
+
 let allVisits = []; 
 let totalRegistrosHistoricos = 0; 
 let paginaActual = 1;
 const registrosPorPagina = 5;
-// ⏱️ CRONÓMETRO DE RENDIMIENTO: Mide la velocidad de respuesta inicial en boxes
+
+// ⏱️ CRONÓMETRO DE RENDIMIENTO
 const tiempoInicioCarga = performance.now();
 let cronometroFinalizado = false; 
 let felicitacionDisparada = false;
 let usuarioAutenticado = false; 
+
+// 🕒 HELPER: Obtener Timestamp de las 00:00:00 de hoy
+function getInicioDelDia() {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return Timestamp.fromDate(hoy);
+}
+
 // --- MONITOR DE SESIÓN ACTIVA ---
-// Detecta si el usuario está logueado con cualquier rol para que no altere la medicion
 onAuthStateChanged(auth, (user) => {
     if (user) {
         usuarioAutenticado = true;
@@ -24,41 +48,61 @@ onAuthStateChanged(auth, (user) => {
         usuarioAutenticado = false;
     }
 });
+
 function listenGlobalVisits() {
-    const qRealtime = query(collection(db, "visits"), orderBy("fecha_registro", "desc"), limit(5));
+    const inicioDia = getInicioDelDia();
+    
+    // Consulta en tiempo real restringida únicamente a las visitas del día de hoy
+    const qRealtime = query(
+        collection(db, "visits"), 
+        where("fecha_registro", ">=", inicioDia),
+        orderBy("fecha_registro", "desc"), 
+        limit(5)
+    );
+
     onSnapshot(qRealtime, async (querySnapshot) => {
         try {
             if (usuarioAutenticado) {
                 console.log("🚫 [Bypass Activo]: Navegación interna de la escudería. Omitiendo incremento visual.");
                 return;
             }
-            const qContador = query(collection(db, "visits"));
+
+            // Conteo optimizado mediante servidor únicamente del tráfico de HOY
+            const qContador = query(
+                collection(db, "visits"), 
+                where("fecha_registro", ">=", inicioDia)
+            );
             const countSnapshot = await getCountFromServer(qContador);
             totalRegistrosHistoricos = countSnapshot.data().count;
+
             const kpiElement = document.getElementById("kpi-visitas-carrito-value");
             if (kpiElement) kpiElement.textContent = totalRegistrosHistoricos;
+
             if (!cronometroFinalizado) {
                 const tiempoFinCarga = performance.now();
                 const tiempoTotalSegundos = ((tiempoFinCarga - tiempoInicioCarga) / 1000).toFixed(2);
                 console.log(`[TELEMETRÍA]: ¡KPI "Contador de Visitas" cargado con éxito!`, "color: #10b981; font-weight: bold; font-size: 11px;");
-                console.log(`Tiempo de respuesta: ${tiempoTotalSegundos} segundos para procesar ${totalRegistrosHistoricos} registros.`, "color: #3b82f6; font-weight: bold;");
+                console.log(`Tiempo de respuesta: ${tiempoTotalSegundos} segundos para procesar ${totalRegistrosHistoricos} registros del día.`, "color: #3b82f6; font-weight: bold;");
                 cronometroFinalizado = true;
             }
+
             const metaVisitas = 60000; 
             const porcentaje = Math.min((totalRegistrosHistoricos / metaVisitas) * 100, 100);
             const progressBar = document.getElementById("kpi-visitas-bar");
             if (progressBar) {
                 progressBar.style.width = `${porcentaje}%`;
             }
+
             if (totalRegistrosHistoricos >= metaVisitas && !felicitacionDisparada) {
                 window_dispararAnimacionMetaCumplida(metaVisitas);
-                felicitacionDisparada = true; // Bloqueo de seguridad para evitar spam
+                felicitacionDisparada = true;
             }
         } catch (error) {
             console.error("Error en el inyector del contador:", error);
         }
     });
 }
+
 function window_dispararAnimacionMetaCumplida(meta) {
     console.log("🏆 [VARIUS OMNICHANNEL]: ¡META GLOBAL ALCANZADA!");
     const logroHTML = `
@@ -82,13 +126,21 @@ function window_dispararAnimacionMetaCumplida(meta) {
         }
     }, 6000);
 }
+
 async function abrirModalVisitasCarrito() {
     paginaActual = 1;
     const bodyModal = document.getElementById("modalVisitasCarritoBody");
     if(bodyModal) bodyModal.innerHTML = `<div class="p-10 text-center text-xs text-slate-400 font-medium">📡 Extrayendo telemetría limpia de clientes...</div>`;
     document.getElementById("modal-visitas-carrito").classList.remove("hidden");
+
     try {
-        const qCompleto = query(collection(db, "visits"), orderBy("fecha_registro", "desc"));
+        const inicioDia = getInicioDelDia();
+        // Extracción reducida solo al acumulado del día de hoy
+        const qCompleto = query(
+            collection(db, "visits"), 
+            where("fecha_registro", ">=", inicioDia),
+            orderBy("fecha_registro", "desc")
+        );
         const querySnapshot = await getDocs(qCompleto);
         allVisits = [];
         querySnapshot.forEach((doc) => {
@@ -102,16 +154,18 @@ async function abrirModalVisitasCarrito() {
         console.error("Error en pits al filtrar visitas:", error);
     }
 }
+
 function renderizarEstructuraModal() {
     const totalRegistros = allVisits.length || totalRegistrosHistoricos;
     const unicas = [...new Set(allVisits.map(v => v.ip).filter(Boolean))].length;
     const activas = allVisits.filter(v => v.online).length;
     const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina) || 1;
+
     let html = `
     <div class="p-5 bg-slate-50 font-sans">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white p-4 rounded-xl border-l-4 border-emerald-500 shadow-sm">
-                <p class="text-[10px] font-bold text-slate-400 uppercase">Total</p>
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Total Hoy</p>
                 <h3 class="text-2xl font-black text-slate-800">${totalRegistros}</h3>
             </div>
             <div class="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
@@ -145,11 +199,13 @@ function renderizarEstructuraModal() {
     </div>`;
     document.getElementById("modalVisitasCarritoBody").innerHTML = html;
 }
+
 function renderizarTablaPaginada() {
     const inicio = (paginaActual - 1) * registrosPorPagina;
     const fin = inicio + registrosPorPagina;
     const visitasPaginadas = allVisits.slice(inicio, fin);
     const totalPaginas = Math.ceil(allVisits.length / registrosPorPagina) || 1;
+
     return `
         <table class="w-full text-left text-xs">
             <thead class="bg-slate-50 border-b border-slate-100 text-slate-600">
@@ -188,15 +244,20 @@ function renderizarTablaPaginada() {
             <span class="text-[10px] font-bold text-slate-400 uppercase">Pág. ${paginaActual} / ${totalPaginas}</span>
         </div>`;
 }
+
+// Vinculaciones explícitas al objeto Global Window para mantener compatibilidad con handlers inline (onclick="")
 window.cambiarPaginaModal = (direccion) => {
     paginaActual += direccion;
     const container = document.getElementById("tabla-dinamica-container");
     if (container) container.innerHTML = renderizarTablaPaginada();
 };
+
 window.cerrarModalVisitas = () => {
     document.getElementById("modal-visitas-carrito").classList.add("hidden");
 };
+
 window.abrirModalVisitasCarrito = abrirModalVisitasCarrito;
+
 document.addEventListener("DOMContentLoaded", () => {
     listenGlobalVisits();
     const btnX = document.getElementById("closeModalVisitasCarrito");
