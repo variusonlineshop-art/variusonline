@@ -1,179 +1,165 @@
 import { firebaseConfig } from './firebase-config.js';
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import {
-    getFirestore, collection, getDocs, query, where, doc, getDoc
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getFirestore, collection, getDocs, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth();
 
-let map;
-let markersLayer;
-let allOrders = []; // Cache local para filtrado rápido
-
-// Completa la dirección para asegurar que sea en Venezuela y tener mejor geocodificación
-function completeVenezuelaAddress(order) {
-    let address = order.customerData?.address || order.readable_address || '';
-
-    address = address.trim();
-    if (!/venezuela/i.test(address)) {
-        let state = order.customerData?.state || order.state || "";
-        let city = order.customerData?.city || order.city || "";
-
-        if (state && !new RegExp(state, 'i').test(address)) {
-            address += (address ? ", " : "") + state;
-        } else if (city && !new RegExp(city, 'i').test(address)) {
-            address += (address ? ", " : "") + city;
-        }
-        address += (address ? ", " : "") + "Venezuela";
-    }
-
-    return address || "Venezuela";
-}
-
-// Geocodifica usando Nominatim
-async function geocodeAddress(address) {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'Accept-Language': 'es'
-            }
-        });
-        const data = await response.json();
-        if (data && data.length > 0) {
-            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-        }
-    } catch (e) {
-        console.error("Error geocodificando dirección:", e);
-    }
-    return null;
-}
+let map, directionsService, directionsRenderer;
+let markers = [];
+let allOrders = [];
+let watchId = null;
+let motorizadoMarker = null;
 
 function initMap() {
-    map = L.map('delivery-map').setView([10.4806, -66.8983], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-    markersLayer = L.layerGroup().addTo(map);
-}
-
-// Función principal de renderizado (se usa para carga inicial y filtros)
-function renderCustomerList(ordersToRender) {
-    const listContainer = document.getElementById('customer-list');
-    listContainer.innerHTML = "";
-    markersLayer.clearLayers();
-    const bounds = [];
-
-    if (ordersToRender.length === 0) {
-        listContainer.innerHTML = '<p class="text-xs text-center text-gray-400 py-10">No se encontraron clientes.</p>';
-        return;
-    }
-
-    ordersToRender.forEach(async order => {
-        let lat = order.customerData?.lat || order.lat;
-        let lng = order.customerData?.lng || order.lng;
-        const name = order.customerData?.Customname || "Cliente Sin Nombre";
-        const phone = order.customerData?.phone || order.phone || "Sin Teléfono";
-
-        // Si NO hay lat/lng, geocodifica usando dirección completada
-        if (!lat || !lng) {
-            const address = completeVenezuelaAddress(order);
-            const coords = await geocodeAddress(address);
-            if (coords) {
-                lat = coords.lat;
-                lng = coords.lng;
-            } else {
-                // Fallback: Cabudare centro (puedes personalizar)
-                lat = 10.03717;
-                lng = -69.22458;
-            }
-        }
-
-        const card = document.createElement('div');
-        card.className = "p-3 rounded-xl border border-gray-50 hover:border-blue-200 hover:bg-blue-50/50 cursor-pointer transition-all group animate-fade-in";
-        card.innerHTML = `
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                    <i class="fa-solid fa-user text-xs"></i>
-                </div>
-                <div class="overflow-hidden">
-                    <p class="text-[11px] font-bold text-gray-800 truncate">${name}</p>
-                    <p class="text-[10px] text-gray-500">${phone}</p>
-                </div>
-            </div>
-            <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-blue-500 pr-2"></i>
-        </div>
-    `;
-
-        card.onclick = () => {
-            if (lat && lng) {
-                map.flyTo([lat, lng], 17);
-                // En móviles, hacer scroll suave hacia el mapa al seleccionar
-                if (window.innerWidth < 1024) {
-                    document.getElementById('delivery-map').scrollIntoView({ behavior: 'smooth' });
-                }
-            }
-        };
-
-        listContainer.appendChild(card);
-
-        if (lat && lng) {
-            const marker = L.marker([lat, lng]).bindPopup(`
-            <div class="p-1">
-                <p class="text-xs font-bold mb-1">${name}</p>
-                <p class="text-[10px] text-gray-600 mb-2"><i class="fa-solid fa-phone mr-1"></i>${phone}</p>
-                <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" 
-                   class="block text-center bg-blue-500 text-white text-[9px] py-1 px-2 rounded-lg hover:bg-blue-600 transition-colors">
-                   Ver en Google Maps
-                </a>
-            </div>
-        `);
-            markersLayer.addLayer(marker);
-            bounds.push([lat, lng]);
-        }
+    map = new google.maps.Map(document.getElementById('delivery-map'), {
+        zoom: 12,
+        center: { lat: 10.4806, lng: -66.8983 },
+        mapTypeControl: true,
+        streetViewControl: true
     });
 
-    if (bounds.length > 0) map.fitBounds(bounds, { padding: [30, 30] });
+    directionsService = new google.maps.DirectionsService();
+    directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: false
+    });
+
+    loadData();
+}
+
+window.iniciarNavegacionGPS = function (destLat, destLng) {
+    markers.forEach(m => m.infoWindow?.close());
+
+    if (navigator.geolocation) {
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+
+        watchId = navigator.geolocation.watchPosition((position) => {
+            const miPos = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+            };
+
+            if (!motorizadoMarker) {
+                motorizadoMarker = new google.maps.Marker({
+                    position: miPos,
+                    map: map,
+                    icon: {
+                        url: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                        scaledSize: new google.maps.Size(40, 40)
+                    },
+                    title: "Mi Ubicación",
+                    zIndex: 1000
+                });
+            } else {
+                motorizadoMarker.setPosition(miPos);
+            }
+
+            const solicitud = {
+                origin: miPos,
+                destination: { lat: parseFloat(destLat), lng: parseFloat(destLng) },
+                travelMode: google.maps.TravelMode.DRIVING
+            };
+
+            directionsService.route(solicitud, (result, status) => {
+                if (status === 'OK') {
+                    directionsRenderer.setDirections(result);
+                    map.panTo(miPos);
+                }
+            });
+        }, (err) => console.error(err), { enableHighAccuracy: true });
+    }
+};
+
+async function renderCustomerList(ordersToRender) {
+    const listContainer = document.getElementById('customer-list');
+    listContainer.innerHTML = "";
+    markers.forEach(m => m.setMap(null));
+    markers = [];
+    const geocoder = new google.maps.Geocoder();
+
+    for (const order of ordersToRender) {
+        const cData = order.customerData || {};
+        const name = cData.Customname || "Cliente Sin Nombre";
+        const phone = cData.phone || "Sin Teléfono";
+        const fullAddress = `${cData.address || ""}, ${cData.city || "Valencia"}, Venezuela`;
+
+        const card = document.createElement('div');
+        card.className = "p-3 mb-2 rounded-xl border border-gray-100 hover:bg-blue-50 cursor-pointer shadow-sm bg-white";
+        card.innerHTML = `
+        <div class="flex justify-between items-center">
+            <div>
+                <p class="text-[11px] font-bold text-gray-800">${name}</p>
+                <p class="text-[9px] text-gray-400 font-medium tracking-tight truncate w-32">${fullAddress}</p>
+            </div>
+            <div class="flex gap-2 text-gray-400">
+                <a href="tel:${phone}" class="hover:text-blue-500"><i class="fa-solid fa-phone text-xs"></i></a>
+                <a href="https://wa.me/${phone.replace(/\D/g, '')}" target="_blank" class="hover:text-green-500"><i class="fa-brands fa-whatsapp text-xs"></i></a>
+            </div>
+        </div>
+        `;
+        listContainer.appendChild(card);
+
+        const placeMarker = (location, title) => {
+            const marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                title: title,
+                animation: google.maps.Animation.DROP
+            });
+
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div class="p-3 font-sans" style="min-width: 160px;">
+                        <h4 class="font-bold text-gray-800 text-sm mb-1">${title}</h4>
+                        <p class="text-[11px] text-gray-500 mb-3">${phone}</p>
+                        <div class="flex gap-2 mb-3">
+                            <a href="https://wa.me/${phone.replace(/\D/g, '')}?text=Hola ${name}, soy tu repartidor de Varius, ya voy en camino con tu pedido." 
+                                target="_blank" class="flex-1 bg-green-500 text-white text-center py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </a>
+                            <a href="sms:${phone}" class="flex-1 bg-blue-400 text-white text-center py-2 rounded-lg hover:bg-blue-500 transition-colors">
+                                <i class="fa-solid fa-comment-sms"></i>
+                            </a>
+                            <a href="tel:${phone}" class="flex-1 bg-gray-700 text-white text-center py-2 rounded-lg hover:bg-gray-800 transition-colors">
+                                <i class="fa-solid fa-phone"></i>
+                            </a>
+                        </div>
+                        <button onclick="window.iniciarNavegacionGPS(${location.lat()}, ${location.lng()})" 
+                            class="w-full bg-blue-600 text-white text-[10px] font-bold py-2 px-3 rounded-lg shadow-md">
+                            <i class="fa-solid fa-route mr-1"></i> TRAZAR RUTA AQUÍ
+                        </button>
+                    </div>`
+            });
+
+            marker.addListener("click", () => {
+                markers.forEach(m => m.infoWindow?.close());
+                map.panTo(location);
+                infoWindow.open(map, marker);
+                marker.infoWindow = infoWindow;
+            });
+
+            card.onclick = () => google.maps.event.trigger(marker, 'click');
+            markers.push(marker);
+        };
+
+        geocoder.geocode({ address: fullAddress }, (results, status) => {
+            if (status === 'OK') placeMarker(results[0].geometry.location, name);
+        });
+    }
 }
 
 async function loadData() {
     let user = auth.currentUser;
-    if (!user) await new Promise(res => auth.onAuthStateChanged(u => { user = u; res(); }));
-    if (!user) return;
-
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    const role = (userDoc.data()?.role || '').toLowerCase();
-
-    let q = collection(db, "orders");
-    if (role === "motorizado") q = query(q, where("assignedMotorizedId", "==", user.uid));
-    else if (role === "vendedor") q = query(q, where("assignedSeller", "==", user.uid));
-
+    if (!user) await new Promise(res => { const unsub = auth.onAuthStateChanged(u => { user = u; unsub(); res(); }); });
     try {
-        const snap = await getDocs(q);
+        const snap = await getDocs(collection(db, "orders"));
         allOrders = [];
         snap.forEach(doc => allOrders.push({ id: doc.id, ...doc.data() }));
         renderCustomerList(allOrders);
-    } catch (e) {
-        console.error(e);
-    }
+    } catch (e) { console.error(e); }
 }
 
-// Lógica del Filtro de Búsqueda
-document.getElementById('customer-search').addEventListener('input', (e) => {
-    const term = e.target.value.toLowerCase();
-    const filtered = allOrders.filter(order => {
-        const name = (order.customerData?.Customname || "").toLowerCase();
-        const phone = (order.customerData?.phone || order.phone || "").toLowerCase();
-        return name.includes(term) || phone.includes(term);
-    });
-    renderCustomerList(filtered);
-});
-
-window.addEventListener('DOMContentLoaded', () => {
-    initMap();
-    loadData();
-});
+window.addEventListener('load', () => { if (typeof google !== 'undefined') initMap(); });
