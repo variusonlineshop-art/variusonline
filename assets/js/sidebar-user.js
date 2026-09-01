@@ -2,6 +2,7 @@ import { firebaseConfig } from './firebase-config.js';
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { getFirestore, doc as fsDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { logout } from './auth.js';
 import './presence.js';
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -118,6 +119,30 @@ function applyRoleRestrictions(role) {
         document.querySelectorAll('.motor-only').forEach(el => el.style.display = '');
     }
 }
+
+// --- LOGOUT INTERACTIVO y seguro ---
+document.addEventListener('click', async (e) => {
+    const logoutBtn = e.target.closest('.logout-btn, #logout, .sidebar-user .logout-btn');
+    if (!logoutBtn) return;
+    e.preventDefault();
+
+    // Notifica presencia, luego logout (si presence.js lo soporta)
+    try {
+        if (window.__presence && typeof window.__presence.setUserOfflineImmediately === 'function') {
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                await window.__presence.setUserOfflineImmediately(currentUser.uid);
+            }
+        }
+        await logout();
+        // Redirección adicional, defensiva
+        window.location.href = '../index.html';
+    } catch (err) {
+        updateSidebarUI('Invitado', 'Error al cerrar sesión');
+        console.error('Error al cerrar sesión:', err);
+    }
+});
+
 onAuthStateChanged(auth, async (user) => {
     if (!user) {
         window.location.href = '/login.html';
