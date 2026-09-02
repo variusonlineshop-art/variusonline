@@ -1,123 +1,80 @@
 import { firebaseConfig } from './firebase-config.js';
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getFirestore, doc as fsDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore, doc as fsDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { logout } from './auth.js';
+import { applyUiRestrictions } from './rbac.js';
 import './presence.js';
+
+// Catálogo de páginas disponibles
+const PAGE_CATALOG = {
+    panel:      { name: 'Panel',        icon: '🏠',   url: './' },
+    usuarios:   { name: 'Usuarios',     icon: '👥',   url: './usuarios.html' },
+    productos:  { name: 'Productos',    icon: '📦',   url: './product.html' },
+    categoria:  { name: 'Categoría',    icon: '🔖',   url: './category.html' },
+    pedidos:    { name: 'Pedidos',      icon: '📋',   url: './orders.html' },
+    cierre_caja:{ name: 'Cierre de Caja', icon: '💰', url: './cierre-caja.html' },
+    crm:        { name: 'CRM',          icon: '🖥️',   url: './crm.html' },
+    //chat:       { name: 'Chat',         icon: '💬',   url: './chats.html' },
+    visitas:    { name: 'Visitas',      icon: '👁️',   url: './visits.html' },
+    routes:     { name: 'Mis Rutas',    icon: '📍',   url: './routes.html' }
+};
+
+// Inicialización Firebase
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const PAGE_CATALOG = {
-    panel: { name: 'Panel', icon: '🏠', url: './' },
-    usuarios: { name: 'Usuarios', icon: '👥', url: 'usuarios.html' },
-    productos: { name: 'Productos', icon: '📦', url: 'product.html' },
-    categoria: { name: 'Categoría', icon: '🔖', url: 'category.html' },
-    pedidos: { name: 'Pedidos', icon: '📋', url: 'motorizado.html' },
-    cierre_caja: { name: 'Cierre de Caja', icon: '💰', url: 'cierre-caja.html' },
-    crm: { name: 'CRM', icon: '🖥️', url: 'crm.html' },
-    //chat: { name: 'Chat', icon: '💬', url: 'chats.html' },
-    visitas: { name: 'Visitas', icon: '👁️', url: 'visits.html' },
-    routes: { name: 'Mis Rutas', icon: '📍', url: 'routes.html' },
-    //comunicaciones: { name: 'Comunicaciones', icon: '📢', url: '#' }
-};
-const ROLE_DEFAULT_MENUS = {
-    motorizado: ['panel', 'pedidos', 'routes', 'chat'],
-    vendedor: ['panel', 'productos', 'categoria', 'visitas', 'chat'],
-    admin: ['panel', 'usuarios', 'productos', 'categoria', 'pedidos', 'comunicaciones', 'cierre_caja', 'crm', 'chat', 'visitas', 'routes'],
-    administrador: ['panel', 'usuarios', 'productos', 'categoria', 'pedidos', 'comunicaciones', 'cierre_caja', 'crm', 'chat', 'visitas', 'routes']
-};
-function updateSidebarUI(nombre, role, email) {
-    const nameContainer = document.querySelector('.sidebar-user .name');
-    const avatarEl = document.querySelector('.sidebar-user .avatar');
-    if (nameContainer) {
-        const nombreFormateado = toTitleCase(nombre);
-        let rolDisplay = role || 'motorizado';
-        if (role === 'admin') rolDisplay = 'administrador';
-        const rolFormateado = rolDisplay.toLowerCase();
-        nameContainer.innerHTML = `
-            <span class="block font-bold text-slate-800 text-sm tracking-tight">${nombreFormateado}</span>
-            <span class="block text-[10px] font-extrabold text-emerald-600 tracking-wider mt-0.5">${rolFormateado}</span>
-        `;
-    }
-    if (avatarEl && nombre) {
-        const initials = nombre.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
-        avatarEl.textContent = initials;
+
+// --- UTILIDADES DE UI ---
+
+/** Actualiza el bloque de usuario en el sidebar */
+function updateSidebarUI(name, role, email = '') {
+    const nameEl = document.querySelector('.sidebar-user .name') || document.getElementById('sidebar-name');
+    const metaEl = document.querySelector('.sidebar-user .email') || document.getElementById('sidebar-email');
+    const avatarEl = document.querySelector('.sidebar-user .avatar') || document.getElementById('sidebar-avatar');
+
+    if (nameEl) nameEl.textContent = name;
+    if (metaEl) metaEl.textContent = role || email;
+    if (avatarEl) {
+        const initials = name ? name.split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase() : 'U';
+        avatarEl.textContent = initials || 'U';
     }
 }
+
+/** Construye el menú lateral (solo rellena .nav-list, no cambia listeners ni aside) */
 function buildSidebarMenu(allowedPages) {
     const navList = document.querySelector('.nav-list');
     if (!navList) return;
-    let html = '';
-    const currentPath = window.location.pathname;
-    let currentFilename = currentPath.substring(currentPath.lastIndexOf('/') + 1);
-    if (!currentFilename || currentFilename === 'index.html') {
-        currentFilename = 'administrador.html';
-    }
-    const esPanelPrincipal = (currentFilename === 'administrador.html' || currentFilename === 'motorizado.html');
-    const paginasUnicas = Array.from(new Set(allowedPages));
-    const localRole = sessionStorage.getItem('user_role') || '';
-    const localTipo = sessionStorage.getItem('motorizado_tipo') || '';
-    if (localRole.toLowerCase().trim() === 'motorizado' && localTipo.toLowerCase().trim() === 'subcontratado') {
-        console.log("🧼 Chofer Subcontratado detectado: Purgando y ocultando barra de menú.");
-        navList.innerHTML = '';
+    // fallback si no hay data aún
+    if (!Array.isArray(allowedPages) || !allowedPages.length) {
+        navList.innerHTML = `
+            <li class="nav-skeleton"></li>
+            <li class="nav-skeleton"></li>
+            <li class="nav-skeleton"></li>
+        `;
         return;
     }
-    paginasUnicas.forEach(key => {
+    let html = '';
+    const current = window.location.pathname.split('/').pop() || 'index.html';
+    allowedPages.forEach(key => {
         const page = PAGE_CATALOG[key];
-        if (page) {
-            const itemFilename = page.url.substring(page.url.lastIndexOf('/') + 1) || page.url;
-            let isCurrentPage = (currentFilename === itemFilename);
-            if (currentFilename === 'administrador.html' && key === 'panel') {
-                isCurrentPage = true;
-            }
-            const activeClasses = isCurrentPage
-                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 active'
-                : 'text-slate-500 hover:bg-slate-50';
-            if (esPanelPrincipal && (key === 'panel' || key === 'comunicaciones')) {
-                const jsAction = key === 'comunicaciones'
-                    ? "window.switchModuloAdministrador('comunicaciones');"
-                    : "window.switchModuloAdministrador('ordenes');";
-                const idAttr = key === 'comunicaciones' ? 'id="link-nav-comunicaciones"' : 'id="link-nav-panel"';
-                const itemClasses = key === 'panel' ? activeClasses : 'text-slate-500 hover:bg-slate-50';
-                html += `
-                    <li class="nav-item mb-1">
-                        <a ${idAttr} href="javascript:void(0);" onclick="${jsAction}" class="flex items-center gap-4 px-6 h-14 rounded-2xl font-bold text-sm tracking-tight transition-all ${itemClasses}">
-                            <span class="nav-icon text-base">${page.icon}</span>
-                            <span class="nav-text tracking-tight">${page.name}</span>
-                        </a>
-                    </li>`;
-            } else {
-                html += `
-                    <li class="nav-item mb-1">
-                        <a href="./${page.url}" class="flex items-center gap-4 px-6 h-14 rounded-2xl font-bold text-sm tracking-tight transition-all ${activeClasses}">
-                            <span class="nav-icon text-base">${page.icon}</span>
-                            <span class="nav-text tracking-tight">${page.name}</span>
-                        </a>
-                    </li>`;
-            }
-        }
+        if (!page) return;
+        const isActive = page.url.includes(current) ? 'active' : '';
+        html += `
+            <li class="nav-item ${isActive}">
+                <a href="${page.url}" class="nav-link">
+                    <span class="nav-icon">${page.icon}</span>
+                    <span class="nav-text">${page.name}</span>
+                </a>
+            </li>`;
     });
     navList.innerHTML = html;
 }
-function toTitleCase(str) {
-    if (!str) return '';
-    return str.toLowerCase().split(' ').map(word => {
-        return word.charAt(0).toUpperCase() + word.slice(1);
-    }).join(' ');
-}
-function applyRoleRestrictions(role) {
-    const r = role.toLowerCase().trim();
-    const allSelectors = '.admin-only, .seller-only, .motor-only';
-    document.querySelectorAll(allSelectors).forEach(el => {
-        el.style.setProperty('display', 'none', 'important');
-    });
-    if (r === 'administrador' || r === 'admin') {
-        document.querySelectorAll(allSelectors).forEach(el => el.style.display = '');
-    } else if (r === 'vendedor') {
-        document.querySelectorAll('.seller-only').forEach(el => el.style.display = '');
-    } else if (r === 'motorizado') {
-        document.querySelectorAll('.motor-only').forEach(el => el.style.display = '');
-    }
+
+/** Muestra un error solo en el usuario/sidebar, no recarga nada */
+function showSidebarUserError(msg) {
+    updateSidebarUI('Invitado', msg || 'No disponible');
+    buildSidebarMenu(['panel']); // solo acceso básico
 }
 
 // --- LOGOUT INTERACTIVO y seguro ---
@@ -143,36 +100,67 @@ document.addEventListener('click', async (e) => {
     }
 });
 
+// ------ PRESENCE: UI pill mínima en la esquina del usuario (opcional) --------
+function updatePresenceIndicator(state) {
+    const indicator = document.querySelector('.sidebar-user .presence-indicator');
+    if (!indicator) return;
+    indicator.classList.remove('online', 'offline', 'error');
+    if (state === 'online') indicator.classList.add('online');
+    else if (state === 'offline') indicator.classList.add('offline');
+    else indicator.classList.add('error');
+}
+// Puedes agregar un pequeño elemento ".presence-indicator" en sidebar.html si quieres la pill visual
+
+// ------ FLUJO PRINCIPAL: AuthStateChanged rápido y resiliente ---------
 onAuthStateChanged(auth, async (user) => {
+    const sidebarEl = document.querySelector('aside.sidebar');
+    if (sidebarEl) sidebarEl.classList.add('sidebar-loading');
+
+    // 1. No hay usuario → muestra "modo visitante", no fuerces recarga
     if (!user) {
-        window.location.href = '/login.html';
+        showSidebarUserError('No autenticado');
+        if (sidebarEl) sidebarEl.classList.remove('sidebar-loading');
         return;
     }
+    // 2. Actualiza datos mínimos de inmediato mientras consulta Firestore
+    updateSidebarUI(
+        user.displayName || (user.email ? user.email.split('@')[0] : 'Usuario'),
+        'Cargando…',
+        user.email || ''
+    );
+    buildSidebarMenu(); // muestra esqueleto mientras resuelve
+    // 3. Consulta Firestore detalles del usuario y menú
     try {
-        const userDocRef = fsDoc(db, 'users', user.uid);
-        const userSnap = await getDoc(userDocRef);
+        const userSnap = await getDoc(fsDoc(db, 'users', user.uid));
         if (userSnap.exists()) {
             const data = userSnap.data();
-            const vNombre = data.nombre || data.name || "OPERADOR LOGÍSTICO";
-            const vRole = (data.rol || data.role || "motorizado").toLowerCase().trim();
-            const vEmail = user.email;
-            let allowed = data.allowedPages;
-            if (!allowed || !Array.isArray(allowed) || allowed.length === 0) {
-                allowed = ROLE_DEFAULT_MENUS[vRole] || ['panel'];
+            const finalName = data.name || user.displayName || (user.email ? user.email.split('@')[0] : 'Usuario');
+            const finalRole = data.role || 'Usuario';
+            updateSidebarUI(finalName, finalRole, user.email);
+            applyUiRestrictions(finalRole);
+
+            if (Array.isArray(data.allowedPages) && data.allowedPages.length > 0) {
+                buildSidebarMenu(data.allowedPages);
+            } else {
+                buildSidebarMenu(['panel']);
             }
-            if ((vRole === 'admin' || vRole === 'administrador') && !allowed.includes('comunicaciones')) {
-                allowed.push('comunicaciones');
-            }
-            updateSidebarUI(vNombre, vRole, vEmail);
-            buildSidebarMenu(allowed);
-            setTimeout(() => {
-                applyRoleRestrictions(vRole);
-            }, 100);
         } else {
-            console.warn("⚠️ El documento de usuario no existe en la colección 'users'.");
-            updateSidebarUI("Invitado", "sin rol");
+            showSidebarUserError('Usuario sin datos');
         }
     } catch (err) {
-        console.error("❌ Error en el cargador dinámico de barra lateral:", err);
+        showSidebarUserError('Error de conexión');
+        console.error("Error cargando perfil:", err);
+    } finally {
+        if (sidebarEl) sidebarEl.classList.remove('sidebar-loading');
     }
 });
+
+// Actualiza la presencia (si deseas la pill visual)
+window.addEventListener('presence:me', (e) => {
+    const { state } = e.detail || {};
+    updatePresenceIndicator(state);
+});
+
+// Carga por defecto: skeleton mínimo
+buildSidebarMenu();
+updateSidebarUI('Cargando…', '', '');

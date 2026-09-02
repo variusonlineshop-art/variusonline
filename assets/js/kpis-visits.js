@@ -1,162 +1,63 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-import { 
-    getFirestore, 
-    collection, 
-    query, 
-    orderBy, 
-    limit, 
-    onSnapshot, 
-    getDocs, 
-    getCountFromServer, 
-    where, 
-    Timestamp 
-} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js"; 
-
-// ⚙️ IMPORTACIÓN DE CONFIGURACIÓN
-// Nota: Asegúrate de que 'firebase-config.js' tenga: export const firebaseConfig = { ... }
+import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app); 
 
 let allVisits = []; 
-let totalRegistrosHistoricos = 0; 
 let paginaActual = 1;
 const registrosPorPagina = 5;
 
-// ⏱️ CRONÓMETRO DE RENDIMIENTO
-const tiempoInicioCarga = performance.now();
-let cronometroFinalizado = false; 
-let felicitacionDisparada = false;
-let usuarioAutenticado = false; 
-
-// 🕒 HELPER: Obtener Timestamp de las 00:00:00 de hoy
-function getInicioDelDia() {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    return Timestamp.fromDate(hoy);
-}
-
-// --- MONITOR DE SESIÓN ACTIVA ---
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        usuarioAutenticado = true;
-        console.log("🔐 [KPI Engine]: Usuario con sesión activa detectado (Tráfico administrativo excluido).");
-    } else {
-        usuarioAutenticado = false;
-    }
-});
-
+// --- Escucha de datos en tiempo real (Solo Hoy) ---
 function listenGlobalVisits() {
-    const inicioDia = getInicioDelDia();
+    const q = query(collection(db, "visits"), orderBy("fecha_registro", "desc"));
     
-    // Consulta en tiempo real restringida únicamente a las visitas del día de hoy
-    const qRealtime = query(
-        collection(db, "visits"), 
-        where("fecha_registro", ">=", inicioDia),
-        orderBy("fecha_registro", "desc"), 
-        limit(5)
-    );
-
-    onSnapshot(qRealtime, async (querySnapshot) => {
-        try {
-            if (usuarioAutenticado) {
-                console.log("🚫 [Bypass Activo]: Navegación interna de la escudería. Omitiendo incremento visual.");
-                return;
+    onSnapshot(q, (querySnapshot) => {
+        // 1. Obtener la fecha de hoy en formato YYYY-MM-DD
+        const hoy = new Date().toISOString().split('T')[0];
+        
+        allVisits = [];
+        
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            // 2. Extraer solo la parte de la fecha del string ISO de la DB
+            const fechaVisita = data.fecha_registro ? data.fecha_registro.split('T')[0] : "";
+            
+            // 3. Filtrar: solo si la fecha coincide con hoy
+            if (fechaVisita === hoy) {
+                allVisits.push({ id: doc.id, ...data });
             }
-
-            // Conteo optimizado mediante servidor únicamente del tráfico de HOY
-            const qContador = query(
-                collection(db, "visits"), 
-                where("fecha_registro", ">=", inicioDia)
-            );
-            const countSnapshot = await getCountFromServer(qContador);
-            totalRegistrosHistoricos = countSnapshot.data().count;
-
-            const kpiElement = document.getElementById("kpi-visitas-carrito-value");
-            if (kpiElement) kpiElement.textContent = totalRegistrosHistoricos;
-
-            if (!cronometroFinalizado) {
-                const tiempoFinCarga = performance.now();
-                const tiempoTotalSegundos = ((tiempoFinCarga - tiempoInicioCarga) / 1000).toFixed(2);
-                console.log(`[TELEMETRÍA]: ¡KPI "Contador de Visitas" cargado con éxito!`, "color: #10b981; font-weight: bold; font-size: 11px;");
-                console.log(`Tiempo de respuesta: ${tiempoTotalSegundos} segundos para procesar ${totalRegistrosHistoricos} registros del día.`, "color: #3b82f6; font-weight: bold;");
-                cronometroFinalizado = true;
-            }
-
-            const metaVisitas = 60000; 
-            const porcentaje = Math.min((totalRegistrosHistoricos / metaVisitas) * 100, 100);
-            const progressBar = document.getElementById("kpi-visitas-bar");
-            if (progressBar) {
-                progressBar.style.width = `${porcentaje}%`;
-            }
-
-            if (totalRegistrosHistoricos >= metaVisitas && !felicitacionDisparada) {
-                window_dispararAnimacionMetaCumplida(metaVisitas);
-                felicitacionDisparada = true;
-            }
-        } catch (error) {
-            console.error("Error en el inyector del contador:", error);
+        });
+        
+        // Actualizar el número (KPI)
+        const kpiElement = document.getElementById("kpi-visitas-carrito-value");
+        if (kpiElement) kpiElement.textContent = allVisits.length;
+        
+        // --- ACTUALIZACIÓN DE LA BARRA ---
+        const progressBar = document.getElementById("kpi-visitas-bar");
+        if (progressBar) {
+            // Meta diaria de visitas (ajusta este valor según tu tráfico)
+            const metaDiaria = 500; 
+            const porcentaje = Math.min((allVisits.length / metaDiaria) * 100, 100);
+            progressBar.style.width = `${porcentaje}%`;
+        }
+        
+        const modal = document.getElementById("modal-visitas-carrito");
+        if (modal && !modal.classList.contains("hidden")) {
+            renderizarEstructuraModal();
         }
     });
 }
 
-function window_dispararAnimacionMetaCumplida(meta) {
-    console.log("🏆 [VARIUS OMNICHANNEL]: ¡META GLOBAL ALCANZADA!");
-    const logroHTML = `
-    <div id="varius-logro-meta" class="fixed bottom-5 right-5 z-[99999] bg-slate-950 border-2 border-emerald-500 rounded-2xl p-5 shadow-2xl max-w-sm flex items-center gap-4 animate-bounce font-sans">
-        <div class="bg-emerald-500/20 text-emerald-400 p-3 rounded-xl text-2xl">🏆</div>
-        <div class="flex flex-col gap-0.5">
-            <h4 class="text-white font-black text-xs uppercase tracking-wider">¡Meta de Tráfico Alcanzada!</h4>
-            <p class="text-slate-300 text-[11px] leading-tight">
-                Felicitaciones al <strong>Equipo de VariusOnline</strong> por la Meta Cumplida de <span class="text-emerald-400 font-bold">${meta.toLocaleString()}</span> visitas en el catálogo. ¡A fondo!
-            </p>
-        </div>
-    </div>`;
-    document.body.insertAdjacentHTML('beforeend', logroHTML);
-    setTimeout(() => {
-        const tarjetaLogro = document.getElementById('varius-logro-meta');
-        if (tarjetaLogro) {
-            tarjetaLogro.style.transition = "all 0.5s ease";
-            tarjetaLogro.style.opacity = "0";
-            tarjetaLogro.style.transform = "translateY(20px)";
-            setTimeout(() => tarjetaLogro.remove(), 500);
-        }
-    }, 6000);
-}
-
-async function abrirModalVisitasCarrito() {
+function abrirModalVisitasCarrito() {
     paginaActual = 1;
-    const bodyModal = document.getElementById("modalVisitasCarritoBody");
-    if(bodyModal) bodyModal.innerHTML = `<div class="p-10 text-center text-xs text-slate-400 font-medium">📡 Extrayendo telemetría limpia de clientes...</div>`;
+    renderizarEstructuraModal();
     document.getElementById("modal-visitas-carrito").classList.remove("hidden");
-
-    try {
-        const inicioDia = getInicioDelDia();
-        // Extracción reducida solo al acumulado del día de hoy
-        const qCompleto = query(
-            collection(db, "visits"), 
-            where("fecha_registro", ">=", inicioDia),
-            orderBy("fecha_registro", "desc")
-        );
-        const querySnapshot = await getDocs(qCompleto);
-        allVisits = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.tipo_usuario !== "admin" && data.tipo_usuario !== "colaborador") {
-                allVisits.push({ id: doc.id, ...data });
-            }
-        });
-        renderizarEstructuraModal();
-    } catch (error) {
-        console.error("Error en pits al filtrar visitas:", error);
-    }
 }
 
 function renderizarEstructuraModal() {
-    const totalRegistros = allVisits.length || totalRegistrosHistoricos;
+    const totalRegistros = allVisits.length;
     const unicas = [...new Set(allVisits.map(v => v.ip).filter(Boolean))].length;
     const activas = allVisits.filter(v => v.online).length;
     const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina) || 1;
@@ -165,7 +66,7 @@ function renderizarEstructuraModal() {
     <div class="p-5 bg-slate-50 font-sans">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white p-4 rounded-xl border-l-4 border-emerald-500 shadow-sm">
-                <p class="text-[10px] font-bold text-slate-400 uppercase">Total Hoy</p>
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Total</p>
                 <h3 class="text-2xl font-black text-slate-800">${totalRegistros}</h3>
             </div>
             <div class="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
@@ -181,13 +82,15 @@ function renderizarEstructuraModal() {
                 <h3 class="text-2xl font-black text-slate-800">${totalPaginas}</h3>
             </div>
         </div>
+
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
             <div id="tabla-dinamica-container">
                 ${renderizarTablaPaginada()}
             </div>
         </div>
+
         <div class="flex flex-col sm:flex-row gap-3 border-t border-slate-200 pt-6">
-            <button onclick="window.location.href='/admin/visits.html'" 
+            <button onclick="window.location.href='visits.html'" 
                     class="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
                 <i class="fa-solid fa-chart-line"></i> Ver más detalles
             </button>
@@ -196,7 +99,9 @@ function renderizarEstructuraModal() {
                 Cerrar
             </button>
         </div>
-    </div>`;
+    </div>
+    `;
+
     document.getElementById("modalVisitasCarritoBody").innerHTML = html;
 }
 
@@ -219,7 +124,7 @@ function renderizarTablaPaginada() {
                     <tr class="hover:bg-slate-50">
                         <td class="p-4">
                             <div class="font-bold text-slate-700">${v.ip || '0.0.0.0'}</div>
-                            <div class="text-[10px] text-slate-400 truncate max-w-[200px]">${v.url_pagina?.split('/').pop() || '/index.html'}</div>
+                            <div class="text-[10px] text-slate-400 truncate max-w-[200px]">${v.url_pagina?.split('/').pop() || 'index.html'}</div>
                         </td>
                         <td class="p-4 text-center">
                             <span class="px-2.5 py-1 rounded-full text-[9px] font-black ${v.online ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
@@ -242,10 +147,11 @@ function renderizarTablaPaginada() {
                 </button>
             </div>
             <span class="text-[10px] font-bold text-slate-400 uppercase">Pág. ${paginaActual} / ${totalPaginas}</span>
-        </div>`;
+        </div>
+    `;
 }
 
-// Vinculaciones explícitas al objeto Global Window para mantener compatibilidad con handlers inline (onclick="")
+// --- Funciones Globales (Disponibles para onclick) ---
 window.cambiarPaginaModal = (direccion) => {
     paginaActual += direccion;
     const container = document.getElementById("tabla-dinamica-container");
@@ -258,8 +164,11 @@ window.cerrarModalVisitas = () => {
 
 window.abrirModalVisitasCarrito = abrirModalVisitasCarrito;
 
+// --- Inicialización ---
 document.addEventListener("DOMContentLoaded", () => {
     listenGlobalVisits();
+    
+    // Vincular el botón de la X (arriba a la derecha)
     const btnX = document.getElementById("closeModalVisitasCarrito");
     if (btnX) btnX.onclick = window.cerrarModalVisitas;
 });
