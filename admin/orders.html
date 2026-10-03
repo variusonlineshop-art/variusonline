@@ -68,9 +68,9 @@
 
     <!-- Main content -->
     <main class="main">
-        <div class="px-4 sm:px-6 py-6 sm:py-8">
-            <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-8">
-                <div class="flex flex-col gap-4 sm:gap-6">
+        <div class="px-6 py-8">
+            <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-8">
+                <div class="flex flex-col gap-6">
                     <div
                         class="border-b border-gray-50 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
@@ -78,29 +78,17 @@
                             <p class="text-xs text-gray-400">Gestiona y filtra los pedidos de la plataforma</p>
                         </div>
 
-                        <div class="flex items-center justify-between w-full sm:w-auto gap-2">
-                            <!-- Botón para colapsar/expandir filtros únicamente en móviles -->
-                            <button onclick="toggleMobileFilters()" id="toggleFiltersBtn"
-                                class="sm:hidden flex-1 bg-gray-100 text-gray-700 font-bold rounded-2xl py-2.5 px-4 text-xs flex items-center justify-center gap-2 active:scale-95 transition-all">
-                                <i class="fa-solid fa-filter text-blue-600"></i>
-                                <span id="toggleFiltersText">Mostrar Filtros</span>
-                                <i id="toggleFiltersIcon" class="fa-solid fa-chevron-down text-gray-400 transition-transform duration-300"></i>
-                            </button>
-
-                            <button onclick="openCreateOrderModal()"
-                                class="bg-blue-600 text-white font-bold rounded-2xl py-2.5 px-5 hover:bg-blue-700 hover:shadow-md transition-all text-xs sm:text-sm flex items-center justify-center gap-2 transform active:scale-95 shrink-0">
-                                <i class="fa-solid fa-plus"></i>
-                                <span class="hidden xs:inline">Crear Nueva Orden</span>
-                                <span class="xs:hidden">Nueva</span>
-                            </button>
-                        </div>
+                        <button onclick="openCreateOrderModal()"
+                            class="bg-blue-600 text-white font-bold rounded-2xl py-2.5 px-5 hover:bg-blue-700 hover:shadow-md transition-all text-sm flex items-center gap-2 transform active:scale-95">
+                            <i class="fa-solid fa-plus"></i>
+                            Crear Nueva Orden
+                        </button>
                     </div>
 
-                    <!-- Contenedor de Filtros (Colapsable en celular, visible en pantallas md/xl) -->
-                    <div id="filtersContainer" class="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 items-end transition-all">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-end">
 
                         <div class="xl:col-span-1">
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 sm:mb-2 ml-1">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">
                                 Buscador (Cliente, ID, Teléfono)
                             </label>
                             <div class="relative group">
@@ -108,33 +96,33 @@
                                     class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-blue-500 transition-colors"></i>
                                 <input type="text" id="globalSearch" oninput="applyAllFilters()"
                                     placeholder="Escribe para buscar..."
-                                    class="w-full pl-11 pr-4 py-2.5 sm:py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all">
+                                    class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-sm transition-all">
                             </div>
                         </div>
 
                         <div>
                             <label
-                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 sm:mb-2 ml-1">Vendedor</label>
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Vendedor</label>
                             <select id="filterSeller" onchange="applyAllFilters()"
-                                class="w-full p-2.5 sm:p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                                class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
                                 <option value="all">Todos los Vendedores</option>
                             </select>
                         </div>
 
                         <div>
                             <label
-                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 sm:mb-2 ml-1">Motorizado</label>
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Motorizado</label>
                             <select id="filterMotorized" onchange="applyAllFilters()"
-                                class="w-full p-2.5 sm:p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                                class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
                                 <option value="all">Todos los Motorizados</option>
                             </select>
                         </div>
 
                         <div>
                             <label
-                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 sm:mb-2 ml-1">Cronología</label>
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Cronología</label>
                             <select id="filterSort" onchange="applyAllFilters()"
-                                class="w-full p-2.5 sm:p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                                class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
                                 <option value="newest">Más recientes</option>
                                 <option value="oldest">Más antiguos</option>
                             </select>
@@ -142,16 +130,16 @@
 
                         <div>
                             <label
-                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 sm:mb-2 ml-1">Estatus Orden</label>
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Estatus Orden</label>
                             <select id="filterOrderStatus" onchange="applyAllFilters()"
-                                class="w-full p-2.5 sm:p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
+                                class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
                                 <option value="all">Todos los Estatus</option>
                             </select>
                         </div>
 
-                        <div class="flex items-end md:col-span-2 xl:col-span-1">
+                        <div class="flex items-end">
                             <button onclick="clearAllFilters()"
-                                class="w-full p-2.5 sm:p-3 bg-red-50 text-red-500 font-bold rounded-2xl hover:bg-red-500 hover:text-white transition-all text-sm flex items-center justify-center gap-2 group">
+                                class="w-full p-3 bg-red-50 text-red-500 font-bold rounded-2xl hover:bg-red-500 hover:text-white transition-all text-sm flex items-center justify-center gap-2 group">
                                 <i class="fa-solid fa-eraser group-hover:rotate-12 transition-transform"></i>
                                 Limpiar Filtros
                             </button>
@@ -172,7 +160,6 @@
                     <!-- Los números rotativos se generarán dinámicamente aquí -->
                 </div>
             </div>
-        </div>
     </main>
 
     <div id="editOrderModal"
@@ -668,25 +655,6 @@
     </div>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <script>
-        // Función para alternar el menú desplegable de filtros en dispositivos móviles
-        function toggleMobileFilters() {
-            const container = document.getElementById('filtersContainer');
-            const btnText = document.getElementById('toggleFiltersText');
-            const btnIcon = document.getElementById('toggleFiltersIcon');
-
-            if (container.classList.contains('hidden')) {
-                container.classList.remove('hidden');
-                btnText.textContent = 'Ocultar Filtros';
-                btnIcon.classList.add('rotate-180');
-            } else {
-                container.classList.add('hidden');
-                btnText.textContent = 'Mostrar Filtros';
-                btnIcon.classList.remove('rotate-180');
-            }
-        }
-    </script>
 
     <script type="module" src="../assets/js/bank-select.js"></script>
     <script type="module" src="../assets/js/orders.admin.js"></script>
