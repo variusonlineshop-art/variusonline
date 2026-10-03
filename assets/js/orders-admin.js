@@ -8,7 +8,8 @@ import {
     doc,
     query,
     where,
-    onSnapshot
+    onSnapshot,
+    updateDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -22,6 +23,7 @@ window.openPaymentModalFromOrderId = function (orderId) {
         openPaymentModal({ ...order, id: orderId });
     }
 };
+
 // IMPORTACIÓN DE FUNCIONES DESDE order-actions.js
 import {
     handleSuspendOrder,
@@ -143,18 +145,13 @@ async function fetchProductImg(productId) {
     return placeholder;
 }
 
-/**
- * Renderiza el grid de órdenes con lógica condicional para órdenes suspendidas y filtro de rol
- * Ahora acepta un objeto filters: {search, seller, motorized, sort}
- */
-
 // Variable global para limpiar el listener en caso de recarga de filtros o sesión
 window.currentOrdersUnsubscribe = null;
 
 /**
  * Renderiza el grid de órdenes con lógica condicional y en TIEMPO REAL, mostrando los pedidos del día
  * y siempre ordenados del más nuevo al más viejo.
- * Ahora acepta un objeto filters: {search, seller, motorized, sort}
+ * Ahora acepta un objeto filters: {search, seller, motorized, sort, status}
  */
 function fetchAndRenderOrders(filters = {}) {
     const container = document.getElementById('grid-container');
@@ -223,12 +220,25 @@ function fetchAndRenderOrders(filters = {}) {
                         </div>`;
                     fillFilterOptions("filterSeller", []);
                     fillFilterOptions("filterMotorized", []);
+                    fillFilterOptions("filterOrderStatus", []);
                     return;
                 }
 
-                // Popula selects con datos únicos del día
-                fillFilterOptions("filterSeller", rawOrders.map(o => [o.assignedSeller, o.assignedSellerName]));
-                fillFilterOptions("filterMotorized", rawOrders.map(o => [o.assignedMotorizedId, o.assignedMotorizedName]));
+                // Captura de valores seleccionados actualmente
+                const currentSeller = document.getElementById("filterSeller")?.value || "all";
+                const currentMotorized = document.getElementById("filterMotorized")?.value || "all";
+                const currentStatus = document.getElementById("filterOrderStatus")?.value || "all";
+
+                // Popula selects con datos únicos del día si no se ha filtrado
+                if (currentSeller === "all") {
+                    fillFilterOptions("filterSeller", rawOrders.map(o => [o.assignedSeller, o.assignedSellerName]));
+                }
+                if (currentMotorized === "all") {
+                    fillFilterOptions("filterMotorized", rawOrders.map(o => [o.assignedMotorizedId, o.assignedMotorizedName]));
+                }
+                if (currentStatus === "all") {
+                    fillFilterOptions("filterOrderStatus", rawOrders.map(o => [o.status || "Pendiente", o.status || "Pendiente"]));
+                }
 
                 // --- 4. Aplicar Filtros de UI ---
                 let ordersArr = [...rawOrders];
@@ -238,6 +248,9 @@ function fetchAndRenderOrders(filters = {}) {
                 }
                 if (filters.motorized && filters.motorized !== "all") {
                     ordersArr = ordersArr.filter(o => o.assignedMotorizedId === filters.motorized);
+                }
+                if (filters.status && filters.status !== "all") {
+                    ordersArr = ordersArr.filter(o => (o.status || 'Pendiente') === filters.status);
                 }
                 if (filters.search) {
                     const searchTerm = filters.search.toLowerCase();
@@ -251,218 +264,218 @@ function fetchAndRenderOrders(filters = {}) {
 
                 // --- 5. Ordenar SIEMPRE del más nuevo al más viejo (Fecha + Hora) ---
                 ordersArr.sort((a, b) => {
-                    // Extraemos los milisegundos para comparar numéricamente
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.orderDate).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.orderDate).getTime();
-
-                    // Orden descendente: el más reciente arriba
                     return timeB - timeA;
                 });
+
                 // --- 6. Renderizado de Tarjetas ---
                 let allCardsHTML = "";
-                ordersArr.forEach((order) => {
-                    const orderId = order._id;
-                    const status = order.status || 'Pendiente';
-                    const isSuspended = status === 'Suspendido';
-                    const isPostponed = status === 'Postergado';
-                    const isSent = status === 'Enviado';
-                    const isAccepted = status === 'Envio Aceptado';
-                    const isPaid = status === 'Pagado';
-                    const isCall = status === 'Contactado';
+                if (ordersArr.length === 0) {
+                    allCardsHTML = '<p class="text-center py-10 text-gray-500">No hay órdenes que coincidan con los filtros seleccionados.</p>';
+                } else {
+                    ordersArr.forEach((order) => {
+                        const orderId = order._id;
+                        const status = order.status || 'Pendiente';
+                        const isSuspended = status === 'Suspendido';
+                        const isPostponed = status === 'Postergado';
+                        const isSent = status === 'Enviado';
+                        const isAccepted = status === 'Envio Aceptado';
+                        const isPaid = status === 'Pagado';
+                        const isCall = status === 'Contactado';
 
-                    const suspendComment = order.suspendComment || "";
-                    const suspendDate = order.suspendDate || "";
+                        const suspendComment = order.suspendComment || "";
+                        const suspendDate = order.suspendDate || "";
 
-                    let paymentDateFormatted = "";
-                    if (order.paymentUpdatedAt) {
-                        const pDate = (typeof order.paymentUpdatedAt.toDate === 'function')
-                            ? order.paymentUpdatedAt.toDate()
-                            : new Date(order.paymentUpdatedAt);
+                        let paymentDateFormatted = "";
+                        if (order.paymentUpdatedAt) {
+                            const pDate = (typeof order.paymentUpdatedAt.toDate === 'function')
+                                ? order.paymentUpdatedAt.toDate()
+                                : new Date(order.paymentUpdatedAt);
 
-                        // 2. Formateamos la fecha al estilo local de Venezuela
-                        paymentDateFormatted = pDate.toLocaleString('es-ES', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true
-                        });
-                    }
+                            paymentDateFormatted = pDate.toLocaleString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+                        }
 
-                    let orderTimeFormatted = "";
-                    if (order.timestamp) {
-                        // Si es un Timestamp de Firebase usará .toDate(), si no, creará un Date normal
-                        const tDate = (typeof order.timestamp.toDate === 'function')
-                            ? order.timestamp.toDate()
-                            : new Date(order.timestamp);
+                        let orderTimeFormatted = "";
+                        if (order.timestamp) {
+                            const tDate = (typeof order.timestamp.toDate === 'function')
+                                ? order.timestamp.toDate()
+                                : new Date(order.timestamp);
 
-                        orderTimeFormatted = tDate.toLocaleString('es-ES', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true
-                        });
-                    }
+                            orderTimeFormatted = tDate.toLocaleString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+                        }
 
-                    let statusClass = 'bg-orange-100 text-orange-600';
-                    if (isSuspended) statusClass = 'bg-red-100 text-red-600';
-                    if (isPostponed) statusClass = 'bg-blue-100 text-blue-600';
-                    if (isSent) statusClass = 'bg-emerald-100 text-emerald-600';
-                    if (isAccepted) statusClass = 'bg-yellow-200 text-yellow-600';
-                    if (isPaid) statusClass = 'bg-purple-200 text-purple-600';
-                    if (isCall) statusClass = 'bg-green-200 text-green-600';
+                        let statusClass = 'bg-orange-100 text-orange-600';
+                        if (isSuspended) statusClass = 'bg-red-100 text-red-600';
+                        if (isPostponed) statusClass = 'bg-blue-100 text-blue-600';
+                        if (isSent) statusClass = 'bg-emerald-100 text-emerald-600';
+                        if (isAccepted) statusClass = 'bg-yellow-200 text-yellow-600';
+                        if (isPaid) statusClass = 'bg-purple-200 text-purple-600';
+                        if (isCall) statusClass = 'bg-green-200 text-green-600';
 
-                    const hasMotorized = order.assignedMotorizedId && order.assignedMotorizedId !== "";
-                    const hasLocation = order.deliveryLocation?.lat && order.deliveryLocation?.lng;
-                    const showCobranzaBtn = myRole === "administrador" || myRole === "motorizado" || myRole === "gerente";
+                        const hasMotorized = order.assignedMotorizedId && order.assignedMotorizedId !== "";
+                        const hasLocation = order.deliveryLocation?.lat && order.deliveryLocation?.lng;
+                        const showCobranzaBtn = myRole === "administrador" || myRole === "motorizado" || myRole === "gerente";
 
-                    allCardsHTML += `
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow ${isSuspended ? 'opacity-80 grayscale-[0.5]' : ''}">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <p class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Order ID</p>
-                            <h6 class="text-xs text-gray-400">${order.cartToken || '(sin ID)'}</h6>
+                        allCardsHTML += `
+                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow ${isSuspended ? 'opacity-80 grayscale-[0.5]' : ''}">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Order ID</p>
+                                <h6 class="text-xs text-gray-400">${order.cartToken || '(sin ID)'}</h6>
+                            </div>
+                            <span class="px-3 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 ${statusClass}">
+                                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                ${order.status || 'Sin estado'}
+                            </span>
                         </div>
-                        <span class="px-3 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 ${statusClass}">
-                            <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
-                            ${order.status || 'Sin estado'}
-                        </span>
-                    </div>
 
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
-                            <i class="fa-regular fa-user text-gray-400"></i>
-                        </div>
-                        <div class="overflow-hidden">
-                            <p class="text-sm font-semibold text-gray-800 truncate">${order.customerData?.Customname || 'Sin nombre'}</p>
-                            <p class="text-xs text-gray-400 truncate">${order.customerData?.phone || order.phone || 'Sin Telefono'}</p>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-between items-center mb-5">
-                        <div class="flex items-center gap-2 text-gray-400">
-                            <i class="fa-regular fa-calendar text-sm"></i>
-                            <span class="text-xs font-medium text-gray-500">${order.orderDate} ${orderTimeFormatted ? `• ${orderTimeFormatted}` : ''}</span>
-                        </div>
-                        
-                        <div class="flex items-center gap-1">
-                            <span class="text-gray-400 text-sm">$</span>
-                            <span class="text-base font-bold text-gray-800">${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
-                        </div>
-                    </div>
-
-                    ${isPostponed ? `
-                    <div class="mb-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                        <p class="text-[10px] text-blue-600 font-bold uppercase italic">Reprogramado para:</p>
-                        <p class="text-xs font-bold text-gray-700">
-                            ${order.postponeHistory && order.postponeHistory.length > 0
-                                ? `${order.postponeHistory[order.postponeHistory.length - 1].date} ${order.postponeHistory[order.postponeHistory.length - 1].time}`
-                                : 'No definida'}
-                        </p>
-                    </div>
-                    ` : ''}
-
-                    <div class="grid grid-cols-2 gap-2 border-t border-gray-50 pt-4 mb-6">
-                        <div>
-                            <p class="text-[9px] uppercase font-bold text-gray-300 mb-1 italic">Vendedor</p>
-                            <div class="flex items-center gap-1.5">
-                                <i class="fa-regular fa-user text-blue-400 text-[10px]"></i>
-                                <span class="text-[11px] font-medium text-gray-600">${order.assignedSellerName || 'Sistema'}</span>
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
+                                <i class="fa-regular fa-user text-gray-400"></i>
+                            </div>
+                            <div class="overflow-hidden">
+                                <p class="text-sm font-semibold text-gray-800 truncate">${order.customerData?.Customname || 'Sin nombre'}</p>
+                                <p class="text-xs text-gray-400 truncate">${order.customerData?.phone || order.phone || 'Sin Telefono'}</p>
                             </div>
                         </div>
-                        <div>
-                            <p class="text-[9px] uppercase font-bold text-gray-300 mb-1 italic">Motorizado</p>
-                            <div class="flex items-center gap-1.5">
-                                <i class="fa-solid fa-motorcycle text-emerald-400 text-[10px]"></i>
-                                <span class="text-[11px] font-medium text-gray-600">${order.assignedMotorizedName || 'Sin motorizado'}</span>
+
+                        <div class="flex justify-between items-center mb-5">
+                            <div class="flex items-center gap-2 text-gray-400">
+                                <i class="fa-regular fa-calendar text-sm"></i>
+                                <span class="text-xs font-medium text-gray-500">${order.orderDate} ${orderTimeFormatted ? `• ${orderTimeFormatted}` : ''}</span>
+                            </div>
+                            
+                            <div class="flex items-center gap-1">
+                                <span class="text-gray-400 text-sm">$</span>
+                                <span class="text-base font-bold text-gray-800">${Number(order.total || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '00,00'}</span>
                             </div>
                         </div>
-                    </div>
-                    ${isSuspended ? `
-                        <div class="mb-2">
-                            ${(suspendComment || suspendDate) ? `
-                                <span class="inline-block bg-red-100 text-red-500 text-xs rounded-full px-3 py-1 mb-2 font-semibold border border-red-200">
-                                    <i class="fa-regular fa-message-dots mr-1"></i>
-                                    ${suspendComment ? `<span>${suspendComment}</span>` : ``}
-                                    ${suspendDate ? `<span class="ml-2"><i class="fa-regular fa-clock"></i> ${new Date(suspendDate).toLocaleString('es-ES')}</span>` : ``}
-                                </span>
-                            ` : ''}
-                        </div>
-                    ` : ''}
 
-                    ${paymentDateFormatted ? `
-                        <div class="text-center mb-1">
-                            <p class="text-[9px] uppercase font-bold text-purple-400 italic">Fecha de Cobro</p>
-                            <p class="text-[10px] font-medium text-gray-600">
-                                <i class="fa-regular fa-calendar-check mr-1"></i>
-                                ${paymentDateFormatted}
+                        ${isPostponed ? `
+                        <div class="mb-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                            <p class="text-[10px] text-blue-600 font-bold uppercase italic">Reprogramado para:</p>
+                            <p class="text-xs font-bold text-gray-700">
+                                ${order.postponeHistory && order.postponeHistory.length > 0
+                                    ? `${order.postponeHistory[order.postponeHistory.length - 1].date} ${order.postponeHistory[order.postponeHistory.length - 1].time}`
+                                    : 'No definida'}
                             </p>
                         </div>
-                    ` : ''}
+                        ` : ''}
 
-                    <div class="flex items-center justify-between gap-1 bg-gray-50/50 p-1.5 rounded-xl">
-                        ${isPaid ? `
-                            <div class="w-full py-2.5 rounded-lg bg-purple-200 text-purple-500 flex items-center justify-center gap-2 cursor-default">
-                                <i class="fa-solid fa-check-circle text-xs"></i>
-                                <span class="text-[10px] font-bold tracking-wider uppercase">Orden Completada</span>
+                        <div class="grid grid-cols-2 gap-2 border-t border-gray-50 pt-4 mb-6">
+                            <div>
+                                <p class="text-[9px] uppercase font-bold text-gray-300 mb-1 italic">Vendedor</p>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fa-regular fa-user text-blue-400 text-[10px]"></i>
+                                    <span class="text-[11px] font-medium text-gray-600">${order.assignedSellerName || 'Sistema'}</span>
+                                </div>
                             </div>
-                        ` : isSuspended ? `
-                            <button onclick="handleReactivateOrder('${orderId}')" class="w-full py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-all flex items-center justify-center gap-2">
-                                <i class="fa-solid fa-play text-xs"></i>
-                                <span class="text-[10px] font-bold tracking-wider">REACTIVAR ORDEN</span>
-                            </button>
-                        `  : isSent ? `
-                            ${!hasLocation ? `
-                                <button onclick="handleSaveCurrentLocation('${orderId}')" title="Guardar Mi Ubicación" class="w-full py-2.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 shadow-sm transition-all flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-location-dot text-xs"></i>
-                                    <span class="text-[10px] font-bold tracking-wider">MI UBICACIÓN</span>
+                            <div>
+                                <p class="text-[9px] uppercase font-bold text-gray-300 mb-1 italic">Motorizado</p>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fa-solid fa-motorcycle text-emerald-400 text-[10px]"></i>
+                                    <span class="text-[11px] font-medium text-gray-600">${order.assignedMotorizedName || 'Sin motorizado'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${isSuspended ? `
+                            <div class="mb-2">
+                                ${(suspendComment || suspendDate) ? `
+                                    <span class="inline-block bg-red-100 text-red-500 text-xs rounded-full px-3 py-1 mb-2 font-semibold border border-red-200">
+                                        <i class="fa-regular fa-message-dots mr-1"></i>
+                                        ${suspendComment ? `<span>${suspendComment}</span>` : ``}
+                                        ${suspendDate ? `<span class="ml-2"><i class="fa-regular fa-clock"></i> ${new Date(suspendDate).toLocaleString('es-ES')}</span>` : ``}
+                                    </span>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+
+                        ${paymentDateFormatted ? `
+                            <div class="text-center mb-1">
+                                <p class="text-[9px] uppercase font-bold text-purple-400 italic">Fecha de Cobro</p>
+                                <p class="text-[10px] font-medium text-gray-600">
+                                    <i class="fa-regular fa-calendar-check mr-1"></i>
+                                    ${paymentDateFormatted}
+                                </p>
+                            </div>
+                        ` : ''}
+
+                        <div class="flex items-center justify-between gap-1 bg-gray-50/50 p-1.5 rounded-xl">
+                            ${isPaid ? `
+                                <div class="w-full py-2.5 rounded-lg bg-purple-200 text-purple-500 flex items-center justify-center gap-2 cursor-default">
+                                    <i class="fa-solid fa-check-circle text-xs"></i>
+                                    <span class="text-[10px] font-bold tracking-wider uppercase">Orden Completada</span>
+                                </div>
+                            ` : isSuspended ? `
+                                <button onclick="handleReactivateOrder('${orderId}')" class="w-full py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-all flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-play text-xs"></i>
+                                    <span class="text-[10px] font-bold tracking-wider">REACTIVAR ORDEN</span>
+                                </button>
+                            `  : isSent ? `
+                                ${!hasLocation ? `
+                                    <button onclick="handleSaveCurrentLocation('${orderId}')" title="Guardar Mi Ubicación" class="w-full py-2.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 shadow-sm transition-all flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-location-dot text-xs"></i>
+                                        <span class="text-[10px] font-bold tracking-wider">MI UBICACIÓN</span>
+                                    </button>
+                                ` : `
+                                    <button onclick="handleAcceptDelivery('${orderId}')" title="Aceptar Envío" class="w-full py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-all flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-check-double text-xs"></i>
+                                        <span class="text-[10px] font-bold tracking-wider">ACEPTAR ENVÍO</span>
+                                    </button>
+                                `}
+                            ` : isPostponed ? `
+                                <button onclick="handleSuspendOrder('${orderId}')" title="Suspender Orden" class="w-full py-2.5 flex-1 rounded-lg bg-red-200 text-red-500 flex items-center justify-center hover:bg-red-700 gap-2 cursor-default">
+                                    <i class="fa-regular fa-circle-pause text-xs"></i>
+                                </button>
+                                <button onclick="openPostponeOrder('${orderId}')" title="Reprogramar" class="w-full py-2.5  flex-[3] rounded-lg bg-blue-200 text-blue-500 flex items-center justify-center hover:bg-blue-700 gap-2 cursor-default">
+                                    <i class="fa-regular fa-clock text-xs"></i> 
+                                    <span class="text-[10px] font-bold tracking-wider uppercase">Ajustar Fecha</span>
                                 </button>
                             ` : `
-                                <button onclick="handleAcceptDelivery('${orderId}')" title="Aceptar Envío" class="w-full py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-all flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-check-double text-xs"></i>
-                                    <span class="text-[10px] font-bold tracking-wider">ACEPTAR ENVÍO</span>
+                                <button onclick="showOrderDetails('${orderId}')" title="Visualizar Orden" class="bg-green-200 flex-1 py-2 rounded-lg hover:bg-green-600 hover:shadow-sm hover:text-white text-green-700 transition-all">
+                                    <i class="fa-regular fa-eye text-xs"></i>
+                                </button>
+                                <button onclick="openEditOrder('${orderId}', '${myRole}')" title="Editar Orden" class="bg-blue-200 flex-1 py-2 rounded-lg hover:bg-blue-600 hover:shadow-sm hover:text-white text-blue-700 transition-all">
+                                    <i class="fa-regular fa-pen-to-square text-xs"></i>
+                                </button>
+                               ${(hasMotorized && !isSent && !isAccepted) ? `
+                                    <button onclick="handleMarkAsSent('${orderId}')" title="Marcar como Enviado" class="bg-emerald-200 flex-1 py-2 rounded-lg text-emerald-600 hover:text-white hover:bg-emerald-600 shadow-md transition-all">
+                                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                                    </button>
+                                ` : ''}
+                                <button onclick="openPostponeOrder('${orderId}')" title="Postergar" class="bg-yellow-200 flex-1 py-2 rounded-lg hover:bg-yellow-500 hover:text-white text-yellow-700 transition-all">
+                                    <i class="fa-regular fa-clock text-xs"></i>
+                                </button>
+                            
+                                ${showCobranzaBtn ? `
+                                    <button onclick="openPaymentModalFromOrderId('${orderId}')" title="Gestionar Cobranza" class="flex-1 py-2 rounded-lg bg-blue-100 hover:bg-blue-300 text-blue-600 hover:text-white shadow-sm">
+                                        <i class="fa-regular fa-dollar text-xs"></i>
+                                    </button>
+                                ` : ''}
+                                <button onclick="handleSuspendOrder('${orderId}')" title="Suspender Orden" class="bg-red-200 flex-1 py-2 rounded-lg hover:bg-red-500 hover:text-white text-red-700 transition-all">
+                                    <i class="fa-regular fa-circle-pause text-xs"></i>
+                                </button>
+                                <button onclick="openContactModal('${orderId}')" title="Contactar Cliente" class="bg-indigo-100 flex-1 py-2 rounded-lg hover:bg-indigo-600 hover:text-white text-indigo-700 transition-all">
+                                    <i class="fa-solid fa-address-book text-xs"></i>
                                 </button>
                             `}
-                        ` : isPostponed ? `
-                            <button onclick="handleSuspendOrder('${orderId}')" title="Suspender Orden" class="w-full py-2.5 flex-1 rounded-lg bg-red-200 text-red-500 flex items-center justify-center hover:bg-red-700 gap-2 cursor-default">
-                                <i class="fa-regular fa-circle-pause text-xs"></i>
-                            </button>
-                            <button onclick="openPostponeOrder('${orderId}')" title="Reprogramar" class="w-full py-2.5  flex-[3] rounded-lg bg-blue-200 text-blue-500 flex items-center justify-center hover:bg-blue-700 gap-2 cursor-default">
-                                <i class="fa-regular fa-clock text-xs"></i> 
-                                <span class="text-[10px] font-bold tracking-wider uppercase">Ajustar Fecha</span>
-                            </button>
-                        ` : `
-                            <button onclick="showOrderDetails('${orderId}')" title="Visualizar Orden" class="bg-green-200 flex-1 py-2 rounded-lg hover:bg-green-600 hover:shadow-sm hover:text-white text-green-700 transition-all">
-                                <i class="fa-regular fa-eye text-xs"></i>
-                            </button>
-                            <button onclick="openEditOrder('${orderId}', '${myRole}')" title="Editar Orden" class="bg-blue-200 flex-1 py-2 rounded-lg hover:bg-blue-600 hover:shadow-sm hover:text-white text-blue-700 transition-all">
-                                <i class="fa-regular fa-pen-to-square text-xs"></i>
-                            </button>
-                           ${(hasMotorized && !isSent && !isAccepted) ? `
-                                <button onclick="handleMarkAsSent('${orderId}')" title="Marcar como Enviado" class="bg-emerald-200 flex-1 py-2 rounded-lg text-emerald-600 hover:text-white hover:bg-emerald-600 shadow-md transition-all">
-                                    <i class="fa-solid fa-paper-plane text-xs"></i>
-                                </button>
-                            ` : ''}
-                            <button onclick="openPostponeOrder('${orderId}')" title="Postergar" class="bg-yellow-200 flex-1 py-2 rounded-lg hover:bg-yellow-500 hover:text-white text-yellow-700 transition-all">
-                                <i class="fa-regular fa-clock text-xs"></i>
-                            </button>
-                        
-                            ${showCobranzaBtn ? `
-                                <button onclick="openPaymentModalFromOrderId('${orderId}')" title="Gestionar Cobranza" class="flex-1 py-2 rounded-lg bg-blue-100 hover:bg-blue-300 text-blue-600 hover:text-white shadow-sm">
-                                    <i class="fa-regular fa-dollar text-xs"></i>
-                                </button>
-                            ` : ''}
-                            <button onclick="handleSuspendOrder('${orderId}')" title="Suspender Orden" class="bg-red-200 flex-1 py-2 rounded-lg hover:bg-red-500 hover:text-white text-red-700 transition-all">
-                                <i class="fa-regular fa-circle-pause text-xs"></i>
-                            </button>
-                            <button onclick="openContactModal('${orderId}')" title="Contactar Cliente" class="bg-indigo-100 flex-1 py-2 rounded-lg hover:bg-indigo-600 hover:text-white text-indigo-700 transition-all">
-                                <i class="fa-solid fa-address-book text-xs"></i>
-                            </button>
-                        `}
+                        </div>
                     </div>
-                </div>
-                `;
-                });
+                    `;
+                    });
+                }
 
                 container.innerHTML = allCardsHTML;
                 if (window.startOrderNotificationsTimer) {
@@ -475,7 +488,6 @@ function fetchAndRenderOrders(filters = {}) {
         });
     }
 
-    // Si hay usuario autenticado, continuar; si no, esperar a login
     if (user) {
         continuarConUsuario(user);
     } else {
@@ -492,10 +504,12 @@ function fetchAndRenderOrders(filters = {}) {
 function fillFilterOptions(selectId, dataPairs) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    // Mantener opción "Todos ..." original
+    
     let labelTodos = "Todos";
     if (selectId === "filterSeller") labelTodos = "Todos los Vendedores";
     if (selectId === "filterMotorized") labelTodos = "Todos los Motorizados";
+    if (selectId === "filterOrderStatus") labelTodos = "Todos los Estatus";
+
     const unique = {};
     dataPairs.forEach(([id, name]) => {
         if (id && id !== "undefined" && !unique[id]) unique[id] = name || id;
@@ -511,30 +525,26 @@ function fillFilterOptions(selectId, dataPairs) {
  * Nueva función global: Lee todos los filtros y recarga el grid de órdenes con ellos
  */
 window.applyAllFilters = async function () {
-    const search = document.getElementById("globalSearch").value?.trim().toLowerCase() || "";
-    const seller = document.getElementById("filterSeller").value || "all";
-    const motorized = document.getElementById("filterMotorized").value || "all";
-    const sort = document.getElementById("filterSort").value || "newest";
+    const search = document.getElementById("globalSearch")?.value?.trim().toLowerCase() || "";
+    const seller = document.getElementById("filterSeller")?.value || "all";
+    const motorized = document.getElementById("filterMotorized")?.value || "all";
+    const sort = document.getElementById("filterSort")?.value || "newest";
+    const status = document.getElementById("filterOrderStatus")?.value || "all";
+
     await fetchAndRenderOrders({
         search,
         seller,
         motorized,
-        sort
+        sort,
+        status
     });
 };
 
-/**
- * Muestra el modal con detalles. 
- */
-
 function completeVenezuelaAddress(address, order) {
-    // Siempre fuerza "Venezuela" al final
     let completed = address || "";
     completed = completed.trim();
 
-    // Si falta el país, lo agrega
     if (!/venezuela/i.test(completed)) {
-        // Intenta agregar estado: busca en datos del cliente o fallback
         let state = "";
         let city = "";
         if (order.customerData && order.customerData.state) {
@@ -547,7 +557,6 @@ function completeVenezuelaAddress(address, order) {
         } else if (order.city) {
             city = order.city;
         }
-        // Si la dirección ya NO tiene el estado ni la ciudad, lo agrega antes de "Venezuela"
         if (state && !new RegExp(state, 'i').test(completed)) {
             completed += ", " + state;
         } else if (city && !new RegExp(city, 'i').test(completed)) {
@@ -576,7 +585,6 @@ async function geocodeAddress(address) {
     return null;
 }
 
-
 window.showOrderDetails = async function (orderId) {
     const order = window.ordersCache[orderId];
     if (!order) return;
@@ -595,7 +603,6 @@ window.showOrderDetails = async function (orderId) {
     let modalEurHTML = "";
     if (currentRates.usd && currentRates.eur) {
         const totalUsd = parseFloat(order.total || 0);
-        const totalBs = totalUsd * currentRates.usd;
         const totalEur = totalUsd * currentRates.eur;
 
         const totalEurFormateado = totalEur.toLocaleString('es-ES', { 
@@ -682,7 +689,6 @@ window.showOrderDetails = async function (orderId) {
         </div>
     `;
 
-    // Obtén lat/lng y dirección
     const lat = order.customerData?.lat || order.lat;
     const lng = order.customerData?.lng || order.lng;
     let rawAddress = order.customerData?.address || order.readable_address || "";
@@ -713,7 +719,6 @@ window.showOrderDetails = async function (orderId) {
         }, 300);
     }
 
-    // El mapa SIEMPRE se dibuja: con coordenadas, con dirección, o valor por defecto
     (async () => {
         if (lat && lng) {
             drawMap(parseFloat(lat), parseFloat(lng), name, phone);
@@ -741,27 +746,21 @@ async function checkPostponedOrders() {
     for (const id in window.ordersCache) {
         const order = window.ordersCache[id];
 
-        // Verificamos que la orden esté postergada y tenga historial
         if (order.status === "Postergado" && order.postponeHistory && order.postponeHistory.length > 0) {
-
-            // Obtenemos el último registro de postergación
             const lastPostpone = order.postponeHistory[order.postponeHistory.length - 1];
             const { date, time } = lastPostpone;
 
             if (date && time) {
-                // Creamos un objeto Date combinando "YYYY-MM-DD" y "HH:mm"
                 const scheduledTime = new Date(`${date}T${time}:00`);
 
-                // Si la hora actual es mayor o igual a la programada, reactivamos
                 if (ahora >= scheduledTime) {
                     console.log(`Reactivando orden vencida desde historial: ${id}`);
                     try {
                         await updateDoc(doc(db, "orders", id), {
-                            status: "Asignado", // Cambia a "Pendiente" o el que uses normalmente
+                            status: "Asignado",
                             lastUpdate: ahora.toISOString(),
                             autoReactivated: true
                         });
-                        // El onSnapshot se encargará de refrescar la UI automáticamente
                     } catch (error) {
                         console.error("Error al reactivar desde historial:", error);
                     }
@@ -770,30 +769,29 @@ async function checkPostponedOrders() {
         }
     }
 }
+
 // === Inicialización automática ===
 window.addEventListener('DOMContentLoaded', async () => {
-    // Primero cargamos las tasas
     await loadExchangeRates();
-    // Luego aplicamos filtros y renderizamos
-    window.applyAllFilters();
+    await window.applyAllFilters();
     setInterval(checkPostponedOrders, 30000);
 });
 
 window.clearAllFilters = async function () {
-    // 1. Limpiar el input de búsqueda
     const searchInput = document.getElementById("globalSearch");
     if (searchInput) searchInput.value = "";
 
-    // 2. Regresar los selects a sus valores iniciales
     const sellerSelect = document.getElementById("filterSeller");
     if (sellerSelect) sellerSelect.value = "all";
 
     const motorizedSelect = document.getElementById("filterMotorized");
     if (motorizedSelect) motorizedSelect.value = "all";
 
+    const statusSelect = document.getElementById("filterOrderStatus");
+    if (statusSelect) statusSelect.value = "all";
+
     const sortSelect = document.getElementById("filterSort");
     if (sortSelect) sortSelect.value = "newest";
 
-    // 3. Ejecutar la recarga con los valores ya limpios
     await window.applyAllFilters();
 };

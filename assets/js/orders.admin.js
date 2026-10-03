@@ -8,7 +8,8 @@ import {
     doc,
     query,
     where,
-    onSnapshot
+    onSnapshot,
+    updateDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -25,6 +26,7 @@ window.openPaymentModalFromOrderId = function (orderId) {
         openPaymentModal({ ...order, id: orderId });
     }
 };
+
 // IMPORTACIÓN DE FUNCIONES DESDE order-actions.js
 import {
     handleSuspendOrder,
@@ -145,18 +147,11 @@ async function loadExchangeRates() {
     }
 }
 
-/**
- * Renderiza el grid de órdenes con lógica condicional para órdenes suspendidas y filtro de rol
- * Ahora acepta un objeto filters: {search, seller, motorized, sort}
- */
-
-// Variable global para limpiar el listener en caso de recarga de filtros o sesión
-
 // Variable global para limpiar el listener en caso de recarga
 window.currentOrdersUnsubscribe = null;
 
 /**
- * Renderiza el grid de órdenes en TIEMPO REAL y siempre ordena del más nuevo al más viejo.
+ * Renderiza el grid de órdenes en TIEMPO REAL y aplica los filtros recibidos.
  */
 function fetchAndRenderOrders(filters = {}) {
     const container = document.getElementById('grid-container');
@@ -213,12 +208,16 @@ function fetchAndRenderOrders(filters = {}) {
                 // OPTIMIZACIÓN: Solo repoblar filtros si no se ha seleccionado nada (evita bucle de desconexión)
                 const currentSeller = document.getElementById("filterSeller")?.value || "all";
                 const currentMotorized = document.getElementById("filterMotorized")?.value || "all";
-                
+                const currentStatus = document.getElementById("filterOrderStatus")?.value || "all";
+
                 if (currentSeller === "all") {
                     fillFilterOptions("filterSeller", ordersArr.map(o => [o.assignedSeller, o.assignedSellerName]));
                 }
                 if (currentMotorized === "all") {
                     fillFilterOptions("filterMotorized", ordersArr.map(o => [o.assignedMotorizedId, o.assignedMotorizedName]));
+                }
+                if (currentStatus === "all") {
+                    fillFilterOptions("filterOrderStatus", ordersArr.map(o => [o.status || "Pendiente", o.status || "Pendiente"]));
                 }
 
                 // === FILTRO GLOBAL (Busca en todo el set de datos inicial) ===
@@ -227,6 +226,9 @@ function fetchAndRenderOrders(filters = {}) {
                 }
                 if (filters.motorized && filters.motorized !== "all") {
                     ordersArr = ordersArr.filter(o => o.assignedMotorizedId === filters.motorized);
+                }
+                if (filters.status && filters.status !== "all") {
+                    ordersArr = ordersArr.filter(o => (o.status || 'Pendiente') === filters.status);
                 }
                 if (filters.search) {
                     const searchTerm = filters.search.toLowerCase();
@@ -255,12 +257,10 @@ function fetchAndRenderOrders(filters = {}) {
                 const totalItems = ordersArr.length;
                 const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
-                // Si por un cambio de filtro la página actual queda fuera de rango, la reseteamos a la 1
                 if (currentPage > totalPages) {
                     currentPage = 1;
                 }
 
-                // Segmentamos el array para mostrar únicamente los 20 elementos correspondientes a la página activa
                 const startIndex = (currentPage - 1) * itemsPerPage;
                 const endIndex = startIndex + itemsPerPage;
                 const paginatedOrders = ordersArr.slice(startIndex, endIndex);
@@ -423,7 +423,7 @@ function fetchAndRenderOrders(filters = {}) {
                                     <button onclick="handleSuspendOrder('${orderId}')" title="Suspender Orden" class="w-full py-2.5 flex-1 rounded-lg bg-red-200 text-red-500 flex items-center justify-center hover:bg-red-700 gap-2 cursor-default">
                                         <i class="fa-regular fa-circle-pause text-xs"></i>
                                     </button>
-                                    <button onclick="openPostponeOrder('${orderId}')" title="Reprogramar" class="w-full py-2.5  flex-[3] rounded-lg bg-blue-200 text-blue-500 flex items-center justify-center hover:bg-blue-700 gap-2 cursor-default">
+                                    <button onclick="openPostponeOrder('${orderId}')" title="Reprogramar" class="w-full py-2.5 flex-[3] rounded-lg bg-blue-200 text-blue-500 flex items-center justify-center hover:bg-blue-700 gap-2 cursor-default">
                                         <i class="fa-regular fa-clock text-xs"></i> 
                                         <span class="text-[10px] font-bold tracking-wider uppercase">Ajustar Fecha</span>
                                     </button>
@@ -500,7 +500,7 @@ function renderPaginationControls(totalPages, totalItems, currentFilters) {
     infoText.innerText = `Mostrando ${startRange}-${endRange} de ${totalItems} órdenes`;
 
     let pages = [];
-    if (totalPages <= 8) { for (let i = 1; i <= totalPages; i++) pages.push(i); } 
+    if (totalPages <= 8) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
     else {
         pages.push(1);
         let start = Math.max(2, currentPage - 2);
@@ -525,7 +525,7 @@ function renderPaginationControls(totalPages, totalItems, currentFilters) {
     }).join('');
 }
 
-window.changePage = function(pageNumber, currentFilters) {
+window.changePage = function (pageNumber, currentFilters) {
     currentPage = pageNumber;
     fetchAndRenderOrders(currentFilters);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -537,14 +537,17 @@ window.changePage = function(pageNumber, currentFilters) {
 function fillFilterOptions(selectId, dataPairs) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    // Mantener opción "Todos ..." original
+
     let labelTodos = "Todos";
     if (selectId === "filterSeller") labelTodos = "Todos los Vendedores";
     if (selectId === "filterMotorized") labelTodos = "Todos los Motorizados";
+    if (selectId === "filterOrderStatus") labelTodos = "Todos los Estatus";
+
     const unique = {};
     dataPairs.forEach(([id, name]) => {
         if (id && id !== "undefined" && !unique[id]) unique[id] = name || id;
     });
+
     let html = `<option value="all">${labelTodos}</option>`;
     for (const [id, name] of Object.entries(unique)) {
         html += `<option value="${id}">${name || id}</option>`;
@@ -556,31 +559,26 @@ function fillFilterOptions(selectId, dataPairs) {
  * Nueva función global: Lee todos los filtros y recarga el grid de órdenes con ellos
  */
 window.applyAllFilters = async function () {
-    const search = document.getElementById("globalSearch").value?.trim().toLowerCase() || "";
-    const seller = document.getElementById("filterSeller").value || "all";
-    const motorized = document.getElementById("filterMotorized").value || "all";
-    const sort = document.getElementById("filterSort").value || "newest"; // Asegura el default
+    const search = document.getElementById("globalSearch")?.value?.trim().toLowerCase() || "";
+    const seller = document.getElementById("filterSeller")?.value || "all";
+    const motorized = document.getElementById("filterMotorized")?.value || "all";
+    const sort = document.getElementById("filterSort")?.value || "newest";
+    const status = document.getElementById("filterOrderStatus")?.value || "all";
+
     await fetchAndRenderOrders({
         search,
         seller,
         motorized,
-        sort
+        sort,
+        status
     });
 };
 
-/**
- * Muestra el modal con detalles. 
- */
-
-
 function completeVenezuelaAddress(address, order) {
-    // Siempre fuerza "Venezuela" al final
     let completed = address || "";
     completed = completed.trim();
 
-    // Si falta el país, lo agrega
     if (!/venezuela/i.test(completed)) {
-        // Intenta agregar estado: busca en datos del cliente o fallback
         let state = "";
         let city = "";
         if (order.customerData && order.customerData.state) {
@@ -593,7 +591,6 @@ function completeVenezuelaAddress(address, order) {
         } else if (order.city) {
             city = order.city;
         }
-        // Si la dirección ya NO tiene el estado ni la ciudad, lo agrega antes de "Venezuela"
         if (state && !new RegExp(state, 'i').test(completed)) {
             completed += ", " + state;
         } else if (city && !new RegExp(city, 'i').test(completed)) {
@@ -623,7 +620,6 @@ async function geocodeAddress(address) {
     return null;
 }
 
-
 window.showOrderDetails = async function (orderId) {
     const order = window.ordersCache[orderId];
     if (!order) return;
@@ -642,7 +638,6 @@ window.showOrderDetails = async function (orderId) {
     let modalEurHTML = "";
     if (currentRates.usd && currentRates.eur) {
         const totalUsd = parseFloat(order.total || 0);
-        const totalBs = totalUsd * currentRates.usd;
         const totalEur = totalUsd * currentRates.eur;
 
         const totalEurFormateado = totalEur.toLocaleString('es-ES', {
@@ -760,7 +755,6 @@ window.showOrderDetails = async function (orderId) {
         }, 300);
     }
 
-    // El mapa SIEMPRE se dibuja: con coordenadas, con dirección, o valor por defecto
     (async () => {
         if (lat && lng) {
             drawMap(parseFloat(lat), parseFloat(lng), name, phone);
@@ -788,27 +782,22 @@ async function checkPostponedOrders() {
     for (const id in window.ordersCache) {
         const order = window.ordersCache[id];
 
-        // Verificamos que la orden esté postergada y tenga historial
         if (order.status === "Postergado" && order.postponeHistory && order.postponeHistory.length > 0) {
 
-            // Obtenemos el último registro de postergación
             const lastPostpone = order.postponeHistory[order.postponeHistory.length - 1];
             const { date, time } = lastPostpone;
 
             if (date && time) {
-                // Creamos un objeto Date combinando "YYYY-MM-DD" y "HH:mm"
                 const scheduledTime = new Date(`${date}T${time}:00`);
 
-                // Si la hora actual es mayor o igual a la programada, reactivamos
                 if (ahora >= scheduledTime) {
                     console.log(`Reactivando orden vencida desde historial: ${id}`);
                     try {
                         await updateDoc(doc(db, "orders", id), {
-                            status: "Asignado", // Cambia a "Pendiente" o el que uses normalmente
+                            status: "Asignado",
                             lastUpdate: ahora.toISOString(),
                             autoReactivated: true
                         });
-                        // El onSnapshot se encargará de refrescar la UI automáticamente
                     } catch (error) {
                         console.error("Error al reactivar desde historial:", error);
                     }
@@ -817,6 +806,7 @@ async function checkPostponedOrders() {
         }
     }
 }
+
 // === Inicialización automática ===
 window.addEventListener('DOMContentLoaded', async () => {
     await loadExchangeRates();
@@ -835,10 +825,12 @@ window.clearAllFilters = async function () {
     const motorizedSelect = document.getElementById("filterMotorized");
     if (motorizedSelect) motorizedSelect.value = "all";
 
+    const statusSelect = document.getElementById("filterOrderStatus");
+    if (statusSelect) statusSelect.value = "all";
+
     const sortSelect = document.getElementById("filterSort");
     if (sortSelect) sortSelect.value = "newest";
 
-    // Reestablecemos el puntero a la primera página
     currentPage = 1;
 
     await window.applyAllFilters();
