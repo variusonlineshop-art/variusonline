@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Panel — Varius</title>
     <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-    <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="../assets/css/presence.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -80,138 +79,160 @@
     <main class="main">
         <div class="px-6 py-8">
             <!---**KPIS CARD**--->
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <!---**KPIS CARD (Optimizado para móvil)**--->
+            <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 md:gap-6 mb-6">
 
+                <!-- KPI: Stock Crítico -->
                 <div onclick="abrirModalStock()"
-                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group">
-                    <div class="flex justify-between items-start mb-4">
+                    class="bg-white rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm p-3 md:p-5 hover:shadow-md transition-all group cursor-pointer flex flex-col justify-between">
+                    <div class="flex items-center gap-2.5 md:gap-3 mb-2 md:mb-4">
                         <div
-                            class="w-10 h-10 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-red-500 group-hover:text-white transition-colors">
+                            class="w-8 h-8 md:w-10 md:h-10 bg-red-50 text-red-500 rounded-xl md:rounded-2xl flex items-center justify-center text-sm md:text-xl group-hover:bg-red-500 group-hover:text-white transition-colors shrink-0">
                             <i class="fa-solid fa-triangle-exclamation"></i>
                         </div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Stock
-                            Crítico</p>
-                        <h3 class="text-2xl font-black text-gray-800" id="kpi-stock">0</h3>
-                        <div class="w-full bg-gray-100 h-1 rounded-full mt-3 overflow-hidden">
-                            <div class="bg-red-500 h-full" style="width: 75%"></div>
+                        <div class="min-w-0">
+                            <p
+                                class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1 truncate">
+                                Stock Crítico</p>
+                            <h3 class="text-base md:text-2xl font-black text-gray-800 leading-tight truncate"
+                                id="kpi-stock">0</h3>
                         </div>
+                    </div>
+                    <div class="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                        <div class="bg-red-500 h-full" style="width: 75%"></div>
                     </div>
                 </div>
 
+                <!-- KPI: Pedidos Hoy -->
                 <div
-                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group">
-                    <div class="flex justify-between items-start mb-4">
+                    class="bg-white rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm p-3 md:p-5 hover:shadow-md transition-all group flex items-center">
+                    <div class="flex items-center gap-2.5 md:gap-3 w-full">
                         <div
-                            class="w-10 h-10 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            class="w-8 h-8 md:w-10 md:h-10 bg-blue-50 text-blue-500 rounded-xl md:rounded-2xl flex items-center justify-center text-sm md:text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
                             <i class="fa-solid fa-truck-ramp-box"></i>
                         </div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-                            Pedidos Hoy</p>
-                        <h3 class="text-2xl font-black text-gray-800" id="kpi-orders">18</h3>
+                        <div class="min-w-0">
+                            <p
+                                class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1 truncate">
+                                Pedidos Hoy</p>
+                            <h3 class="text-base md:text-2xl font-black text-gray-800 leading-tight truncate"
+                                id="kpi-orders">18</h3>
+                        </div>
                     </div>
                 </div>
 
+                <!-- KPI: Ventas del Día -->
                 <div onclick="window.abrirModalVentasDia()"
-                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group cursor-pointer">
-                    <div class="flex justify-between items-start mb-4">
+                    class="bg-white rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm p-3 md:p-5 hover:shadow-md transition-all group cursor-pointer flex flex-col justify-between">
+                    <div class="flex items-center gap-2.5 md:gap-3 mb-2 md:mb-4">
                         <div
-                            class="w-10 h-10 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-green-500 group-hover:text-white transition-colors">
+                            class="w-8 h-8 md:w-10 md:h-10 bg-green-50 text-green-500 rounded-xl md:rounded-2xl flex items-center justify-center text-sm md:text-xl group-hover:bg-green-500 group-hover:text-white transition-colors shrink-0">
                             <i class="fa-solid fa-cash-register"></i>
                         </div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-                            Ventas del Día</p>
-                        <h3 class="text-2xl font-black text-gray-800" id="kpi-ventas-dia-value">$0.00</h3>
-                        <div class="w-full bg-gray-100 h-1 rounded-full mt-3 overflow-hidden">
-                            <div id="kpi-ventas-dia-bar" class="bg-green-500 h-full transition-all duration-700"
-                                style="width: 0%"></div>
+                        <div class="min-w-0">
+                            <p
+                                class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1 truncate">
+                                Ventas del Día</p>
+                            <h3 class="text-base md:text-2xl font-black text-gray-800 leading-tight truncate"
+                                id="kpi-ventas-dia-value">$0.00</h3>
                         </div>
+                    </div>
+                    <div class="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                        <div id="kpi-ventas-dia-bar" class="bg-green-500 h-full transition-all duration-700"
+                            style="width: 0%"></div>
                     </div>
                 </div>
 
-                <div id="modal-ventas-dia" class="fixed inset-0 z-[1500] hidden flex items-center justify-center p-4">
-                    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="cerrarModalVentasDia()">
-                    </div>
-                    <div
-                        class="relative bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden transform transition-all border border-white/20">
-                        <div id="modalVentasDiaBody">
-                        </div>
-                    </div>
-                </div>
-
+                <!-- KPI: Balance de Caja -->
                 <div
-                    class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group">
-                    <div class="flex justify-between items-start mb-4">
-                        <div
-                            class="w-10 h-10 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center text-xl group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                            <i class="fa-solid fa-vault"></i>
+                    class="bg-white rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm p-3 md:p-5 hover:shadow-md transition-all group flex items-center">
+                    <div class="flex items-center justify-between w-full min-w-0 gap-1">
+                        <div class="flex items-center gap-2.5 md:gap-3 min-w-0">
+                            <div
+                                class="w-8 h-8 md:w-10 md:h-10 bg-purple-50 text-purple-500 rounded-xl md:rounded-2xl flex items-center justify-center text-sm md:text-xl group-hover:bg-purple-600 group-hover:text-white transition-colors shrink-0">
+                                <i class="fa-solid fa-vault"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p
+                                    class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1 truncate">
+                                    Balance Caja</p>
+                                <h3 class="text-base md:text-2xl font-black text-gray-800 leading-tight truncate"
+                                    id="kpi-cash">$00.00</h3>
+                            </div>
                         </div>
-                        <button class="text-gray-300 hover:text-purple-500 transition-colors">
+                        <button
+                            class="text-gray-300 hover:text-purple-500 transition-colors text-xs md:text-base shrink-0">
                             <i class="fa-solid fa-circle-info"></i>
                         </button>
                     </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-                            Balance de Caja</p>
-                        <h3 class="text-2xl font-black text-gray-800" id="kpi-cash">$00.00</h3>
-                    </div>
-                </div>
-            </div>
-            <!---**ACCIONES RAPIDAS**--->
-            <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-6">
-                <div class="border-b border-gray-50 pb-4 mb-6">
-                    <h2 class="text-lg font-bold text-gray-800">Acciones Rápidas</h2>
-                    <p class="text-xs text-gray-400">Accesos directos a los módulos principales</p>
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+            </div>
+
+            <!---**ACCIONES RAPIDAS**--->
+            <div class="bg-white rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm p-4 md:p-6 mb-6">
+                <div class="border-b border-gray-50 pb-2 md:pb-4 mb-3 md:mb-6">
+                    <h2 class="text-base md:text-lg font-bold text-gray-800">Acciones Rápidas</h2>
+                    <p class="text-[10px] md:text-xs text-gray-400">Accesos directos a los módulos principales</p>
+                </div>
+
+                <!-- Se cambió grid-cols-2 a grid-cols-3 en pantallas pequeñas para aprovechar mejor el espacio -->
+                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2 md:gap-4">
                     <a href="product.html"
-                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all group">
-                        <i class="fa-solid fa-box text-xl mb-2 group-hover:scale-110 transition-transform"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">Productos</span>
+                        class="flex flex-col items-center justify-center p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all group">
+                        <i
+                            class="fa-solid fa-box text-base md:text-xl mb-1 md:mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span
+                            class="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-center leading-tight">Productos</span>
                     </a>
 
                     <a href="usuarios.html"
-                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all group">
-                        <i class="fa-solid fa-users text-xl mb-2 group-hover:scale-110 transition-transform"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">Usuarios</span>
+                        class="flex flex-col items-center justify-center p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all group">
+                        <i
+                            class="fa-solid fa-users text-base md:text-xl mb-1 md:mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span
+                            class="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-center leading-tight">Usuarios</span>
                     </a>
 
                     <a href="cierre-caja.html"
-                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all group">
+                        class="flex flex-col items-center justify-center p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all group">
                         <i
-                            class="fa-solid fa-cash-register text-xl mb-2 group-hover:scale-110 transition-transform"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">Cierre Caja</span>
+                            class="fa-solid fa-cash-register text-base md:text-xl mb-1 md:mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span
+                            class="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-center leading-tight">Cierre
+                            Caja</span>
                     </a>
 
                     <a href="crm.html"
-                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all group">
-                        <i class="fa-solid fa-address-card text-xl mb-2 group-hover:scale-110 transition-transform"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">CRM</span>
+                        class="flex flex-col items-center justify-center p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all group">
+                        <i
+                            class="fa-solid fa-address-card text-base md:text-xl mb-1 md:mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span
+                            class="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-center leading-tight">CRM</span>
                     </a>
 
                     <a href="visits.html"
-                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-all group">
-                        <i class="fa-solid fa-eye text-xl mb-2 group-hover:scale-110 transition-transform"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">Visitas</span>
+                        class="flex flex-col items-center justify-center p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white transition-all group">
+                        <i
+                            class="fa-solid fa-eye text-base md:text-xl mb-1 md:mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span
+                            class="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-center leading-tight">Visitas</span>
                     </a>
 
                     <a href="category.html"
-                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-pink-50 text-pink-600 hover:bg-pink-600 hover:text-white transition-all group">
-                        <i class="fa-solid fa-layer-group text-xl mb-2 group-hover:scale-110 transition-transform"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">Categorías</span>
+                        class="flex flex-col items-center justify-center p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-pink-50 text-pink-600 hover:bg-pink-600 hover:text-white transition-all group">
+                        <i
+                            class="fa-solid fa-layer-group text-base md:text-xl mb-1 md:mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span
+                            class="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-center leading-tight">Categorías</span>
                     </a>
 
                     <a href="routes.html"
-                        class="flex flex-col items-center justify-center p-4 rounded-2xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all group">
+                        class="flex flex-col items-center justify-center p-2.5 md:p-4 rounded-xl md:rounded-2xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all group">
                         <i
-                            class="fa-solid fa-map-location-dot text-xl mb-2 group-hover:scale-110 transition-transform"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-tight text-center">Rutas</span>
+                            class="fa-solid fa-map-location-dot text-base md:text-xl mb-1 md:mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span
+                            class="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-center leading-tight">Rutas</span>
                     </a>
                 </div>
             </div>
@@ -276,7 +297,8 @@
 
                         <div>
                             <label
-                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Estatus Orden</label>
+                                class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Estatus
+                                Orden</label>
                             <select id="filterOrderStatus" onchange="applyAllFilters()"
                                 class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all">
                                 <option value="all">Todos los Estatus</option>
