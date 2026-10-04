@@ -100,6 +100,13 @@ async function processFiles(fileList, targetArray, renderCallback) {
 
 function renderPreviewImages() {
     if (!previewContainer) return;
+
+    // Limpieza de instancia Sortable previa para evitar TypeError por elementos nulos/desacoplados
+    if (sortableObj) {
+        sortableObj.destroy();
+        sortableObj = null;
+    }
+
     previewContainer.innerHTML = '';
 
     currentImages.forEach((imgObj, idx) => {
@@ -111,7 +118,6 @@ function renderPreviewImages() {
         previewContainer.appendChild(div);
     });
 
-    if (sortableObj) sortableObj.destroy();
     if (currentImages.length > 1 && window.Sortable) {
         sortableObj = Sortable.create(previewContainer, {
             animation: 180,
@@ -125,6 +131,13 @@ function renderPreviewImages() {
 
 function renderComboPreviewImages() {
     if (!comboPreviewContainer) return;
+
+    // Limpieza de instancia Sortable previa
+    if (comboSortableObj) {
+        comboSortableObj.destroy();
+        comboSortableObj = null;
+    }
+
     comboPreviewContainer.innerHTML = '';
 
     currentComboImages.forEach((imgObj, idx) => {
@@ -136,7 +149,6 @@ function renderComboPreviewImages() {
         comboPreviewContainer.appendChild(div);
     });
 
-    if (comboSortableObj) comboSortableObj.destroy();
     if (currentComboImages.length > 1 && window.Sortable) {
         comboSortableObj = Sortable.create(comboPreviewContainer, {
             animation: 180,
@@ -279,8 +291,7 @@ async function cargarProductosFirebase(items = 50, ultimoDoc = null) {
         const productosData = [];
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
-            
-            // Compatibilidad retroactiva para descuentos antiguos e individuales
+
             let discounts = [];
             if (Array.isArray(data.discounts) && data.discounts.length > 0) {
                 discounts = data.discounts;
@@ -297,10 +308,11 @@ async function cargarProductosFirebase(items = 50, ultimoDoc = null) {
                 stock: parseInt(data.stock || 0),
                 status: (data.status || "ACTIVE").toUpperCase(),
                 isCombo: data.isCombo === true || data.category === 'Combos',
+                isNew: data.isNew === true, // Captura de estado "Nuevo"
                 comboItems: data.comboItems || [],
                 onOffer: data.onOffer === true || discounts.length > 0,
                 discounts: discounts,
-                discount: discounts.length > 0 ? discounts[0].percentage : 0, // Mantenemos referencia de 1er descuento para KPIs
+                discount: discounts.length > 0 ? discounts[0].percentage : 0,
                 images: (data.imageUrls && data.imageUrls.length > 0) ? data.imageUrls : ["https://via.placeholder.com/400x300"],
                 description: data.description || "",
                 sharedVideo: data.sharedVideo || null
@@ -369,6 +381,7 @@ function abrirModalCombo(tipo = 'new', id = null) {
     const form = document.getElementById('comboForm');
     const title = document.getElementById('comboModalTitle');
     const skuInput = document.getElementById('comboSkuInput');
+    const isNewCheckbox = document.getElementById('comboIsNew');
 
     if (!modal || !form) return;
 
@@ -394,8 +407,8 @@ function abrirModalCombo(tipo = 'new', id = null) {
             document.getElementById('comboPrice').value = (combo.price || 0).toLocaleString('de-DE', { minimumFractionDigits: 2 });
             document.getElementById('comboStock').value = combo.stock || 0;
             document.getElementById('comboStatus').value = combo.status || 'ACTIVE';
+            if (isNewCheckbox) isNewCheckbox.checked = combo.isNew || false;
 
-            // Cargar items seleccionados previamente
             if (combo.comboItems && Array.isArray(combo.comboItems)) {
                 combo.comboItems.forEach(item => {
                     const check = document.querySelector(`.combo-chk[data-id="${item.productId}"]`);
@@ -422,6 +435,7 @@ function abrirModalCombo(tipo = 'new', id = null) {
         title.innerHTML = `<span class="bg-purple-100 text-purple-600 p-2 rounded-lg"><i class="fas fa-cubes"></i></span> Crear Nuevo Combo`;
         form.setAttribute('data-type', 'new');
         skuInput.value = `CMB-${Math.floor(100000 + Math.random() * 900000)}`;
+        if (isNewCheckbox) isNewCheckbox.checked = false;
     }
 
     calcularSumaCombo();
@@ -450,7 +464,6 @@ function poblarListaProductosCombo() {
     const cont = document.getElementById('comboProductsContainer');
     if (!cont) return;
 
-    // Filtramos productos individuales (no otros combos)
     const productosIndividuales = productos.filter(p => !p.isCombo);
 
     if (productosIndividuales.length === 0) {
@@ -540,6 +553,8 @@ if (comboForm) {
         const price = parsePrecio(document.getElementById('comboPrice').value);
         const stock = parseInt(document.getElementById('comboStock').value) || 0;
         const status = document.getElementById('comboStatus').value || 'ACTIVE';
+        const isNewElem = document.getElementById('comboIsNew');
+        const isNewCombo = isNewElem ? isNewElem.checked : false;
 
         try {
             let urlsFinales = await subirTodasLasImagenes(sku, currentComboImages);
@@ -552,6 +567,7 @@ if (comboForm) {
                 stock: stock,
                 status: status,
                 isCombo: true,
+                isNew: isNewCombo,
                 comboItems: comboItems,
                 description: description,
                 imageUrls: urlsFinales.length > 0 ? urlsFinales : ["https://via.placeholder.com/400x300"]
@@ -711,11 +727,11 @@ function renderizarTabla(datos = productos) {
         ).join('');
 
         const comboBadge = p.isCombo ? `<span class="bg-purple-100 text-purple-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ml-2"><i class="fas fa-cubes"></i> Combo</span>` : '';
+        const newBadge = p.isNew ? `<span class="bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ml-1"><i class="fas fa-star text-[9px]"></i> Nuevo</span>` : '';
 
-        // Badges de múltiples descuentos
         let descuentosHTML = '';
         if (p.onOffer && p.discounts && p.discounts.length > 0) {
-            descuentosHTML = p.discounts.map(d => 
+            descuentosHTML = p.discounts.map(d =>
                 `<span class="inline-block bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold px-1.5 py-0.5 rounded mr-1 mt-0.5">
                     ${d.title ? d.title + ': ' : ''}-${d.percentage}%
                 </span>`
@@ -731,7 +747,7 @@ function renderizarTabla(datos = productos) {
                             ${fotosHTML}
                         </div>
                         <div>
-                            <div class="font-medium text-slate-800 flex items-center gap-1">${p.name} ${comboBadge}</div>
+                            <div class="font-medium text-slate-800 flex items-center gap-1 flex-wrap">${p.name} ${comboBadge} ${newBadge}</div>
                             <div class="text-[10px] text-slate-400 font-bold uppercase">${p.sku}</div>
                         </div>
                     </div>
@@ -847,6 +863,7 @@ function abrirModal(tipo, id = null) {
             if (form.stock) form.stock.value = p.stock || 0;
             if (form.description) form.description.value = p.description || "";
             if (form.status) form.status.value = p.status || 'ACTIVE';
+            if (form.isNew) form.isNew.checked = p.isNew || false;
 
             if (isOfferCheckbox) {
                 isOfferCheckbox.checked = p.onOffer || false;
@@ -868,6 +885,7 @@ function abrirModal(tipo, id = null) {
         titulo.innerText = "Nuevo Producto";
         form.setAttribute('data-type', 'new');
         if (skuInput) skuInput.value = "";
+        if (form.isNew) form.isNew.checked = false;
 
         if (isOfferCheckbox) {
             isOfferCheckbox.checked = false;
@@ -989,11 +1007,11 @@ if (productForm) {
 
         data.sku = document.getElementById('skuInput').value;
         data.onOffer = form.isOffer ? form.isOffer.checked : false;
+        data.isNew = form.isNew ? form.isNew.checked : false;
 
-        // Procesar lista de múltiples descuentos
         const discountsList = data.onOffer ? obtenerListaDescuentos() : [];
         data.discounts = discountsList;
-        data.discount = discountsList.length > 0 ? discountsList[0].percentage : 0; // Mantenemos retrocompatibilidad
+        data.discount = discountsList.length > 0 ? discountsList[0].percentage : 0;
 
         data.price = parsePrecio(data.price);
         data.stock = parseInt(data.stock) || 0;
