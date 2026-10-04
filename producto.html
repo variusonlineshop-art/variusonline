@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es" class="h-full">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Detalle del Producto | Varius</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="assets/css/carrito.css">
+</head>
+
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- HEADER CORREGIDO: Siempre en una sola línea horizontal (Logo izquierda, Iconos derecha) -->
+    <header class="site-header w-full bg-white py-3 border-b border-slate-100 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2">
+
+            <!-- Logotipo alineado a la izquierda -->
+            <div class="brand flex-shrink-0">
+                <a href="./" class="flex items-center">
+                    <img src="admin/assets/img/logo-horizontal.png" class="h-9 sm:h-12 w-auto object-contain"
+                        alt="Varius">
+                </a>
+            </div>
+
+            <!-- Iconos de acción siempre a la derecha en la misma fila -->
+            <nav class="top-actions flex items-center gap-3 flex-shrink-0">
+                <a href="login.html"
+                    class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50"
+                    aria-label="Mi cuenta">
+                    <span class="text-sm">👤</span>
+                </a>
+                <button id="openCartBtn"
+                    class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50 relative flex items-center"
+                    aria-label="Abrir carrito">
+                    <span class="text-base">🛒</span>
+                    <span id="cartCount"
+                        class="bg-cyan-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full absolute -top-1 -right-1 shadow-sm">0</span>
+                </button>
+            </nav>
+
+        </div>
+    </header>
+    <!-- CINTILLO (Efecto deslizante automático intacto) -->
+    <div class="ticker-wrapper">
+        <div class="ticker-mask">
+            <div class="ticker-content">
+                <span>✨ PRECIO TASA EURO✨</span>
+                <span>💳 PAGA AL RECIBIR 💳</span>
+                <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
+                <span>✨ PRECIO TASA EURO ✨</span>
+                <span>💳 PAGA AL RECIBIR 💳</span>
+                <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
+                <span>💳 PAGA AL RECIBIR 💳</span>
+                <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
+            </div>
+        </div>
+    </div>
+    <!-- DETALLE DEL PRODUCTO - ESTRUCTURA DE 2 COLUMNAS -->
+    <main class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 flex-grow w-full">
+
+        <div id="productDetailContainer" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <!-- Esqueleto de Carga Dinámica -->
+            <div class="lg:col-span-7 flex flex-col gap-4 animate-pulse">
+                <div class="bg-slate-200 h-[450px] rounded-3xl w-full"></div>
+                <div class="flex gap-2">
+                    <div class="bg-slate-200 h-20 w-20 rounded-2xl"></div>
+                    <div class="bg-slate-200 h-20 w-20 rounded-2xl"></div>
+                    <div class="bg-slate-200 h-20 w-20 rounded-2xl"></div>
+                </div>
+            </div>
+            <div
+                class="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-100 animate-pulse flex flex-col gap-4">
+                <div class="h-6 bg-slate-200 rounded w-1/2"></div>
+                <div class="h-8 bg-slate-200 rounded w-3/4"></div>
+                <div class="h-20 bg-slate-200 rounded w-full"></div>
+            </div>
+        </div>
+
+        <!-- PREGUNTAS FRECUENTES -->
+        <section class="mt-12 bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-sm mb-12">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Preguntas Frecuentes</h2>
+            <div class="space-y-3">
+                <details class="group bg-slate-50 p-4 rounded-2xl border border-slate-100 cursor-pointer">
+                    <summary class="font-semibold text-slate-700 text-sm flex justify-between items-center">
+                        ¿Cómo realizo el pago de mi pedido?
+                        <span class="transition group-open:rotate-180">↓</span>
+                    </summary>
+                    <p class="text-xs text-slate-500 mt-2 leading-relaxed">Puedes pagar fácilmente mediante Pago Móvil,
+                        transferencia bancaria o en efectivo al momento de recibir tu entrega según tu ubicación.</p>
+                </details>
+
+                <details class="group bg-slate-50 p-4 rounded-2xl border border-slate-100 cursor-pointer">
+                    <summary class="font-semibold text-slate-700 text-sm flex justify-between items-center">
+                        ¿Cuánto tarda el envío?
+                        <span class="transition group-open:rotate-180">↓</span>
+                    </summary>
+                    <p class="text-xs text-slate-500 mt-2 leading-relaxed">Las entregas personales en Valencia se
+                        realizan el mismo día. Para el resto del país, los envíos demoran de 24 a 48 horas.</p>
+                </details>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <script type="module" src="assets/js/producto.js"></script>
+</body>
+
+</html>
