@@ -1,479 +1,111 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="h-full">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Productos — Varius</title>
-    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-    <link rel="stylesheet" href="assets/css/app.css">
-    <link rel="stylesheet" href="../assets/css/presence.css">
-
+    <title>Detalle del Producto | Varius</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .row-out-of-stock {
-            background-color: #fef2f2;
-        }
-
-        .row-low-stock {
-            background-color: #fff7ed;
-        }
-
-        .row-suspended {
-            background-color: #f1f5f9;
-            filter: grayscale(0.5);
-        }
-
-        .dropzone-active {
-            border-color: #10b981;
-            background-color: #ecfdf5;
-        }
-
-        .image-preview-card:hover .remove-btn {
-            display: flex;
-        }
-
-        #productModal, #comboModal {
-            z-index: 100 !important;
-        }
-
-        #lightbox {
-            z-index: 110 !important;
-        }
-
-        .img-slider {
-            position: relative;
-            width: 3rem;
-            height: 3rem;
-            overflow: hidden;
-        }
-
-        .img-slider img {
-            position: absolute;
-            top: 0;
-            left: 0;
-            opacity: 0;
-            transition: opacity 1s ease-in-out;
-        }
-
-        .img-slider img.active {
-            opacity: 1;
-        }
-
-        .thumbnail-active {
-            border: 2px solid #10b981;
-            transform: scale(1.1);
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/carrito.css">
 </head>
 
-<body>
-    <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
 
-    <!-- Top bar -->
-    <header class="topbar">
-        <div class="top-left">
-            <label for="nav-toggle" class="hamburger" aria-hidden="true">
-                <span class="hamburger-box"><span class="hamburger-inner"></span></span>
-            </label>
-            <a class="brand" href="./" aria-label="Dashboard">
-                <img src="assets/img/logo.png" alt="Varius" width="14%">
-                <span class="brand-text">VARIUS</span>
-            </a>
-        </div>
+    <!-- HEADER CORREGIDO: Siempre en una sola línea horizontal (Logo izquierda, Iconos derecha) -->
+    <header class="site-header w-full bg-white py-3 border-b border-slate-100 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2">
 
-        <div class="top-search">
-            <div id="presence-pill" class="presence-pill offline" role="status" aria-live="polite">
-                <span class="dot"></span>
-                <span class="label">Desconectado</span>
+            <!-- Logotipo alineado a la izquierda -->
+            <div class="brand flex-shrink-0">
+                <a href="./" class="flex items-center">
+                    <img src="admin/assets/img/logo-horizontal.png" class="h-9 sm:h-12 w-auto object-contain"
+                        alt="Varius">
+                </a>
             </div>
+
+            <!-- Iconos de acción siempre a la derecha en la misma fila -->
+            <nav class="top-actions flex items-center gap-3 flex-shrink-0">
+                <a href="login.html"
+                    class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50"
+                    aria-label="Mi cuenta">
+                    <span class="text-sm">👤</span>
+                </a>
+                <button id="openCartBtn"
+                    class="p-2 text-slate-600 hover:text-cyan-600 transition-colors rounded-full hover:bg-slate-50 relative flex items-center"
+                    aria-label="Abrir carrito">
+                    <span class="text-base">🛒</span>
+                    <span id="cartCount"
+                        class="bg-cyan-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full absolute -top-1 -right-1 shadow-sm">0</span>
+                </button>
+            </nav>
+
         </div>
     </header>
-
-    <div id="app-sidebar"></div>
-
-    <!-- Main content -->
-    <main class="main">
-        <div class="max-w-[98%] 2xl:max-w-[95%] mx-auto">
-
-            <header class="mb-8">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                    <div>
-                        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                            <span class="bg-emerald-500 text-white p-2 rounded-lg">📦</span>
-                            Gestión de Productos
-                        </h1>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button id="btnNuevoCombo" onclick="abrirModalCombo('new')"
-                            class="admin-only bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-purple-100 flex items-center gap-2">
-                            <i class="fas fa-cubes"></i> Crear Combo
-                        </button>
-                        <button id="btnNuevoProducto" onclick="abrirModal('new')"
-                            class="admin-only bg-[#10b981] hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-emerald-100 flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Producto Nuevo
-                        </button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div
-                        class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-                        <div>
-                            <p class="text-slate-500 text-sm font-medium">Total Productos</p>
-                            <h3 class="text-2xl font-bold" id="kpi-total">0</h3>
-                        </div>
-                        <div class="bg-blue-50 text-blue-500 p-3 rounded-xl"><i class="fas fa-box"></i></div>
-                    </div>
-                    <div
-                        class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-                        <div>
-                            <p class="text-slate-500 text-sm font-medium">Activos</p>
-                            <h3 class="text-2xl font-bold" id="kpi-active">0</h3>
-                        </div>
-                        <div class="bg-emerald-50 text-emerald-500 p-3 rounded-xl"><i class="fas fa-check-circle"></i>
-                        </div>
-                    </div>
-                    <div
-                        class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-                        <div>
-                            <p class="text-slate-500 text-sm font-medium">En Oferta</p>
-                            <h3 class="text-2xl font-bold" id="kpi-offer">0</h3>
-                        </div>
-                        <div class="bg-orange-50 text-orange-500 p-3 rounded-xl"><i class="fas fa-tag"></i></div>
-                    </div>
-                    <div
-                        class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-                        <div>
-                            <p class="text-slate-500 text-sm font-medium">Agotados (Stock 0)</p>
-                            <h3 class="text-2xl font-bold text-red-500" id="kpi-stock">0</h3>
-                        </div>
-                        <div class="bg-red-50 text-red-500 p-3 rounded-xl"><i class="fas fa-ghost"></i></div>
-                    </div>
-                </div>
-            </header>
-
-            <section class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4">
-                    <div class="relative flex-grow">
-                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" id="searchInput" placeholder="Busca por nombre o código SKU..."
-                            class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none">
-                    </div>
-                    <select id="categoryFilter"
-                        class="px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                        <option value="">Todas las Categorías</option>
-                    </select>
-                    <button onclick="aplicarFiltros()"
-                        class="bg-[#10b981] text-white px-8 py-3 rounded-xl font-medium hover:bg-emerald-600 transition-colors">Buscar</button>
-                    <button onclick="limpiarFiltros()"
-                        class="bg-white border border-slate-200 text-slate-600 px-8 py-3 rounded-xl font-medium hover:bg-slate-50">Limpiar</button>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-50 text-slate-400 uppercase text-xs font-semibold">
-                            <tr>
-                                <th class="px-6 py-4">Producto</th>
-                                <th class="px-6 py-4">Categoría</th>
-                                <th class="px-6 py-4">Precio ($)</th>
-                                <th class="px-6 py-4">Existencia</th>
-                                <th class="px-6 py-4">Estado</th>
-                                <th class="px-6 py-4 text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="productTableBody"></tbody>
-                    </table>
-                </div>
-
-                <div class="p-6 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-slate-100">
-                    <p class="text-sm text-slate-500" id="paginationInfo">Mostrando 0 resultados</p>
-                    <div class="flex gap-2" id="paginationControls"></div>
-                </div>
-            </section>
-
-            <!-- Lightbox -->
-            <div id="lightbox"
-                class="fixed inset-0 bg-black/95 z-[110] hidden flex flex-col items-center justify-center p-4"
-                onclick="this.classList.add('hidden')">
-                <div class="relative max-w-4xl w-full flex justify-center items-center h-[70vh]">
-                    <img id="lightboxImg" src="" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl">
-                </div>
-                <div id="lightboxThumbs"
-                    class="flex gap-3 mt-8 p-4 bg-white/10 backdrop-blur-md rounded-2xl overflow-x-auto max-w-full">
-                </div>
-                <p class="text-white/50 text-xs mt-4 italic">Haz clic fuera de la imagen para cerrar</p>
+    <!-- CINTILLO (Efecto deslizante automático intacto) -->
+    <div class="ticker-wrapper">
+        <div class="ticker-mask">
+            <div class="ticker-content">
+                <span>✨ PRECIO TASA EURO✨</span>
+                <span>💳 PAGA AL RECIBIR 💳</span>
+                <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
+                <span>✨ PRECIO TASA EURO ✨</span>
+                <span>💳 PAGA AL RECIBIR 💳</span>
+                <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
+                <span>💳 PAGA AL RECIBIR 💳</span>
+                <span>🚀 DELIVERY GRATIS EN CARACAS Y VALENCIA 🚀</span>
             </div>
         </div>
+    </div>
+    <!-- DETALLE DEL PRODUCTO - ESTRUCTURA DE 2 COLUMNAS -->
+    <main class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 flex-grow w-full">
+
+        <div id="productDetailContainer" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <!-- Esqueleto de Carga Dinámica -->
+            <div class="lg:col-span-7 flex flex-col gap-4 animate-pulse">
+                <div class="bg-slate-200 h-[450px] rounded-3xl w-full"></div>
+                <div class="flex gap-2">
+                    <div class="bg-slate-200 h-20 w-20 rounded-2xl"></div>
+                    <div class="bg-slate-200 h-20 w-20 rounded-2xl"></div>
+                    <div class="bg-slate-200 h-20 w-20 rounded-2xl"></div>
+                </div>
+            </div>
+            <div
+                class="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-100 animate-pulse flex flex-col gap-4">
+                <div class="h-6 bg-slate-200 rounded w-1/2"></div>
+                <div class="h-8 bg-slate-200 rounded w-3/4"></div>
+                <div class="h-20 bg-slate-200 rounded w-full"></div>
+            </div>
+        </div>
+
+        <!-- PREGUNTAS FRECUENTES -->
+        <section class="mt-12 bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-sm mb-12">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Preguntas Frecuentes</h2>
+            <div class="space-y-3">
+                <details class="group bg-slate-50 p-4 rounded-2xl border border-slate-100 cursor-pointer">
+                    <summary class="font-semibold text-slate-700 text-sm flex justify-between items-center">
+                        ¿Cómo realizo el pago de mi pedido?
+                        <span class="transition group-open:rotate-180">↓</span>
+                    </summary>
+                    <p class="text-xs text-slate-500 mt-2 leading-relaxed">Puedes pagar fácilmente mediante Pago Móvil,
+                        transferencia bancaria o en efectivo al momento de recibir tu entrega según tu ubicación.</p>
+                </details>
+
+                <details class="group bg-slate-50 p-4 rounded-2xl border border-slate-100 cursor-pointer">
+                    <summary class="font-semibold text-slate-700 text-sm flex justify-between items-center">
+                        ¿Cuánto tarda el envío?
+                        <span class="transition group-open:rotate-180">↓</span>
+                    </summary>
+                    <p class="text-xs text-slate-500 mt-2 leading-relaxed">Las entregas personales en Valencia se
+                        realizan el mismo día. Para el resto del país, los envíos demoran de 24 a 48 horas.</p>
+                </details>
+            </div>
+        </section>
+
     </main>
 
-    <!-- Modal de Producto -->
-    <div id="productModal"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden max-h-[95vh] overflow-y-auto">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                <h2 id="modalTitle" class="text-xl font-bold text-slate-800">Agregar Producto</h2>
-                <button onclick="cerrarModal()" class="text-slate-400 hover:text-slate-600"><i
-                        class="fas fa-times text-xl"></i></button>
-            </div>
+    <div id="toast" class="toast" aria-live="polite"></div>
 
-            <form id="productForm" class="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Nombre del Producto</label>
-                        <input type="text" name="name" required placeholder="Ej. Audífonos Bluetooth"
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Descripción Detallada</label>
-                        <textarea name="description" rows="4" placeholder="Cuéntanos más del producto..."
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
-                        <p class="text-[10px] text-slate-400 mt-1 italic"><i class="fas fa-info-circle"></i> Puedes
-                            poner emojis, íconos y usar varios párrafos.</p>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Categoría</label>
-                            <select name="category" onchange="actualizarSKU()"
-                                class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none">
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Estado</label>
-                            <select name="status"
-                                class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none">
-                                <option value="ACTIVE">Activo</option>
-                                <option value="INACTIVE">Inactivo</option>
-                                <option value="SUSPENDED">Suspendido / Pausado</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Código SKU</label>
-                        <input type="text" name="sku" id="skuInput" readonly
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 italic">
-                        <p class="text-[10px] text-slate-400 mt-1">Se crea automáticamente según la categoría.</p>
-                    </div>
-                </div>
-
-                <div class="space-y-6">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Precio Base ($)</label>
-                            <input type="text" name="price" placeholder="1.200,00" oninput="formatearPrecio(this)"
-                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Existencia (Stock)</label>
-                            <input type="number" name="stock" placeholder="0"
-                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none">
-                        </div>
-                    </div>
-
-                    <!-- Múltiples Descuentos / Ofertas -->
-                    <div class="p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
-                        <label class="flex items-center gap-3 cursor-pointer mb-2">
-                            <input type="checkbox" name="isOffer" onchange="toggleOferta()"
-                                class="w-5 h-5 accent-emerald-500">
-                            <span class="font-semibold text-slate-700">¿Tiene Descuentos / Ofertas?</span>
-                        </label>
-                        
-                        <div id="offerInputContainer" class="hidden mt-4 space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs font-bold text-slate-500 uppercase">Lista de Descuentos</span>
-                                <button type="button" onclick="agregarLineaDescuento()"
-                                    class="text-xs text-emerald-600 font-bold hover:text-emerald-700 flex items-center gap-1">
-                                    <i class="fas fa-plus-circle"></i> Agregar Descuento
-                                </button>
-                            </div>
-                            
-                            <div id="discountsListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Galería de Fotos</label>
-                        <div id="dropzone"
-                            class="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:border-emerald-400">
-                            <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i>
-                            <p class="text-sm">Suelta las fotos aquí o haz click</p>
-                            <input type="file" id="fileInput" multiple hidden>
-                        </div>
-                        <div id="previewContainer" class="flex flex-wrap gap-2 mt-4 min-h-[80px]"></div>
-                    </div>
-                </div>
-
-                <div class="md:col-span-2 border-t border-slate-100 pt-6 flex justify-end gap-4">
-                    <button type="button" onclick="cerrarModal()"
-                        class="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
-                    <button type="submit" id="submitBtn"
-                        class="px-10 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-all">Guardar
-                        Producto</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal para Crear / Editar Combo -->
-    <div id="comboModal"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden max-h-[95vh] overflow-y-auto">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                <h2 id="comboModalTitle" class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <span class="bg-purple-100 text-purple-600 p-2 rounded-lg"><i class="fas fa-cubes"></i></span>
-                    Crear Nuevo Combo
-                </h2>
-                <button onclick="cerrarModalCombo()" class="text-slate-400 hover:text-slate-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-
-            <form id="comboForm" class="p-8 space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Nombre del Combo</label>
-                        <input type="text" id="comboName" required placeholder="Ej. Combo Especial Cuidado Facial"
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Código SKU Combo</label>
-                        <input type="text" id="comboSkuInput" readonly
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 italic">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">Descripción del Combo</label>
-                    <textarea id="comboDescription" rows="3" placeholder="Describe lo que incluye este paquete..."
-                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 outline-none"></textarea>
-                </div>
-
-                <!-- Selección de Productos para el Combo -->
-                <div class="border border-slate-200 rounded-2xl p-5 bg-slate-50/50">
-                    <div class="flex justify-between items-center mb-3">
-                        <label class="block text-sm font-bold text-slate-800">Productos Incluidos en el Combo</label>
-                        <span id="comboSumText" class="text-xs font-semibold text-purple-600 bg-purple-50 px-3 py-1 rounded-full">Suma valor ind.: $ 0,00</span>
-                    </div>
-                    <div id="comboProductsContainer" class="space-y-3 max-h-60 overflow-y-auto p-2 bg-white border border-slate-200 rounded-xl">
-                        <p class="text-slate-400 text-sm text-center py-4">Cargando productos...</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Precio Especial Combo ($)</label>
-                        <input type="text" id="comboPrice" required placeholder="0,00" oninput="formatearPrecio(this)"
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-purple-700">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Stock Disponible</label>
-                        <input type="number" id="comboStock" required placeholder="10" min="0"
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Estado</label>
-                        <select id="comboStatus" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none">
-                            <option value="ACTIVE">Activo</option>
-                            <option value="INACTIVE">Inactivo</option>
-                            <option value="SUSPENDED">Suspendido / Pausado</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Galería / Banner del Combo</label>
-                    <div id="comboDropzone"
-                        class="border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:border-purple-400">
-                        <i class="fas fa-cloud-upload-alt text-2xl mb-1"></i>
-                        <p class="text-xs">Sube imágenes representativas del combo</p>
-                        <input type="file" id="comboFileInput" multiple hidden>
-                    </div>
-                    <div id="comboPreviewContainer" class="flex flex-wrap gap-2 mt-4 min-h-[60px]"></div>
-                </div>
-
-                <div class="border-t border-slate-100 pt-6 flex justify-end gap-4">
-                    <button type="button" onclick="cerrarModalCombo()"
-                        class="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
-                    <button type="submit" id="submitComboBtn"
-                        class="px-10 py-3 rounded-xl font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-lg transition-all">
-                        Guardar Combo
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal Éxito -->
-    <div id="modal-success"
-        class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[500] hidden">
-        <div class="bg-white rounded-2xl shadow-xl p-10 flex flex-col items-center">
-            <i class="fas fa-check-circle text-4xl text-emerald-500 mb-4"></i>
-            <h2 class="text-2xl font-bold mb-2" id="modal-success-title">¡Guardado exitoso!</h2>
-            <p class="text-slate-500 text-base mb-4" id="modal-success-body">El producto se ha guardado correctamente.
-            </p>
-            <button
-                class="mt-3 px-7 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition"
-                onclick="ocultarModalExito()">OK</button>
-        </div>
-    </div>
-
-    <!-- Modal Compartir -->
-    <div id="modal-compartir"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h2 class="text-xl font-bold text-slate-800">Compartir Producto</h2>
-                <button onclick="cerrarModalCompartir()" class="text-slate-400 hover:text-slate-600"><i
-                        class="fas fa-times text-xl"></i></button>
-            </div>
-            <form id="formCompartir" class="p-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    <div class="flex flex-col gap-6">
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Red social</label>
-                            <select id="selectRedSocial" required
-                                class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none">
-                                <option value="">Selecciona la red</option>
-                                <option value="instagram">Instagram</option>
-                                <option value="facebook">Facebook</option>
-                                <option value="youtube">YouTube</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">URL del Reels o Video</label>
-                            <input type="url" id="inputUrlVideo" required placeholder="Pega aquí la URL del video"
-                                class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Previsualización</label>
-                        <div id="previewVideoContainer"
-                            class="rounded-xl overflow-hidden bg-slate-100 min-h-[320px] flex items-center justify-center p-3">
-                            <span class="text-slate-400">Previsualización del video...</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex justify-end gap-4 pt-8">
-                    <button type="button" onclick="cerrarModalCompartir()"
-                        class="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
-                    <button type="submit"
-                        class="px-10 py-3 rounded-xl font-bold text-white bg-yellow-500 hover:bg-yellow-600 shadow-lg transition-all">Guardar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="img-upload-spinner" class="hidden">Subiendo imagen, por favor espera...</div>
-    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    <script async src="//www.instagram.com/embed.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
-    <script type="module" src="../assets/js/product-inventory.js"></script>
-    <script type="module" src="../assets/js/sidebar-loader.js"></script>
-    <script type="module" src="../assets/js/session-timeout.js"></script>
+    <script type="module" src="assets/js/producto.js"></script>
 </body>
 
 </html>
