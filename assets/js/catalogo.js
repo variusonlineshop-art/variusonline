@@ -258,26 +258,26 @@ function renderNewProductsSlider() {
   container.innerHTML = newProducts.map(p => {
     const img = (p.__resolvedImages && p.__resolvedImages[0]) || p.image || '';
     return `
-      <div class="min-w-[260px] sm:min-w-[300px] bg-white rounded-2xl p-3 border border-cyan-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer" onclick="window.location.href='producto.html?id=${p.id}'">
-        <div class="relative w-full h-40 bg-slate-100 rounded-xl overflow-hidden mb-3">
+      <div class="w-[calc(50%-0.5rem)] sm:w-[260px] md:w-[280px] flex-shrink-0 bg-white rounded-2xl p-3 border border-cyan-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer" onclick="window.location.href='producto.html?id=${p.id}'">
+        <div class="relative w-full aspect-square bg-slate-100 rounded-xl overflow-hidden mb-3">
           <span class="absolute top-2 left-2 bg-cyan-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase z-10 shadow-sm">
             ✨ NUEVO
           </span>
           <img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover">
         </div>
-        <div>
-          <h3 class="text-sm font-bold text-slate-800 line-clamp-1">${escapeHtml(p.name)}</h3>
-          <div class="flex items-center gap-2 mt-1">
+        <div class="flex-grow flex flex-col justify-between">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 h-10 mb-1">${escapeHtml(p.name)}</h3>
+          <div class="flex items-center gap-1 sm:gap-2 mt-1">
             ${p.discountPrice 
-              ? `<span class="text-xs text-slate-400 line-through">${formatCurrency(p.price)}</span><span class="text-base font-bold text-cyan-600">${formatCurrency(p.discountPrice)}</span>` 
-              : `<span class="text-base font-bold text-slate-800">${formatCurrency(p.price)}</span>`}
+              ? `<span class="text-[10px] sm:text-xs text-slate-400 line-through">${formatCurrency(p.price)}</span><span class="text-sm sm:text-base font-bold text-cyan-600">${formatCurrency(p.discountPrice)}</span>` 
+              : `<span class="text-sm sm:text-base font-bold text-slate-800">${formatCurrency(p.price)}</span>`}
           </div>
         </div>
-        <div class="mt-3 flex gap-2">
-          <button class="flex-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 font-semibold py-2 rounded-xl text-xs transition-colors" onclick="event.stopPropagation(); window.location.href='producto.html?id=${p.id}'">
+        <div class="mt-3 flex gap-1.5 sm:gap-2">
+          <button class="flex-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 font-semibold py-2 rounded-xl text-[11px] sm:text-xs transition-colors" onclick="event.stopPropagation(); window.location.href='producto.html?id=${p.id}'">
             Ver Detalle
           </button>
-          <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs transition-colors" onclick="event.stopPropagation(); addToCart('${p.id}', 1)">
+          <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 sm:px-3 py-2 rounded-xl text-xs transition-colors" onclick="event.stopPropagation(); addToCart('${p.id}', 1)">
             🛒
           </button>
         </div>
@@ -285,7 +285,6 @@ function renderNewProductsSlider() {
     `;
   }).join('');
 }
-
 /* ------------------- Render: Slider de Ofertas ------------------- */
 function renderOffersSlider() {
   const container = document.getElementById('offersSliderContainer');
@@ -302,24 +301,24 @@ function renderOffersSlider() {
   container.innerHTML = offers.map(p => {
     const img = (p.__resolvedImages && p.__resolvedImages[0]) || p.image || '';
     return `
-      <div class="min-w-[260px] sm:min-w-[300px] bg-white rounded-2xl p-3 border border-red-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer" onclick="window.location.href='producto.html?id=${p.id}'">
-        <div class="relative w-full h-40 bg-slate-100 rounded-xl overflow-hidden mb-3">
+      <div class="w-[calc(50%-0.5rem)] sm:w-[260px] md:w-[280px] flex-shrink-0 bg-white rounded-2xl p-3 border border-red-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer" onclick="window.location.href='producto.html?id=${p.id}'">
+        <div class="relative w-full aspect-square bg-slate-100 rounded-xl overflow-hidden mb-3">
           <span class="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md uppercase z-10">Combo / Oferta</span>
           <img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover">
         </div>
-        <div>
-          <h3 class="text-sm font-bold text-slate-800 line-clamp-1">${escapeHtml(p.name)}</h3>
-          <div class="flex items-center gap-2 mt-1">
+        <div class="flex-grow flex flex-col justify-between">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 h-10 mb-1">${escapeHtml(p.name)}</h3>
+          <div class="flex items-center gap-1 sm:gap-2 mt-1">
             ${p.discountPrice 
-              ? `<span class="text-xs text-slate-400 line-through">${formatCurrency(p.price)}</span><span class="text-base font-bold text-red-600">${formatCurrency(p.discountPrice)}</span>` 
-              : `<span class="text-base font-bold text-slate-800">${formatCurrency(p.price)}</span>`}
+              ? `<span class="text-[10px] sm:text-xs text-slate-400 line-through">${formatCurrency(p.price)}</span><span class="text-sm sm:text-base font-bold text-red-600">${formatCurrency(p.discountPrice)}</span>` 
+              : `<span class="text-sm sm:text-base font-bold text-slate-800">${formatCurrency(p.price)}</span>`}
           </div>
         </div>
-        <div class="mt-3 flex gap-2">
-          <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-xl text-xs transition-colors" onclick="event.stopPropagation(); window.location.href='producto.html?id=${p.id}'">
+        <div class="mt-3 flex gap-1.5 sm:gap-2">
+          <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-xl text-[11px] sm:text-xs transition-colors" onclick="event.stopPropagation(); window.location.href='producto.html?id=${p.id}'">
             Ver Detalle
           </button>
-          <button class="bg-green-100 hover:bg-green-200 text-green-700 font-bold px-3 py-2 rounded-xl text-xs transition-colors" onclick="event.stopPropagation(); addToCart('${p.id}', 1)">
+          <button class="bg-green-100 hover:bg-green-200 text-green-700 font-bold px-2.5 sm:px-3 py-2 rounded-xl text-xs transition-colors" onclick="event.stopPropagation(); addToCart('${p.id}', 1)">
             🛒
           </button>
         </div>
