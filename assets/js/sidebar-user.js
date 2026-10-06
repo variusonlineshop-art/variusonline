@@ -8,16 +8,17 @@ import './presence.js';
 
 // Catálogo de páginas disponibles
 const PAGE_CATALOG = {
-    panel:      { name: 'Panel',        icon: '🏠',   url: './' },
-    usuarios:   { name: 'Usuarios',     icon: '👥',   url: './usuarios.html' },
-    productos:  { name: 'Productos',    icon: '📦',   url: './product.html' },
-    categoria:  { name: 'Categoría',    icon: '🔖',   url: './category.html' },
-    pedidos:    { name: 'Pedidos',      icon: '📋',   url: './orders.html' },
-    cierre_caja:{ name: 'Cierre de Caja', icon: '💰', url: './cierre-caja.html' },
-    crm:        { name: 'CRM',          icon: '🖥️',   url: './crm.html' },
+    panel: { name: 'Panel', icon: '🏠', url: './' },
+    usuarios: { name: 'Usuarios', icon: '👥', url: './usuarios.html' },
+    productos: { name: 'Productos', icon: '📦', url: './product.html' },
+    categoria: { name: 'Categoría', icon: '🔖', url: './category.html' },
+    pedidos: { name: 'Pedidos', icon: '📋', url: './orders.html' },
+    cierre_caja: { name: 'Cierre de Caja', icon: '💰', url: './cierre-caja.html' },
+    crm: { name: 'CRM', icon: '🖥️', url: './crm.html' },
     //chat:       { name: 'Chat',         icon: '💬',   url: './chats.html' },
-    visitas:    { name: 'Visitas',      icon: '👁️',   url: './visits.html' },
-    routes:     { name: 'Mis Rutas',    icon: '📍',   url: './routes.html' }
+    visitas: { name: 'Visitas', icon: '👁️', url: './visits.html' },
+    routes: { name: 'Mis Rutas', icon: '📍', url: './routes.html' },
+    postpone: { name: 'Postergados', icon: '⚠️', url: './postponeHistory.html' }
 };
 
 // Inicialización Firebase
@@ -36,7 +37,7 @@ function updateSidebarUI(name, role, email = '') {
     if (nameEl) nameEl.textContent = name;
     if (metaEl) metaEl.textContent = role || email;
     if (avatarEl) {
-        const initials = name ? name.split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase() : 'U';
+        const initials = name ? name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase() : 'U';
         avatarEl.textContent = initials || 'U';
     }
 }
