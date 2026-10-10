@@ -273,6 +273,18 @@ function fetchAndRenderOrders(filters = {}) {
                 const activePostponedOrders = ordersArr.filter(o => o.status === 'Postergado');
                 historyOrdersCache = ordersArr.filter(o => o.status !== 'Postergado' && Array.isArray(o.postponeHistory) && o.postponeHistory.length > 0);
 
+                // NUEVO: Ordenar el Historial de Postergaciones basado en la última fecha de "Reprogramado para"
+                historyOrdersCache.sort((a, b) => {
+                    const lastA = a.postponeHistory?.[a.postponeHistory.length - 1];
+                    const lastB = b.postponeHistory?.[b.postponeHistory.length - 1];
+
+                    const timeA = (lastA && lastA.date && lastA.time) ? new Date(`${lastA.date}T${lastA.time}:00`).getTime() : 0;
+                    const timeB = (lastB && lastB.date && lastB.time) ? new Date(`${lastB.date}T${lastB.time}:00`).getTime() : 0;
+
+                    // Orden descendente (el más reciente o última fecha programada aparecerá primero)
+                    return timeB - timeA;
+                });
+
                 // Contadores
                 if (countActive) countActive.innerText = activePostponedOrders.length;
                 if (countHistory) countHistory.innerText = historyOrdersCache.length;
