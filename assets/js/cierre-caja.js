@@ -153,28 +153,31 @@ function formatUsd(value) {
 }
 
 // --- LÓGICA DE CÁLCULO DE COMISIONES BIMONETARIAS BASADA EN EURO BCV ---
-function resolverEstructuraComision(userConfig, orderTotals, tasaCambioEuro = tasaEuroDelDia) {
+function resolverEstructuraComision(userConfig, orderTotals, tasaCambioEuro = tasaEuroDelDia, cantidadItems = 1) {
     let comisionBs = 0;
     let comisionUsd = 0;
     const tipo = userConfig?.commissionType || 'amount';
-    const valor = Number(userConfig?.commissionValue || 0);
+    const valorBase = Number(userConfig?.commissionValue || 0);
+    
+    // Multiplicamos por la cantidad de items si es una comisión de monto fijo
+    const valorTotal = tipo === 'amount' ? valorBase * cantidadItems : valorBase;
 
     if (tipo === 'amount') {
-        comisionUsd = valor;
-        // Se calcula en Bs siempre que el valor configurado sea mayor a cero
-        if (valor > 0) {
-            comisionBs = valor * tasaCambioEuro;
+        comisionUsd = valorTotal;
+        if (valorTotal > 0) {
+            comisionBs = valorTotal * tasaCambioEuro;
         } else {
             comisionBs = 0;
         }
     } else if (tipo === 'percent') {
-        comisionUsd = Number(orderTotals.usd) * (valor / 100);
-        comisionBs = Number(orderTotals.bs) * (valor / 100);
+        comisionUsd = Number(orderTotals.usd) * (valorBase / 100);
+        comisionBs = Number(orderTotals.bs) * (valorBase / 100);
     }
 
     return {
         commissionType: tipo,
-        commissionValue: valor,
+        commissionValue: valorBase,
+        valorTotalAplicado: valorTotal,
         comisionBs: isNaN(comisionBs) ? 0 : comisionBs,
         comisionUsd: isNaN(comisionUsd) ? 0 : comisionUsd
     };
@@ -262,106 +265,6 @@ function commissionBadgeTW(label, bs, usd, color) {
     </span>`;
 }
 
-function buildOrderCard(order, vendedorInfo, motorizadoInfo, orderTotals, tiempoEnt) {
-    const statusEntrega = (order.shippingStatus || '').toUpperCase() === 'ENTREGADO'
-        ? `<span class="inline-block mt-2 px-2 py-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 rounded">ENTREGADO</span>` : '';
-
-    const vendName = resolveAgent(order, 'vendedor') || '---';
-    const motName = resolveAgent(order, 'motorizado') || '---';
-
-    let liquidacionHTML = (order.payment?.methods || []).map(m => {
-        const conv = m.conversion ?? {};
-        const raw = (conv.currency || m.currency || '').toLowerCase();
-        let label = m.method === "cash" && raw.includes('usd') ? "Efectivo USD"
-            : m.method === "cash" && raw.includes('bs') ? "Efectivo BS"
-                : m.method === "mobile" ? "Pago Móvil"
-                    : m.method === "paypal" ? "PAYPAL" : m.method;
-
-        let value = '', sym = '';
-        if (raw.includes('usd')) {
-            value = (conv.originalAmount ?? conv.usdEquivalent ?? m.originalAmount ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
-            sym = '$';
-        } else {
-            value = (m.bsAmount || conv.bsAmount || (conv.originalAmount && conv.rate ? conv.originalAmount * conv.rate : 0) || 0).toLocaleString("es-VE", { minimumFractionDigits: 2 });
-            sym = 'Bs';
-        }
-        return `<div class="flex justify-between items-center border-b border-slate-800/50 pb-1 mb-1 text-xs">
-            <span class="text-slate-400 font-bold uppercase">${label}</span>
-            <span class="font-mono font-bold text-emerald-400">${sym} ${value}</span>
-        </div>`;
-    }).join('');
-
-    return `
-    <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden mb-4">
-        <div class="p-4 bg-slate-50/60 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-100/50 transition-colors"
-            onclick="window.toggleDetails('order-${order.id}')">
-            <div class="flex items-center gap-3">
-                <div class="p-2 bg-amber-50 text-amber-600 rounded-lg text-xs"><i class="fa-solid fa-box"></i></div>
-                <div>
-                    <span class="text-xs font-mono font-bold text-slate-800">${order.id || '---'}</span>
-                    <span class="mx-1.5 text-slate-300">•</span>
-                    <span class="text-xs font-bold text-slate-500 uppercase">${order.customerData?.Customname ?? ''}</span>
-                    <div class="flex gap-3 mt-0.5 text-[11px] text-slate-500">
-                        <span><i class="fa-solid fa-user text-slate-400 mr-1"></i> V: ${vendName}</span>
-                        <span><i class="fa-solid fa-motorcycle text-slate-400 mr-1"></i> M: ${motName}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-2 text-right">
-                ${commissionBadgeTW('Cobrado', orderTotals.bs, orderTotals.usd, 'blue')}
-                ${commissionBadgeTW(`Com. Vend (${vendedorInfo.commissionType === 'percent' ? vendedorInfo.commissionValue + '%' : 'Fijo $' + vendedorInfo.commissionValue})`, vendedorInfo.comisionBs, vendedorInfo.comisionUsd, 'purple')}
-                ${commissionBadgeTW(`Com. Mot (${motorizadoInfo.commissionType === 'percent' ? motorizadoInfo.commissionValue + '%' : 'Fijo $' + motorizadoInfo.commissionValue})`, motorizadoInfo.comisionBs, motorizadoInfo.comisionUsd, 'green')}
-                <button class="p-1 text-slate-400"><i id="icon-order-${order.id}" class="fa-solid fa-chevron-down transition-transform duration-200"></i></button>
-            </div>
-        </div>
-
-        <div id="order-${order.id}" class="hidden p-5 grid grid-cols-1 lg:grid-cols-12 gap-6 transition-all">
-            <div class="lg:col-span-4 space-y-4">
-                <div>
-                    <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5"><i class="fa-solid fa-user text-[10px] mr-1"></i> DATOS DEL CLIENTE</h4>
-                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 text-xs">
-                        <p class="font-bold text-slate-800">${order.customerData?.Customname ?? ''}</p>
-                        <p class="font-mono text-slate-500 mt-0.5">${order.customerData?.phone ?? ''}</p>
-                        <p class="text-slate-500 mt-1.5 leading-relaxed">${order.customerData?.readable_address ?? ''}</p>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5"><i class="fa-solid fa-truck text-[10px] mr-1"></i> LOGÍSTICA DE ENTREGA</h4>
-                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 text-xs flex justify-between items-center">
-                        <div>
-                            <p class="text-slate-500">Motorizado: <span class="font-medium text-slate-700">${motName}</span></p>
-                            ${statusEntrega}
-                        </div>
-                        <div class="text-right text-slate-500 font-medium">
-                            <i class="fa-regular fa-clock mr-1"></i> ${tiempoEnt}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="lg:col-span-5">
-                <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5"><i class="fa-solid fa-basket-shopping text-[10px] mr-1"></i> PRODUCTOS DEL PEDIDO</h4>
-                <div class="divide-y divide-slate-100 border border-slate-100 rounded-lg p-2 bg-white shadow-inner">
-                    ${(order.items || []).map(formatProductItem).join('')}
-                </div>
-            </div>
-
-            <div class="lg:col-span-3">
-                <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">RESUMEN DE LIQUIDACIÓN</h4>
-                <div class="bg-slate-900 text-white p-4 rounded-xl flex flex-col justify-between min-h-[155px] shadow-sm">
-                    <div>
-                        ${liquidacionHTML}
-                    </div>
-                    <div class="mt-4">
-                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">GRAN TOTAL COBRADO</p>
-                        <p class="text-base font-bold font-mono text-white">$${orderTotals.usd.toLocaleString("en-US", { minimumFractionDigits: 2 })} + Bs ${orderTotals.bs.toLocaleString("es-VE", { minimumFractionDigits: 2 })}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>`;
-}
-
 // ----------------- FLUJO PRINCIPAL Y RENDERS ----------------- //
 async function renderOrders(orders, skipFiltros = false) {
     const ordersListDiv = document.getElementById('orders-list');
@@ -386,13 +289,19 @@ async function renderOrders(orders, skipFiltros = false) {
 
         const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
 
-        const vendedorInfo = resolverEstructuraComision(rawVendedorConfig, orderTotals);
-        const motorizadoInfo = resolverEstructuraComision(rawMotorizadoConfig, orderTotals);
+        // Calcular la cantidad total de productos en este pedido
+        const cantidadTotalProductos = (ord.items || []).reduce((total, item) => total + (Number(item.quantity) || 1), 0);
 
-        // CÁLCULO GERENTE: Se procesa a través de la función central para obtener Bs y USD según la tasa del día
-        let gerenteInfo = { commissionType: 'amount', commissionValue: 0, comisionBs: 0, comisionUsd: 0 };
+        // Vendedor: gana por producto
+        const vendedorInfo = resolverEstructuraComision(rawVendedorConfig, orderTotals, tasaEuroDelDia, cantidadTotalProductos);
+        
+        // Motorizado: gana por pedido
+        const motorizadoInfo = resolverEstructuraComision(rawMotorizadoConfig, orderTotals, tasaEuroDelDia, 1);
+
+        // CÁLCULO GERENTE: Se procesa a través de la función central
+        let gerenteInfo = { commissionType: 'amount', commissionValue: 0, valorTotalAplicado: 0, comisionBs: 0, comisionUsd: 0 };
         if (vendedor && vendedor.trim() !== '') {
-            gerenteInfo = resolverEstructuraComision(rawGerenteConfig, orderTotals);
+            gerenteInfo = resolverEstructuraComision(rawGerenteConfig, orderTotals, tasaEuroDelDia, cantidadTotalProductos);
         }
 
         const tiempoEnt = tiempoEntrega(ord.timestamp, ord.paymentUpdatedAt);
@@ -425,7 +334,6 @@ async function renderOrders(orders, skipFiltros = false) {
             </div>`;
         }).join('');
 
-        // El badge del gerente ahora refleja el cálculo dinámico bi-moneda
         html += `
         <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden mb-4">
             <div class="p-4 bg-slate-50/60 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-100/50 transition-colors"
@@ -444,9 +352,9 @@ async function renderOrders(orders, skipFiltros = false) {
                 </div>
                 <div class="flex flex-wrap items-center gap-2 text-right">
                     ${commissionBadgeTW('Cobrado', orderTotals.bs, orderTotals.usd, 'blue')}
-                    ${commissionBadgeTW(`Com. Vend (${vendedorInfo.commissionType === 'percent' ? vendedorInfo.commissionValue + '%' : 'Fijo $' + vendedorInfo.commissionValue})`, vendedorInfo.comisionBs, vendedorInfo.comisionUsd, 'purple')}
-                    ${commissionBadgeTW(`Com. Mot (${motorizadoInfo.commissionType === 'percent' ? motorizadoInfo.commissionValue + '%' : 'Fijo $' + motorizadoInfo.commissionValue})`, motorizadoInfo.comisionBs, motorizadoInfo.comisionUsd, 'green')}
-                    ${commissionBadgeTW(`Com. Grte (Fijo $${rawGerenteConfig.commissionValue})`, gerenteInfo.comisionBs, gerenteInfo.comisionUsd, 'blue')}
+                    ${commissionBadgeTW(`Com. Vend (${vendedorInfo.commissionType === 'percent' ? vendedorInfo.commissionValue + '\%' : 'Fijo $' + vendedorInfo.valorTotalAplicado})`, vendedorInfo.comisionBs, vendedorInfo.comisionUsd, 'purple')}
+                    ${commissionBadgeTW(`Com. Mot (${motorizadoInfo.commissionType === 'percent' ? motorizadoInfo.commissionValue + '\%' : 'Fijo $' + motorizadoInfo.valorTotalAplicado})`, motorizadoInfo.comisionBs, motorizadoInfo.comisionUsd, 'green')}
+                    ${commissionBadgeTW(`Com. Grte (Fijo $${gerenteInfo.valorTotalAplicado})`, gerenteInfo.comisionBs, gerenteInfo.comisionUsd, 'blue')}
                     <button class="p-1 text-slate-400"><i id="icon-order-${ord.id}" class="fa-solid fa-chevron-down transition-transform duration-200"></i></button>
                 </div>
             </div>
@@ -590,10 +498,8 @@ async function renderOrders(orders, skipFiltros = false) {
             const inputUsd = document.getElementById("fisico-usd");
 
             if (inputBs) {
-                // Evaluamos cuántos decimales significativos reales tiene el número
                 const totalBs = totalesHoy.bs || 0;
                 const tieneTresDecimales = (totalBs.toString().split('.')[1]?.length || 0) >= 3;
-                // Si tiene 3 o más, limitamos a 3 de forma estricta. Si no, dejamos un estándar de 2.
                 inputBs.value = tieneTresDecimales ? totalBs.toFixed(3) : totalBs.toFixed(2);
             }
 
@@ -624,7 +530,6 @@ async function loadTotalsForToday() {
             const paymentDateRaw = data.paymentUpdatedAt ?? data.orderDate ?? null;
             const paymentDate = isoDateFromValue(paymentDateRaw);
 
-            // FILTRADO ESTRICTO EXCLUSIVO PARA EL DÍA EN CURSO (RESUMEN)
             if (!isSameIsoDay(paymentDate, today)) return;
 
             const payment = data.payment ?? {}, methods = payment.methods || [];
@@ -927,12 +832,15 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
         const ordenKey = dateObj ? dateObj.toISOString().slice(0, 10) : '';
         const tasaAplicadaDeLaOrden = cierresDelMes[ordenKey]?.tasaEuroAplicada || tasaEuroDelDia;
         const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
+        
+        // Calcular la cantidad total de productos
+        const cantidadTotalProductos = (ord.items || []).reduce((total, item) => total + (Number(item.quantity) || 1), 0);
 
-        // Vendedores
+        // Vendedores (gana por producto)
         const vendedor = resolveAgent(ord, 'vendedor');
         if (vendedor && vendedor.length > 1) {
             const rawConfig = getUserCommissionInfoFromCache(vendedor);
-            const vendedorInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden);
+            const vendedorInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden, cantidadTotalProductos);
 
             if (!vendedores[vendedor]) vendedores[vendedor] = { count: 0, comisionBs: 0, comisionUsd: 0 };
             vendedores[vendedor].count += 1;
@@ -941,17 +849,17 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
             totalV_bs += vendedorInfo.comisionBs;
             totalV_usd += vendedorInfo.comisionUsd;
 
-            // Procesado dinámico bi-moneda para Gerencia mediante la tasa específica de la orden del bucle
-            const gerenteInfo = resolverEstructuraComision(rawGerenteConfig, orderTotals, tasaAplicadaDeLaOrden);
+            // Gerente (gana por producto)
+            const gerenteInfo = resolverEstructuraComision(rawGerenteConfig, orderTotals, tasaAplicadaDeLaOrden, cantidadTotalProductos);
             totalG_bs += gerenteInfo.comisionBs;
             totalG_usd += gerenteInfo.comisionUsd;
         }
 
-        // Motorizados
+        // Motorizados (gana por pedido, el multiplicador no se pasa por lo que asume 1)
         const motorizado = resolveAgent(ord, 'motorizado');
         if (motorizado && motorizado.length > 1) {
             const rawConfig = getUserCommissionInfoFromCache(motorizado);
-            const motorizadoInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden);
+            const motorizadoInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden, 1);
 
             if (!motorizados[motorizado]) motorizados[motorizado] = { count: 0, comisionBs: 0, comisionUsd: 0 };
             motorizados[motorizado].count += 1;
