@@ -26,10 +26,13 @@ let ordenesDia = [];
 let totalesHoy = { bs: 0, usd: 0 };
 
 // --- VARIABLE GLOBAL PARA ALMACENAR LA TASA DEL EURO DEL DÍA ---
-let tasaEuroDelDia = 45.00; // Valor de respaldo por si fallan las APIs externas
+let tasaEuroDelDia = 45.00;
 
 // --- CACHÉ EN MEMORIA PARA REDUCIR LECTURAS DE FIRESTORE (OPTIMIZACIÓN N+1) ---
 const cacheUsuarios = new Map();
+
+// --- VARIABLE GLOBAL PARA ALMACENAR EL EFECTIVO POR MOTORIZADO ---
+window.currentMotorizadoCash = {};
 
 // --- INTEGRACIÓN DE LAS APIS DE DIVISAS (BCV) ---
 const API_SOURCES = [
@@ -77,7 +80,6 @@ const API_SOURCES = [
     }
 ];
 
-// Función para cargar la tasa del Euro antes de procesar cálculos
 async function consultarTasaEuro() {
     for (const source of API_SOURCES) {
         try {
@@ -95,7 +97,6 @@ async function consultarTasaEuro() {
     console.error("No se pudo obtener la tasa de Euro de ninguna API. Se usará el valor de respaldo:", tasaEuroDelDia);
 }
 
-// Pre-carga todos los usuarios de Firestore en memoria una sola vez
 async function precargarUsuariosEnCache() {
     try {
         cacheUsuarios.clear();
@@ -134,6 +135,48 @@ function showAlertModal(message, cbOk) {
     }
 }
 
+// --- MODAL PARA EFECTIVO DE MOTORIZADOS ---
+window.showMotorizadoCashModal = function (motName) {
+    if (!motName || motName === '---') return;
+    const data = window.currentMotorizadoCash[motName] || { bs: 0, usd: 0 };
+
+    let modal = document.getElementById('modal-mot-cash');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-mot-cash';
+        modal.style.cssText = `z-index:10000;position:fixed;left:0;top:0;width:100vw;height:100vh;background:#171717bb;display:flex;align-items:center;justify-content:center;`;
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div style="background:#fff;padding:2em;min-width:340px;max-width:94vw;margin:auto;border-radius:16px;box-shadow:0 10px 40px #0007;position:relative;">
+            <button onclick="document.getElementById('modal-mot-cash').style.display='none'" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:1.2em;cursor:pointer;color:#94a3b8;transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'"><i class="fa-solid fa-xmark"></i></button>
+            <h3 style="margin-top:0;font-size:1.15em;color:#1e293b;font-weight:bold;display:flex;align-items:center;gap:8px;">
+                <i class="fa-solid fa-motorcycle" style="color:#10b981;"></i> Cobros en Efectivo
+            </h3>
+            <p style="color:#64748b;font-size:0.95em;margin-bottom:1.5em;font-weight:500;">Motorizado: <span style="color:#1e293b;font-weight:700;">${motName}</span></p>
+            
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:0.85em;font-weight:bold;color:#64748b;text-transform:uppercase;">Efectivo (BS)</span>
+                    <span style="font-family:monospace;font-size:1.2em;font-weight:bold;color:#1e293b;">Bs ${data.bs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:0.85em;font-weight:bold;color:#64748b;text-transform:uppercase;">Efectivo (USD)</span>
+                    <span style="font-family:monospace;font-size:1.2em;font-weight:bold;color:#10b981;">$${data.usd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 18px; font-size: 0.75em; color: #94a3b8; text-align: center; line-height: 1.4;">
+                <i class="fa-solid fa-circle-info mr-1"></i> Montos exactos que el motorizado debe<br>entregar en caja por los pedidos mostrados.
+            </div>
+            
+            <button onclick="document.getElementById('modal-mot-cash').style.display='none'" style="width:100%;margin-top:1.5em;font-weight:bold;padding:0.8em;border-radius:10px;font-size:0.95em;background:#1e293b;color:#fff;border:0;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">CERRAR VENTANA</button>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
 function showToast(msg, timeout = 3000) {
     if (!toastEl) return;
     toastEl.textContent = msg;
@@ -158,8 +201,7 @@ function resolverEstructuraComision(userConfig, orderTotals, tasaCambioEuro = ta
     let comisionUsd = 0;
     const tipo = userConfig?.commissionType || 'amount';
     const valorBase = Number(userConfig?.commissionValue || 0);
-    
-    // Multiplicamos por la cantidad de items si es una comisión de monto fijo
+
     const valorTotal = tipo === 'amount' ? valorBase * cantidadItems : valorBase;
 
     if (tipo === 'amount') {
@@ -238,7 +280,6 @@ function isSameIsoDay(dateObj, compareTo = new Date()) {
 }
 
 // ----------------- GENERADORES DE HTML TAILWIND ----------------- //
-
 function formatProductItem(item) {
     const total = `$${(item.quantity * item.price).toFixed(2)}`;
     return `
@@ -271,41 +312,56 @@ async function renderOrders(orders, skipFiltros = false) {
     if (!ordersListDiv || !orders) return;
 
     const yaCerrado = orders.some(ord => ord.cierreCaja && ord.cierreCaja.fecha);
+    window.currentMotorizadoCash = {}; // Resetear datos de efectivo por motorizado
 
     let html = '';
     let totalComiVendBs = 0, totalComiVendUsd = 0;
     let totalComiMotBs = 0, totalComiMotUsd = 0;
     let totalComiGrtBs = 0, totalComiGrtUsd = 0;
 
-    // Configuración base fija para el gerente en USD
     const rawGerenteConfig = { commissionType: "amount", commissionValue: 0.5 };
 
     for (const ord of orders) {
         const vendedor = resolveAgent(ord, 'vendedor');
         const motorizado = resolveAgent(ord, 'motorizado');
 
+        // -- REGISTRAR EFECTIVO DEL MOTORIZADO --
+        if (motorizado && motorizado !== '---') {
+            if (!window.currentMotorizadoCash[motorizado]) window.currentMotorizadoCash[motorizado] = { bs: 0, usd: 0 };
+
+            (ord.payment?.methods || []).forEach(m => {
+                const conv = m.conversion ?? {};
+                const raw = (conv.currency || m.currency || '').toLowerCase();
+                const methodLow = (m.method || '').toLowerCase();
+
+                // Identificar si es efectivo físico
+                let isEfectivoUsd = (methodLow === "cash" && raw.includes('usd')) || methodLow === "usd" || methodLow === "efectivo usd";
+                let isEfectivoBs = (methodLow === "cash" && raw.includes('bs')) || methodLow === "efectivo bs";
+
+                if (isEfectivoUsd) {
+                    window.currentMotorizadoCash[motorizado].usd += Number(conv.originalAmount ?? conv.usdEquivalent ?? m.originalAmount ?? 0);
+                }
+                if (isEfectivoBs) {
+                    window.currentMotorizadoCash[motorizado].bs += Number(m.bsAmount || conv.bsAmount || (conv.originalAmount && conv.rate ? conv.originalAmount * conv.rate : 0) || 0);
+                }
+            });
+        }
+
         const rawVendedorConfig = getUserCommissionInfoFromCache(vendedor);
         const rawMotorizadoConfig = getUserCommissionInfoFromCache(motorizado);
-
         const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
 
-        // Calcular la cantidad total de productos en este pedido
         const cantidadTotalProductos = (ord.items || []).reduce((total, item) => total + (Number(item.quantity) || 1), 0);
 
-        // Vendedor: gana por producto
         const vendedorInfo = resolverEstructuraComision(rawVendedorConfig, orderTotals, tasaEuroDelDia, cantidadTotalProductos);
-        
-        // Motorizado: gana por pedido
         const motorizadoInfo = resolverEstructuraComision(rawMotorizadoConfig, orderTotals, tasaEuroDelDia, 1);
 
-        // CÁLCULO GERENTE: Se procesa a través de la función central
         let gerenteInfo = { commissionType: 'amount', commissionValue: 0, valorTotalAplicado: 0, comisionBs: 0, comisionUsd: 0 };
         if (vendedor && vendedor.trim() !== '') {
             gerenteInfo = resolverEstructuraComision(rawGerenteConfig, orderTotals, tasaEuroDelDia, cantidadTotalProductos);
         }
 
         const tiempoEnt = tiempoEntrega(ord.timestamp, ord.paymentUpdatedAt);
-
         const statusEntrega = (ord.shippingStatus || '').toUpperCase() === 'ENTREGADO'
             ? `<span class="inline-block mt-2 px-2 py-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 rounded">ENTREGADO</span>` : '';
 
@@ -346,7 +402,9 @@ async function renderOrders(orders, skipFiltros = false) {
                         <span class="text-xs font-bold text-slate-500 uppercase">${ord.customerData?.Customname ?? ''}</span>
                         <div class="flex gap-3 mt-0.5 text-[11px] text-slate-500">
                             <span><i class="fa-solid fa-user text-slate-400 mr-1"></i> V: ${vendName}</span>
-                            <span><i class="fa-solid fa-motorcycle text-slate-400 mr-1"></i> M: ${motName}</span>
+                            <span onclick="event.stopPropagation(); window.showMotorizadoCashModal('${motName}')" class="cursor-pointer hover:text-emerald-600 transition-colors bg-emerald-50 px-1.5 py-0.5 rounded -ml-1" title="Ver efectivo a entregar">
+                                <i class="fa-solid fa-motorcycle text-emerald-500 mr-1"></i> M: <span class="font-bold">${motName}</span>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -795,6 +853,8 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
     const titleEl = document.getElementById("selectedDateTitle");
     const pill = document.getElementById("statusPill");
 
+    window.currentMotorizadoCash = {}; // Resetear datos de efectivo
+
     if (fechasSet.size === 0) {
         if (titleEl) titleEl.textContent = "Sin selección";
         if (pill) pill.innerHTML = '<span class="px-2.5 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wide">● SELECCIONE DÍAS</span>';
@@ -832,11 +892,44 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
         const ordenKey = dateObj ? dateObj.toISOString().slice(0, 10) : '';
         const tasaAplicadaDeLaOrden = cierresDelMes[ordenKey]?.tasaEuroAplicada || tasaEuroDelDia;
         const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
-        
-        // Calcular la cantidad total de productos
+
         const cantidadTotalProductos = (ord.items || []).reduce((total, item) => total + (Number(item.quantity) || 1), 0);
 
-        // Vendedores (gana por producto)
+        // -- REGISTRAR EFECTIVO DEL MOTORIZADO EN LA AUDITORIA --
+        const motorizado = resolveAgent(ord, 'motorizado');
+        if (motorizado && motorizado.length > 1) {
+
+            if (!window.currentMotorizadoCash[motorizado]) window.currentMotorizadoCash[motorizado] = { bs: 0, usd: 0 };
+
+            (ord.payment?.methods || []).forEach(m => {
+                const conv = m.conversion ?? {};
+                const raw = (conv.currency || m.currency || '').toLowerCase();
+                const methodLow = (m.method || '').toLowerCase();
+
+                let isEfectivoUsd = (methodLow === "cash" && raw.includes('usd')) || methodLow === "usd" || methodLow === "efectivo usd";
+                let isEfectivoBs = (methodLow === "cash" && raw.includes('bs')) || methodLow === "efectivo bs";
+
+                if (isEfectivoUsd) {
+                    window.currentMotorizadoCash[motorizado].usd += Number(conv.originalAmount ?? conv.usdEquivalent ?? m.originalAmount ?? 0);
+                }
+                if (isEfectivoBs) {
+                    window.currentMotorizadoCash[motorizado].bs += Number(m.bsAmount || conv.bsAmount || (conv.originalAmount && conv.rate ? conv.originalAmount * conv.rate : 0) || 0);
+                }
+            });
+
+            // Comisiones de Motorizado
+            const rawConfig = getUserCommissionInfoFromCache(motorizado);
+            const motorizadoInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden, 1);
+
+            if (!motorizados[motorizado]) motorizados[motorizado] = { count: 0, comisionBs: 0, comisionUsd: 0 };
+            motorizados[motorizado].count += 1;
+            motorizados[motorizado].comisionBs += motorizadoInfo.comisionBs;
+            motorizados[motorizado].comisionUsd += motorizadoInfo.comisionUsd;
+            totalM_bs += motorizadoInfo.comisionBs;
+            totalM_usd += motorizadoInfo.comisionUsd;
+        }
+
+        // Vendedores
         const vendedor = resolveAgent(ord, 'vendedor');
         if (vendedor && vendedor.length > 1) {
             const rawConfig = getUserCommissionInfoFromCache(vendedor);
@@ -849,24 +942,10 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
             totalV_bs += vendedorInfo.comisionBs;
             totalV_usd += vendedorInfo.comisionUsd;
 
-            // Gerente (gana por producto)
+            // Gerente
             const gerenteInfo = resolverEstructuraComision(rawGerenteConfig, orderTotals, tasaAplicadaDeLaOrden, cantidadTotalProductos);
             totalG_bs += gerenteInfo.comisionBs;
             totalG_usd += gerenteInfo.comisionUsd;
-        }
-
-        // Motorizados (gana por pedido, el multiplicador no se pasa por lo que asume 1)
-        const motorizado = resolveAgent(ord, 'motorizado');
-        if (motorizado && motorizado.length > 1) {
-            const rawConfig = getUserCommissionInfoFromCache(motorizado);
-            const motorizadoInfo = resolverEstructuraComision(rawConfig, orderTotals, tasaAplicadaDeLaOrden, 1);
-
-            if (!motorizados[motorizado]) motorizados[motorizado] = { count: 0, comisionBs: 0, comisionUsd: 0 };
-            motorizados[motorizado].count += 1;
-            motorizados[motorizado].comisionBs += motorizadoInfo.comisionBs;
-            motorizados[motorizado].comisionUsd += motorizadoInfo.comisionUsd;
-            totalM_bs += motorizadoInfo.comisionBs;
-            totalM_usd += motorizadoInfo.comisionUsd;
         }
     }
 
@@ -900,16 +979,16 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
         for (const mName in motorizados) {
             const m = motorizados[mName];
             html += `
-            <div class="flex items-center justify-between p-3 border border-slate-100 rounded-xl text-xs bg-white hover:bg-slate-50/50 transition-colors">
+            <div class="flex items-center justify-between p-3 border border-emerald-100 rounded-xl text-xs bg-white hover:bg-emerald-50/40 cursor-pointer group transition-all" onclick="window.showMotorizadoCashModal('${mName}')" title="Ver efectivo a entregar por ${mName}">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-emerald-50 text-emerald-500 rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-motorcycle"></i></div>
+                    <div class="w-8 h-8 bg-emerald-50 text-emerald-500 rounded-lg flex items-center justify-center text-sm group-hover:bg-emerald-500 group-hover:text-white transition-colors"><i class="fa-solid fa-motorcycle"></i></div>
                     <div>
-                        <p class="font-bold text-slate-800">${mName} <span class="text-slate-400 font-normal text-[11px] ml-1">• Motorizado</span></p>
+                        <p class="font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">${mName} <span class="text-slate-400 font-normal text-[11px] ml-1">• Motorizado</span></p>
                         <p class="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mt-0.5">PEDIDOS TOTALES: ${m.count}</p>
                     </div>
                 </div>
-                <div class="text-right bg-emerald-50/60 border border-emerald-100 px-3 py-1 rounded-lg">
-                    <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Acumulado</p>
+                <div class="text-right bg-emerald-50/60 border border-emerald-200 px-3 py-1 rounded-lg">
+                    <p class="text-[9px] font-bold text-emerald-500 uppercase tracking-wider">Acumulado</p>
                     <p class="font-bold text-emerald-700 font-mono">Bs ${m.comisionBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })} / $ ${m.comisionUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
             </div>`;
@@ -1000,7 +1079,6 @@ function calendarioInit() {
         await processSelection();
     }
 
-    // --- MANEJO DEL FILTRO POR RANGO (DESDE / HASTA) ---
     async function applyRangeFilter() {
         const fromVal = document.getElementById("filter-date-from")?.value;
         const toVal = document.getElementById("filter-date-to")?.value;
@@ -1027,7 +1105,6 @@ function calendarioInit() {
             current.setDate(current.getDate() + 1);
         }
 
-        // Si la primera fecha seleccionada cae en otro mes/año, cambiamos la vista del calendario a ese mes
         stateMonth = dFrom.getMonth() + 1;
         stateYear = dFrom.getFullYear();
 
