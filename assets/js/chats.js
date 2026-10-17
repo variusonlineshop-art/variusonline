@@ -8,7 +8,9 @@ import {
     orderBy,
     doc,
     serverTimestamp,
-    updateDoc
+    updateDoc,
+    setDoc,
+    getDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
 
@@ -282,7 +284,9 @@ function listenToMessages(orderId, scrollToBottom = false) {
     const contact = contactsList.find(c => c.key === activeContactKey);
     if (!contact) return;
 
-    const messagesRef = collection(db, "orders", contact.orders[0].id, "chats");
+    const primaryOrderId = contact.orders[0].id;
+    const messagesRef = collection(db, "chatsOrders", primaryOrderId, "messages");
+    
     unsubscribeMessages = onSnapshot(query(messagesRef, orderBy("timestamp", "asc")), (snapshot) => {
         const msgs = [];
         snapshot.forEach((docSnap) => msgs.push({ id: docSnap.id, ...docSnap.data() }));
@@ -348,7 +352,6 @@ function renderMessages(orders, msgs, scrollToBottom = false) {
     }
 }
 
-// Función para redirigir y resaltar el mensaje original al hacer clic en la cita
 window.scrollToTarget = (targetId) => {
     if (!targetId) return;
     const targetEl = document.getElementById(`msg-target-${targetId}`);
@@ -404,7 +407,8 @@ window.actionStar = async (msgId, starState) => {
     if (!contact) return;
 
     try {
-        const msgRef = doc(db, "orders", contact.orders[0].id, "chats", msgId);
+        const primaryOrderId = contact.orders[0].id;
+        const msgRef = doc(db, "chatsOrders", primaryOrderId, "messages", msgId);
         await updateDoc(msgRef, { starred: starState });
         messagesContainerEl.scrollTop = currentScroll;
     } catch (err) {
@@ -419,17 +423,31 @@ window.cancelReply = () => {
 };
 
 async function handleSendMessage() {
-    const text = chatInputEl.value.trim();
-    if (!text || !activeContactKey) return;
+    const userText = chatInputEl.value.trim();
+    if (!userText || !activeContactKey) return;
 
     const contact = contactsList.find(c => c.key === activeContactKey);
     if (!contact || contact.orders.length === 0) return;
 
-    const activeOrderId = contact.orders[0].id;
+    const primaryOrderId = contact.orders[0].id;
     chatInputEl.value = '';
 
+    // Construir texto final a enviar (incluyendo plantilla del pedido si se respondió a un pedido)
+    let finalMessageText = userText;
+
+    if (replyingToMessage && replyingToMessage.id.startsWith('order-')) {
+        const orderId = replyingToMessage.id.replace('order-', '');
+        const targetOrder = contact.orders.find(o => o.id === orderId) || contact.orders[0];
+
+        const productsFormatted = (targetOrder.items || []).map(item => 
+            `📦 ${item.quantity || 1}x ${item.name} - €${parseFloat(item.price || 0).toFixed(2)}`
+        ).join('\n');
+
+        finalMessageText = `Hola, el pedido que ordenaste fue:\n\n🛒 PRODUCTOS ADQUIRIDOS:\n${productsFormatted}\n\n💰 TOTAL A PAGAR: €${targetOrder.total}\n\n${userText}`;
+    }
+
     const messageData = {
-        text: text,
+        text: finalMessageText,
         isMe: true,
         timestamp: serverTimestamp(),
         starred: false
@@ -438,17 +456,39 @@ async function handleSendMessage() {
     if (replyingToMessage) {
         messageData.replyTo = { 
             targetId: replyingToMessage.id, 
-            text: replyingToMessage.text 
+            text: replyingToMessage.id.startsWith('order-') ? `Pedido Varius (Ref: ${replyingToMessage.text.split('Ref: ')[1]?.split(' -')[0] || ''})` : replyingToMessage.text 
         };
     }
 
     try {
-        await addDoc(collection(db, "orders", activeOrderId, "chats"), messageData);
-        await updateDoc(doc(db, "orders", activeOrderId), {
-            lastMessage: text,
+        const chatDocRef = doc(db, "chatsOrders", primaryOrderId);
+        const chatDocSnap = await getDoc(chatDocRef);
+        if (!chatDocSnap.exists()) {
+            await setDoc(chatDocRef, {
+                contactKey: contact.key,
+                customerName: contact.name,
+                phone: contact.phone,
+                createdAt: serverTimestamp()
+            });
+        }
+
+        await addDoc(collection(db, "chatsOrders", primaryOrderId, "messages"), messageData);
+        
+        await updateDoc(doc(db, "orders", primaryOrderId), {
+            lastMessage: finalMessageText,
             lastUpdate: serverTimestamp()
         });
+
         cancelReply();
+
+        // Redirigir automáticamente a WhatsApp con el mensaje formateado
+        if (contact.phone) {
+            const cleanPhone = contact.phone.replace(/\D/g, '');
+            const encodedMessage = encodeURIComponent(finalMessageText);
+            const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMessage}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
     } catch (err) {
         console.error("Error al enviar mensaje:", err);
     }
