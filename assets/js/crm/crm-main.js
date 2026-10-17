@@ -1,108 +1,35 @@
-// Orquestador Principal del Módulo CRM
 import { listenCrmOrders, listenCrmLeads } from './crm-firebase.js';
-import { renderClientes, switchTab, showToast, renderProductosCards, renderPedidos } from './crm-render.js';
+import { renderClientes, switchTab, showToast, renderProductosCards, renderPedidos, renderPaginationControlsHTML, getValidDate } from './crm-render.js';
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import {
-    getFirestore,
-    collection,
-    query,
-    where,
-    getDocs,
-    getDoc,   // <--- AGREGA ESTO AQUÍ
-    doc,      // <--- Y ESTO TAMBIÉN
-    updateDoc,
-    addDoc,
-    Timestamp
+    getFirestore, collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 import { firebaseConfig } from '../firebase-config.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 
-// Inicializa Firebase (usa solo una instancia global)
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
-
 
 window.switchTab = switchTab;
 
 document.addEventListener('DOMContentLoaded', () => {
     showToast("Conectando al CRM en tiempo real...");
-
-    // Inicializar el estado global de forma segura si no existe
     window.crmState = window.crmState || { clientes: [], leads: [] };
 
-    // 1. ESCUCHA DE ÓRDENES EN TIEMPO REAL
     listenCrmOrders((clientesFiltrados) => {
         window.crmState = { ...window.crmState, clientes: clientesFiltrados };
-
-        // Validar si la sección de clientes está visible en pantalla
-        const containerClientes = document.getElementById('tab-clientes');
-        if (containerClientes && window.getComputedStyle(containerClientes).display !== 'none') {
-            renderClientes(clientesFiltrados);
-        }
-
-        // 🚀 NUEVO: Validar si la sección de pedidos está visible en pantalla
-        const containerPedidos = document.getElementById('tab-pedidos');
-        if (containerPedidos && window.getComputedStyle(containerPedidos).display !== 'none') {
-            renderPedidos(clientesFiltrados);
-        }
-        // KPIs
-        const ordenesPagadas = clientesFiltrados.filter(c => c.status.toLowerCase() === 'pagado');
-        const totalMonto = ordenesPagadas.reduce((acc, c) => acc + c.montoTotal, 0);
-        const kpiQty = document.getElementById('crm-kpi-qty');
-        const kpiAmount = document.getElementById('crm-kpi-amount');
-
-        if (kpiQty) kpiQty.innerText = ordenesPagadas.length;
-        if (kpiAmount) kpiAmount.innerText = `$${totalMonto.toFixed(2)}`;
+        window.applyCrmFilters(); 
     });
 
-    // 2. ESCUCHA DE LEADS (COMUNICACIONES) EN TIEMPO REAL
     listenCrmLeads((leadsRegistrados) => {
         window.crmState = { ...window.crmState, leads: leadsRegistrados };
-
-        // Validar si la sección de comunicaciones está visible en pantalla
         const containerComunicaciones = document.getElementById('tab-comunicaciones');
         if (containerComunicaciones && window.getComputedStyle(containerComunicaciones).display !== 'none') {
-            if (typeof window.renderComunicaciones === 'function') {
-                window.renderComunicaciones();
-            }
+            if (typeof window.renderComunicaciones === 'function') window.renderComunicaciones();
         }
     });
-
-
-    // 3. MANEJADOR DEL BUSCADOR GLOBAL (FILTRA CON PRECISIÓN DE VISTA)
-    const searchInput = document.getElementById('crm-search-input');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-
-            const containerClientes = document.getElementById('tab-clientes');
-            const containerComunicaciones = document.getElementById('tab-comunicaciones');
-
-            // VERIFICACIÓN REAL DE VISIBILIDAD (Evita fallos por clases CSS de Tailwind o custom)
-            const esPestañaClientes = containerClientes && window.getComputedStyle(containerClientes).display !== 'none';
-            const esPestañaComunicaciones = containerComunicaciones && window.getComputedStyle(containerComunicaciones).display !== 'none';
-
-            // Caso A: Si el usuario está viendo Clientes
-            if (esPestañaClientes) {
-                const clientesOriginales = window.crmState.clientes || [];
-                const clientesFiltrados = clientesOriginales.filter(c => {
-                    return c.nombre.toLowerCase().includes(searchTerm) ||
-                        c.telefono.includes(searchTerm) ||
-                        c.id.toLowerCase().includes(searchTerm);
-                });
-                renderClientes(clientesFiltrados);
-            }
-
-            // Caso B: Si el usuario está viendo Comunicaciones
-            if (esPestañaComunicaciones) {
-                if (typeof window.renderComunicaciones === 'function') {
-                    window.renderComunicaciones();
-                }
-            }
-        });
-    }
 });
 
 /////////////////////////////
@@ -114,17 +41,13 @@ window.getAgendaMap = function getAgendaMap() {
             order.postponeHistory.forEach(pos => {
                 if (!pos.date) return;
                 if (!map[pos.date]) map[pos.date] = [];
-                map[pos.date].push({
-                    ...order,
-                    postponeHistory: order.postponeHistory,
-                    postponeData: pos
-                });
+                map[pos.date].push({ ...order, postponeHistory: order.postponeHistory, postponeData: pos });
             });
         }
     });
-    console.log("getAgendaMap:", map, state.clientes); // <-- Agrega este log
     return map;
 };
+
 window.showAgendaFullCalendarDay = function (date, orders) {
     document.getElementById('agendaModalTitle').innerHTML = `
         <div class="flex items-center gap-3">
@@ -140,14 +63,7 @@ window.showAgendaFullCalendarDay = function (date, orders) {
     const modalBody = document.getElementById('agendaModalBody');
     let html = "";
     if (!orders.length) {
-        html = `
-        <div class="text-center py-12 text-gray-400">
-            <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed border-gray-200">
-                <i class="fa-solid fa-calendar-xmark text-xl text-gray-300"></i>
-            </div>
-            <p class="text-sm font-bold text-gray-700">No hay pendientes</p>
-            <p class="text-xs text-gray-400 max-w-xs mx-auto mt-1">No se encontraron órdenes postergadas para este día comercial.</p>
-        </div>`;
+        html = `<div class="text-center py-12 text-gray-400"><div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed border-gray-200"><i class="fa-solid fa-calendar-xmark text-xl text-gray-300"></i></div><p class="text-sm font-bold text-gray-700">No hay pendientes</p></div>`;
     } else {
         orders.forEach(order => {
             const allPostpones = (order.postponeHistory || []).filter(pos => pos.date === date);
@@ -156,81 +72,21 @@ window.showAgendaFullCalendarDay = function (date, orders) {
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-4 mb-4 border-b border-gray-100">
                     <div>
                         <span class="text-[10px] bg-gray-100 text-gray-600 font-bold px-2 py-0.5 rounded-md font-mono">ID: ${order.id}</span>
-                        <h4 class="font-bold text-gray-800 text-base mt-1 flex items-center gap-1.5">
-                            <i class="fa-solid fa-user text-xs text-gray-400"></i> ${order.nombre}
-                        </h4>
-                    </div>
-                    <div class="flex flex-col sm:items-end gap-1">
-                        <span class="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full border bg-blue-50 text-blue-600 border-blue-200 shadow-sm">
-                            ${order.status}
-                        </span>
-                        <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
-                            <i class="fa-solid fa-phone text-[10px]"></i> ${order.telefono}
-                        </span>
+                        <h4 class="font-bold text-gray-800 text-base mt-1 flex items-center gap-1.5"><i class="fa-solid fa-user text-xs text-gray-400"></i> ${order.nombre}</h4>
                     </div>
                 </div>
-
-                <div class="mb-4 bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-                    <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <i class="fa-regular fa-clock text-blue-500"></i> Gestión Programada para Hoy
-                    </p>
-                    <ul class="space-y-3">
-                        ${allPostpones.map(h => `
-                            <li class="text-xs bg-gray-50/70 p-3 rounded-xl border border-gray-100">
-                                <div class="flex justify-between items-center mb-1.5">
-                                    <span class="font-black text-gray-700 bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm flex items-center gap-1">
-                                        <i class="fa-regular fa-clock text-[11px] text-gray-400"></i> ${h.time || 'Sin hora'}
-                                    </span>
-                                    ${h.timestamp ? `<span class="text-[10px] text-gray-400 font-medium" title="${h.timestamp}">Reg: ${(new Date(h.timestamp).toLocaleString('es-VE'))}</span>` : ""}
-                                </div>
-                                <p class="text-gray-600 italic font-medium">
-                                    "${h.comment ? h.comment : '<span class="text-gray-300 not-italic">Sin comentario registrado</span>'}"
-                                </p>
-                            </li>
-                        `).join('')}
-                    </ul>
-                </div>
-
-                <div>
-                    <details class="group border border-gray-100 rounded-xl bg-white overflow-hidden transition-all">
-                        <summary class="list-none flex justify-between items-center p-3 text-xs font-bold text-gray-500 hover:text-gray-700 cursor-pointer bg-gray-50/30 select-none">
-                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-timeline text-gray-400"></i> Ver historial completo de postergaciones</span>
-                            <i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180 text-[10px] text-gray-400"></i>
-                        </summary>
-                        <div class="p-3 border-t border-gray-50 bg-gray-50/10 max-h-40 overflow-y-auto custom-scrollbar">
-                            <ul class="relative border-l border-gray-200 pl-4 ml-2 space-y-3 my-2">
-                                ${(order.postponeHistory || []).map(p => `
-                                    <li class="relative text-[11px] text-gray-600">
-                                        <span class="absolute -left-[21px] top-1 w-2 h-2 rounded-full bg-amber-400 border-2 border-white ring-1 ring-gray-200"></span>
-                                        <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-                                            <span class="font-bold text-gray-700">${p.date}</span>
-                                            <span class="text-gray-400 font-medium">a las ${p.time || '--:--'}</span>
-                                            ${p.timestamp ? `<span class="text-[9px] text-gray-400 italic" title="Registrado: ${p.timestamp}">(${(new Date(p.timestamp).toLocaleString('es-VE', { hour: '2-digit', minute: '2-digit' })).toLowerCase()})</span>` : ''}
-                                        </div>
-                                        ${p.comment ? `<p class="text-gray-500 font-medium bg-white border border-gray-100 rounded-lg px-2.5 py-1 mt-1 inline-block shadow-sm">"${p.comment}"</p>` : ''}
-                                    </li>
-                                `).join('')}
-                            </ul>
-                        </div>
-                    </details>
-                </div>
-            </div>
-            `;
+            </div>`;
         });
     }
     modalBody.innerHTML = html;
     document.getElementById('agendaModalBackdrop').classList.remove('hidden');
     document.getElementById('agendaModal').classList.remove('hidden');
 };
-// Reemplaza COMPLETO tu renderAgenda:
+
 window.renderAgenda = function renderAgenda() {
-    //console.log("Ejecutando renderAgenda");
-
     const agendaMap = window.getAgendaMap();
-    //console.log("AGENDA MAP:", agendaMap);
-
     const container = document.getElementById('crm-agenda-container');
-    if (!container) { console.log("No existe el container!"); return; }
+    if (!container) return;
     container.innerHTML = '';
     const fcDiv = document.createElement('div');
     fcDiv.id = 'fullcalendar';
@@ -239,165 +95,88 @@ window.renderAgenda = function renderAgenda() {
     const events = [];
     Object.keys(agendaMap).forEach(date => {
         const orders = agendaMap[date];
-        events.push({
-            title: orders.length === 1 ? '1 orden postergada' : `${orders.length} órdenes postergadas`,
-            start: date,
-            allDay: true,
-            extendedProps: {
-                orders
-            }
-        });
+        events.push({ title: `${orders.length} órdenes postergadas`, start: date, allDay: true, extendedProps: { orders } });
     });
 
-    console.log("Eventos para calendario:", events);
+    if (typeof FullCalendar === "undefined") return;
 
-    // Chequea que se cargó FullCalendar
-    if (typeof FullCalendar === "undefined") {
-        console.error("❌ FullCalendar no está definido. ¿El script está cargando después del JS CRM?");
-        alert("No se cargó FullCalendar. Revisa su <script> en el HTML.");
-        return;
-    }
-
-    // Instala el calendario
     const calendar = new FullCalendar.Calendar(fcDiv, {
         initialView: 'dayGridMonth',
         locale: 'es',
         height: 500,
         events,
         fixedWeekCount: false,
-        selectable: false,
-        editable: false,
-        dayMaxEventRows: true,
-        eventDisplay: 'block',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: ''
-        },
-        dayCellDidMount(info) {
-            info.el.style.background = '#f8fafc';
-        },
-        eventDidMount(info) {
-            info.el.style.backgroundColor = '#e0e7ff';
-            info.el.style.borderColor = '#6366f1';
-            info.el.style.color = '#1e293b';
-            info.el.style.fontWeight = 'bold';
-            info.el.style.cursor = 'pointer';
-        },
+        headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
         eventClick(info) {
             const orders = info.event.extendedProps.orders;
-            if (orders && orders.length) {
-                window.showAgendaFullCalendarDay(info.event.startStr, orders);
-            }
+            if (orders && orders.length) window.showAgendaFullCalendarDay(info.event.startStr, orders);
         },
     });
-
     calendar.render();
-    console.log("FullCalendar renderizado");
 };
 
 window.closeAgendaModal = function closeAgendaModal() {
     document.getElementById('agendaModalBackdrop').classList.add('hidden');
     document.getElementById('agendaModal').classList.add('hidden');
 }
-//////////////////////////////////
 
-// --- FUNCIÓN: Al activar el tab productos ---
-window.loadProductosVendidos = async function loadProductosVendidos() {
-    const state = window.crmState || { clientes: [] };
-    const pagadas = state.clientes.filter(o => o.status && o.status.toLowerCase() === "pagado");
-
-    const productosMap = {}; // productId -> info agregada
-
-    pagadas.forEach(order => {
-        // CUIDADO: La fecha REAL de pago viene de paymentUpdatedAt
-        // Debe estar disponible en el documento de la orden (ajusta si viene con otro nombre/caso)
-        const fechaPago = order.paymentUpdatedAt || order.fechaPago || order.paymentDate || "";
-        const items = order.items;
-        if (!items) return;
-        items.forEach(item => {
-            if (!item.productId) return;
-            if (!productosMap[item.productId]) {
-                productosMap[item.productId] = {
-                    productId: item.productId,
-                    nombre: item.name,
-                    precioUnitario: item.price,
-                    cantidadTotal: 0,
-                    montoTotal: 0,
-                    ultimaVenta: null // fecha más reciente de paymentUpdatedAt
-                };
-            }
-            const cantidad = Number(item.quantity) || 1;
-            productosMap[item.productId].cantidadTotal += cantidad;
-            productosMap[item.productId].montoTotal += (item.subtotal || ((item.price || 0) * cantidad));
-
-            // Fecha de pago más reciente
-            if (
-                fechaPago &&
-                (
-                    !productosMap[item.productId].ultimaVenta ||
-                    new Date(fechaPago) > new Date(productosMap[item.productId].ultimaVenta)
-                )
-            ) {
-                productosMap[item.productId].ultimaVenta = fechaPago;
-            }
-        });
-    });
-
-    const productosIds = Object.keys(productosMap);
-    let productosDb = {};
-    if (productosIds.length) {
-        const productsSnaps = await getDocs(collection(db, "product"));
-        productsSnaps.forEach(doc => {
-            productosDb[doc.id] = doc.data();
-        });
-    }
-
-    const productosArray = productosIds.map(pid => {
-        const prod = productosMap[pid];
-        const dbData = productosDb[pid];
-        let imagen = "";
-        if (prod.img) {
-            imagen = prod.img;
-        } else if (dbData) {
-            if (Array.isArray(dbData.images) && dbData.images.length > 0) {
-                imagen = dbData.images[0];
-            } else if (Array.isArray(dbData.imageUrls) && dbData.imageUrls.length > 0) {
-                imagen = dbData.imageUrls[0];
-            }
-        }
-        return {
-            ...prod,
-            imagen,
-        };
-    });
-
-    // Ordenar del más vendido al menos vendido
-    productosArray.sort((a, b) => b.cantidadTotal - a.cantidadTotal);
-
-    renderProductosCards(productosArray);
-}
-// Filtro avanzado
+// ----------------------------------------------------
+// FILTROS GLOBALES
+// ----------------------------------------------------
 window.applyCrmFilters = function applyCrmFilters() {
-    const state = window.crmState || { clientes: [] };
+    window.currentPageClientes = 1;
+    window.currentPagePedidos = 1;
+    window.currentPageProductos = 1;
+    window.currentPageComunicaciones = 1;
 
+    const state = window.crmState || { clientes: [] };
     const status = document.getElementById('crmFilterStatus').value;
     const date = document.getElementById('crmFilterDate').value;
-    const channel = document.getElementById('crmFilterChannel').value;
+    const searchInput = document.getElementById('crm-search-input');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
     let filtrados = [...state.clientes];
-    if (status !== "all") {
-        filtrados = filtrados.filter(c => c.status.toLowerCase() === status.toLowerCase());
+
+    if (searchTerm) {
+        filtrados = filtrados.filter(c => {
+            const matchText = (c.nombre || "").toLowerCase().includes(searchTerm) ||
+                              (c.telefono || "").includes(searchTerm) ||
+                              (c.id || "").toLowerCase().includes(searchTerm);
+            
+            const matchProduct = c.items && Array.isArray(c.items) && c.items.some(item =>
+                (item.name || "").toLowerCase().includes(searchTerm)
+            );
+            return matchText || matchProduct;
+        });
     }
+
+    if (status !== "all") {
+        filtrados = filtrados.filter(c => c.status && c.status.toLowerCase() === status.toLowerCase());
+    }
+
     if (date) {
         filtrados = filtrados.filter(c => c.ultVenta && c.ultVenta.startsWith(date));
     }
-    // Si implementas campo canal, añade aquí tu filtro por canal.
 
-    renderClientes(filtrados);
+    const containerClientes = document.getElementById('tab-clientes');
+    const containerPedidos = document.getElementById('tab-pedidos');
+    const containerComunicaciones = document.getElementById('tab-comunicaciones');
+    const containerProductos = document.getElementById('tab-productos');
 
-    // KPIs
-    const totalMonto = filtrados.reduce((acc, c) => acc + c.montoTotal, 0);
+    if (containerClientes && window.getComputedStyle(containerClientes).display !== 'none') {
+        renderClientes(filtrados, true);
+    }
+    if (containerPedidos && window.getComputedStyle(containerPedidos).display !== 'none') {
+        renderPedidos(filtrados, true);
+    }
+    if (containerComunicaciones && window.getComputedStyle(containerComunicaciones).display !== 'none') {
+        if (typeof window.renderComunicaciones === 'function') window.renderComunicaciones();
+    }
+    if (containerProductos && window.getComputedStyle(containerProductos).display !== 'none') {
+        if (typeof window.loadProductosVendidos === 'function') window.loadProductosVendidos();
+    }
+
+    const totalMonto = filtrados.reduce((acc, c) => acc + (Number(c.montoTotal) || 0), 0);
     const kpiQty = document.getElementById('crm-kpi-qty');
     const kpiAmount = document.getElementById('crm-kpi-amount');
     if (kpiQty) kpiQty.innerText = filtrados.length;
@@ -408,168 +187,251 @@ window.clearCrmFilters = function clearCrmFilters() {
     document.getElementById('crmFilterDate').value = '';
     document.getElementById('crmFilterStatus').value = 'all';
     document.getElementById('crmFilterChannel').value = 'all';
+    const searchInput = document.getElementById('crm-search-input');
+    if(searchInput) searchInput.value = '';
     window.applyCrmFilters();
 };
 
-// REGISTRA EL LEAD al hacer contacto (NO historial)
-window.handleLead = async function handleLead(type, clienteId) {
-    if (type === 'historial') return; // solo registra whatsapp, llamada y sms
+window.loadProductosVendidos = async function loadProductosVendidos() {
+    const state = window.crmState || { clientes: [] };
+    // Tomamos todas las órdenes (pagadas y no pagadas si gustas, o filtradas)
+    const pagadas = state.clientes.filter(o => o.status && o.status.toLowerCase() === "pagado");
+    
+    const searchInput = document.getElementById('crm-search-input');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
+    const productosMap = {}; 
+    pagadas.forEach(order => {
+        const fechaPago = order.paymentUpdatedAt || order.fechaPago || order.paymentDate || "";
+        if (!order.items) return;
+        order.items.forEach(item => {
+            if (!item.productId) return;
+            if (!productosMap[item.productId]) {
+                productosMap[item.productId] = {
+                    productId: item.productId,
+                    nombre: item.name,
+                    precioUnitario: item.price,
+                    cantidadTotal: 0,
+                    montoTotal: 0,
+                    ultimaVenta: null
+                };
+            }
+            const cantidad = Number(item.quantity) || 1;
+            productosMap[item.productId].cantidadTotal += cantidad;
+            productosMap[item.productId].montoTotal += (item.subtotal || ((item.price || 0) * cantidad));
+
+            if (fechaPago && (!productosMap[item.productId].ultimaVenta || new Date(fechaPago) > new Date(productosMap[item.productId].ultimaVenta))) {
+                productosMap[item.productId].ultimaVenta = fechaPago;
+            }
+        });
+    });
+
+    const productosIds = Object.keys(productosMap);
+    let productosDb = {};
+    if (productosIds.length) {
+        const productsSnaps = await getDocs(collection(db, "product"));
+        productsSnaps.forEach(doc => { productosDb[doc.id] = doc.data(); });
+    }
+
+    let productosArray = productosIds.map(pid => {
+        const prod = productosMap[pid];
+        const dbData = productosDb[pid];
+        let imagen = "";
+        if (prod.img) imagen = prod.img;
+        else if (dbData && dbData.images?.length > 0) imagen = dbData.images[0];
+        else if (dbData && dbData.imageUrls?.length > 0) imagen = dbData.imageUrls[0];
+        return { ...prod, imagen };
+    });
+
+    if (searchTerm) {
+        productosArray = productosArray.filter(p => (p.nombre || "").toLowerCase().includes(searchTerm));
+    }
+
+    renderProductosCards(productosArray, true);
+};
+
+
+// ----------------------------------------------------
+// MODAL DETALLE DE PRODUCTOS (CONSOLIDA TODAS LAS ÓRDENES DEL CLIENTE)
+// ----------------------------------------------------
+
+window.closeProductosModal = function() {
+    document.getElementById('productosModalBackdrop').classList.add('hidden');
+    document.getElementById('productosModal').classList.add('hidden');
+};
+
+window.showProductosModal = function(orderOrClientId) {
+    const state = window.crmState || { clientes: [] };
+    
+    // Buscamos la orden inicial de referencia
+    const refOrder = state.clientes.find(c => c.id === orderOrClientId);
+    if(!refOrder) {
+        showToast("Error: No se encontró información del cliente.");
+        return;
+    }
+
+    // 🚀 RECOPILAMOS TODAS LAS ÓRDENES DE ESTE CLIENTE (Por teléfono o nombre coincidente)
+    const clienteKey = (refOrder.telefono || refOrder.nombre || "").trim().toLowerCase();
+    const todasLasOrdenesDelCliente = state.clientes.filter(c => 
+        (c.telefono || c.nombre || "").trim().toLowerCase() === clienteKey
+    );
+
+    const titleEl = document.getElementById('productosModalTitle');
+    const subtitleEl = document.getElementById('productosModalSubtitle');
+    const listEl = document.getElementById('productosModalList');
+
+    titleEl.innerHTML = `<i class="fa-solid fa-box-open text-indigo-500"></i> Historial de Solicitudes — ${refOrder.nombre}`;
+    subtitleEl.innerHTML = `Teléfono: <span class="font-bold">${refOrder.telefono}</span> | Total Órdenes Registradas: <span class="text-indigo-600 font-bold">${todasLasOrdenesDelCliente.length}</span>`;
+
+    // Consolidamos todos los ítems de todas las órdenes (pagadas y no pagadas)
+    let todosLosProductos = [];
+    todasLasOrdenesDelCliente.forEach(orden => {
+        if (Array.isArray(orden.items)) {
+            orden.items.forEach(item => {
+                todosLosProductos.push({
+                    ...item,
+                    orderId: orden.id,
+                    orderStatus: orden.status,
+                    orderDate: orden.ultVenta || orden.createdAt || 'Sin fecha'
+                });
+            });
+        }
+    });
+
+    if (todosLosProductos.length === 0) {
+        listEl.innerHTML = `
+            <div class="text-center py-10 text-gray-400">
+                <i class="fa-solid fa-basket-shopping text-3xl mb-2"></i>
+                <p class="font-bold text-gray-700">Sin Productos</p>
+                <p class="text-xs">Este cliente no posee productos en sus órdenes registradas.</p>
+            </div>
+        `;
+    } else {
+        listEl.innerHTML = todosLosProductos.map(item => {
+            const precio = Number(item.price) || 0;
+            const cantidad = Number(item.quantity) || 1;
+            const subtotal = item.subtotal || (precio * cantidad);
+            
+            const badgeStatusColor = item.orderStatus.toLowerCase() === 'pagado' 
+                ? 'bg-purple-50 text-purple-600 border-purple-200' 
+                : 'bg-blue-50 text-blue-600 border-blue-200';
+
+            return `
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-gray-50 border border-gray-100 rounded-2xl p-4 transition hover:bg-gray-100/50">
+                <div class="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+                    ${item.img ? `<img src="${item.img}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-gray-300"></i>`}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h4 class="font-bold text-gray-800 text-sm truncate">${item.name || 'Producto Desconocido'}</h4>
+                        <span class="text-[9px] px-2 py-0.5 rounded-full border uppercase font-black ${badgeStatusColor}">${item.orderStatus}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-0.5">
+                        <span class="font-semibold">Precio:</span> $${precio.toFixed(2)} 
+                        <span class="mx-1 text-gray-300">|</span> 
+                        <span class="font-semibold text-indigo-600">Cant: ${cantidad}</span>
+                    </p>
+                    <p class="text-[10px] text-gray-400 mt-1">
+                        Orden ID: <span class="font-mono">${item.orderId}</span> • Fecha: ${item.orderDate}
+                    </p>
+                </div>
+                <div class="text-right self-end sm:self-center">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Subtotal</p>
+                    <p class="font-black text-emerald-600 text-sm">$${subtotal.toFixed(2)}</p>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    document.getElementById('productosModalBackdrop').classList.remove('hidden');
+    document.getElementById('productosModal').classList.remove('hidden');
+};
+
+
+// ----------------------------------------------------
+// LEADS Y COMUNICACIONES
+// ----------------------------------------------------
+window.handleLead = async function handleLead(type, clienteId) {
+    if (type === 'historial') return; 
     const clientes = window.crmState?.clientes || [];
     const cliente = clientes.find(c => c.id === clienteId);
     if (!cliente) return;
-
     const lead = {
         clienteId: cliente.id,
         nombre: cliente.nombre,
         telefono: cliente.telefono,
         email: cliente.email,
         vendedor: cliente.vendedor,
-        canal: type, // 'whatsapp', 'llamada', 'sms'
+        canal: type,
         fecha: new Date().toISOString(),
         timestamp: Timestamp.now()
     };
-
     try {
         await addDoc(collection(db, "leads"), lead);
-        // showToast(`Lead registrado por ${type}`);
     } catch (e) {
         console.error("Error registrando el lead:", e);
-        // showToast("Error registrando el lead");
     }
 };
 
-// MODAL HISTORIAL DE LEADS
-
 window.leadsModalState = { clienteId: null, clienteNombre: null };
-
 window.showLeadsModal = async function showLeadsModal(clienteId, clienteNombre) {
     window.leadsModalState = { clienteId, clienteNombre };
-    document.getElementById('leadsModalTitle').innerHTML = `
-        <i class="fa-solid fa-clock-rotate-left text-blue-500"></i> Historial — ${clienteNombre}
-    `;
-
+    document.getElementById('leadsModalTitle').innerHTML = `<i class="fa-solid fa-clock-rotate-left text-blue-500"></i> Historial — ${clienteNombre}`;
     const listDiv = document.getElementById('leadsModalList');
-    listDiv.innerHTML = `
-        <div class="flex flex-col items-center justify-center py-8 text-gray-400 gap-2">
-            <i class="fa-solid fa-circle-notch animate-spin text-2xl text-blue-500"></i>
-            <span class="text-xs font-medium">Cargando línea de tiempo...</span>
-        </div>
-    `;
-
+    listDiv.innerHTML = `<div class="flex flex-col items-center justify-center py-8 text-gray-400 gap-2"><i class="fa-solid fa-circle-notch animate-spin text-2xl text-blue-500"></i><span class="text-xs font-medium">Cargando línea de tiempo...</span></div>`;
     document.getElementById('leadsModalBackdrop').classList.remove('hidden');
     document.getElementById('leadsModal').classList.remove('hidden');
 
-    // Consulta por clienteId (¡aquí se arregla!)
     const q = query(collection(db, "leads"), where("clienteId", "==", clienteId));
     const snap = await getDocs(q);
 
     if (snap.empty) {
-        listDiv.innerHTML = `
-            <div class="text-center py-12 text-gray-400">
-                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed">
-                    <i class="fa-solid fa-comment-slash text-xl text-gray-300"></i>
-                </div>
-                <p class="text-sm font-bold text-gray-700">Sin interacciones registradas</p>
-                <p class="text-xs text-gray-400 max-w-xs mx-auto mt-1">
-                    Aún no se han iniciado comunicaciones digitales o llamadas con este cliente desde el CRM.
-                </p>
-            </div>
-        `;
+        listDiv.innerHTML = `<div class="text-center py-12 text-gray-400"><div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed"><i class="fa-solid fa-comment-slash text-xl text-gray-300"></i></div><p class="text-sm font-bold text-gray-700">Sin interacciones registradas</p></div>`;
         return;
     }
 
     listDiv.innerHTML = "";
-
-    // Contenedor principal de la línea de tiempo vertical
     const timelineContainer = document.createElement('div');
     timelineContainer.className = "relative border-l-2 border-gray-100 pl-6 ml-3 space-y-6";
 
-    snap.forEach((docu) => {
-        const l = docu.data();
+    let leadsArray = [];
+    snap.forEach((docu) => leadsArray.push({ id: docu.id, data: docu.data() }));
+    leadsArray.sort((a,b) => getValidDate(b.data.fecha) - getValidDate(a.data.fecha));
 
-        // Configuración visual del canal de contacto
+    leadsArray.forEach((item) => {
+        const docuId = item.id;
+        const l = item.data;
         let channelIcon = "fa-comment";
         let channelBg = "bg-blue-500 text-white";
         let channelLabel = l.canal ? l.canal.toUpperCase() : "CONTACTO";
 
-        if (l.canal === "whatsapp") {
-            channelIcon = "fa-brands fa-whatsapp";
-            channelBg = "bg-emerald-500 text-white";
-        } else if (l.canal === "sms") {
-            channelIcon = "fa-solid fa-message";
-            channelBg = "bg-amber-500 text-white";
-        } else if (l.canal === "llamada") {
-            channelIcon = "fa-solid fa-phone";
-            channelBg = "bg-blue-500 text-white";
-        }
+        if (l.canal === "whatsapp") { channelIcon = "fa-brands fa-whatsapp"; channelBg = "bg-emerald-500 text-white"; } 
+        else if (l.canal === "sms") { channelIcon = "fa-solid fa-message"; channelBg = "bg-amber-500 text-white"; } 
+        else if (l.canal === "llamada") { channelIcon = "fa-solid fa-phone"; channelBg = "bg-blue-500 text-white"; }
 
-        const dateStr = l.fecha ? new Date(l.fecha).toLocaleString('es-VE', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-        }) : 'Sin fecha';
+        const dateStr = l.fecha ? new Date(l.fecha).toLocaleString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha';
+        
+        let comprobanteHTML = l.comprobanteUrl ? `
+            <div class="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3 group">
+                <a href="${l.comprobanteUrl}" target="_blank" class="flex-shrink-0 block"><img src="${l.comprobanteUrl}" alt="Comprobante" class="w-16 h-16 rounded-lg border border-emerald-100 object-cover hover:scale-105 transition cursor-pointer" style="background:#f8fafc;"></a>
+                <div><div class="flex items-center gap-2"><p class="text-xs font-bold text-gray-700">Comprobante Adjunto</p><a href="${l.comprobanteUrl}" target="_blank" class="text-blue-500 text-xs hover:underline ml-1"><i class="fa-solid fa-eye"></i> Ver</a></div></div>
+            </div>` : `<div class="mt-3"><label class="relative flex items-center justify-center gap-2 w-full p-3 bg-gray-50 hover:bg-gray-100/70 border border-dashed border-gray-200 rounded-xl cursor-pointer text-gray-500 hover:text-gray-700 transition-all text-xs font-semibold"><i class="fa-solid fa-cloud-arrow-up text-gray-400 text-sm"></i><span>Adjuntar Comprobante</span><input type="file" accept="image/*" class="hidden" onchange="uploadComprobanteLead('${docuId}', this)" /></label></div>`;
 
-        let comprobanteHTML = "";
-        if (l.comprobanteUrl) {
-            comprobanteHTML = `
-                <div class="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3 group">
-                    <a href="${l.comprobanteUrl}" target="_blank" class="flex-shrink-0 block">
-                        <img 
-                            src="${l.comprobanteUrl}" 
-                            alt="Comprobante" 
-                            class="w-16 h-16 rounded-lg border border-emerald-100 object-cover hover:scale-105 transition cursor-pointer"
-                            style="background:#f8fafc;"
-                        >
-                    </a>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <p class="text-xs font-bold text-gray-700">Comprobante Adjunto</p>
-                            <a href="${l.comprobanteUrl}" target="_blank" 
-                            class="text-blue-500 text-xs hover:underline ml-1"><i class="fa-solid fa-eye"></i> Ver</a>
-                        </div>
-                        <p class="text-[10px] text-gray-400">Imagen de respaldo guardada</p>
-                    </div>
-                </div>
-            `;
-        } else {
-            comprobanteHTML = `
-                <div class="mt-3">
-                    <label class="relative flex items-center justify-center gap-2 w-full p-3 bg-gray-50 hover:bg-gray-100/70 border border-dashed border-gray-200 rounded-xl cursor-pointer text-gray-500 hover:text-gray-700 transition-all text-xs font-semibold">
-                        <i class="fa-solid fa-cloud-arrow-up text-gray-400 text-sm"></i>
-                        <span>Adjuntar Comprobante</span>
-                        <input type="file" accept="image/*" class="hidden" onchange="uploadComprobanteLead('${docu.id}', this)" />
-                    </label>
-                </div>
-            `;
-        }
-
-        const itemHTML = `
+        timelineContainer.insertAdjacentHTML('beforeend', `
             <div class="relative group">
-                <div class="absolute -left-[35px] top-1 w-6 h-6 rounded-full ${channelBg} border-4 border-white shadow-sm flex items-center justify-center text-[10px]">
-                    <i class="${channelIcon}"></i>
-                </div>
-                
+                <div class="absolute -left-[35px] top-1 w-6 h-6 rounded-full ${channelBg} border-4 border-white shadow-sm flex items-center justify-center text-[10px]"><i class="${channelIcon}"></i></div>
                 <div class="bg-white p-4 rounded-2xl border border-gray-100 group-hover:border-gray-200 group-hover:shadow-sm transition-all duration-200">
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 mb-2">
-                        <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-wide inline-block w-fit ${l.canal === 'whatsapp' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-600'}">
-                            ${channelLabel}
-                        </span>
-                        <span class="text-[11px] text-gray-400 font-medium flex items-center gap-1">
-                            <i class="fa-regular fa-clock text-[10px]"></i> ${dateStr}
-                        </span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-wide inline-block w-fit ${l.canal === 'whatsapp' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-600'}">${channelLabel}</span>
+                        <span class="text-[11px] text-gray-400 font-medium flex items-center gap-1"><i class="fa-regular fa-clock text-[10px]"></i> ${dateStr}</span>
                     </div>
-                    
-                    <p class="text-xs text-gray-600 leading-relaxed font-medium">
-                        El cliente fue contactado por el ejecutivo asignado <span class="font-bold text-gray-800">${l.vendedor || 'Sistema'}</span>.
-                    </p>
-                    
+                    <p class="text-xs text-gray-600 leading-relaxed font-medium">El cliente fue contactado por el ejecutivo asignado <span class="font-bold text-gray-800">${l.vendedor || 'Sistema'}</span>.</p>
                     ${comprobanteHTML}
                 </div>
             </div>
-        `;
-
-        timelineContainer.insertAdjacentHTML('beforeend', itemHTML);
+        `);
     });
-
     listDiv.appendChild(timelineContainer);
 };
 
@@ -578,50 +440,36 @@ window.closeLeadsModal = function closeLeadsModal() {
     document.getElementById('leadsModal').classList.add('hidden');
 };
 
-// SUBIR COMPROBANTE por lead a Firebase Storage y registrar URL en Firestore
 window.uploadComprobanteLead = async function uploadComprobanteLead(leadId, input) {
     if (!input.files.length) return;
-
     const auth = getAuth();
-    if (!auth.currentUser) {
-        showToast("Debes iniciar sesión para subir comprobantes.");
-        return;
-    }
+    if (!auth.currentUser) { showToast("Debes iniciar sesión para subir comprobantes."); return; }
 
-    // --- Indicador de carga UI ---
     const label = input.closest("label");
     let loadingIndicator = label.querySelector(".crmh-spinner");
     if (!loadingIndicator) {
         loadingIndicator = document.createElement("span");
         loadingIndicator.className = "crmh-spinner ml-2";
-        loadingIndicator.innerHTML = `
-            <i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i> 
-            <span class="text-[10px] font-semibold text-blue-400 ml-1 align-middle">Subiendo...</span>`;
+        loadingIndicator.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i> <span class="text-[10px] font-semibold text-blue-400 ml-1 align-middle">Subiendo...</span>`;
         label.appendChild(loadingIndicator);
     }
-    input.disabled = true; // bloquea input
+    input.disabled = true;
 
     try {
         const file = input.files[0];
         const ext = file.name.split('.').pop();
-        const storage_path = `leads_comprobantes/${leadId}.${ext}`;
-        const fileRef = storageRef(storage, storage_path);
+        const fileRef = storageRef(storage, `leads_comprobantes/${leadId}.${ext}`);
         await uploadBytes(fileRef, file);
         const url = await getDownloadURL(fileRef);
-        const leadRef = doc(db, "leads", leadId);
-        await updateDoc(leadRef, { comprobanteUrl: url });
+        await updateDoc(doc(db, "leads", leadId), { comprobanteUrl: url });
 
-        // --- Mostrar éxito visual ---
         loadingIndicator.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500"></i><span class="ml-2 text-emerald-700 font-bold text-xs">¡Subido!</span>`;
         showToast("Comprobante subido.");
-
         setTimeout(() => {
-            // Quita spinner y desbloquea input
             if (loadingIndicator) loadingIndicator.remove();
             input.disabled = false;
             window.showLeadsModal(window.leadsModalState.clienteId, window.leadsModalState.clienteNombre);
         }, 700);
-
     } catch (err) {
         showToast("Error subiendo comprobante.");
         if (loadingIndicator) loadingIndicator.innerHTML = `<i class="fa-solid fa-circle-xmark text-red-500"></i> <span class="text-xs text-red-500 ml-1">Error</span>`;
@@ -631,15 +479,17 @@ window.uploadComprobanteLead = async function uploadComprobanteLead(leadId, inpu
     }
 };
 
-// --- FUNCIÓN: Renderizar Pestaña de Comunicaciones Globales (Agrupada y con Filtro) ---
+window.currentPageComunicaciones = 1;
+window.currentDataComunicacionesGroups = [];
+
+window.cambiarPaginaComunicaciones = function(page) {
+    window.currentPageComunicaciones = page;
+    renderComunicacionesPaginadas(window.currentDataComunicacionesGroups, true);
+};
+
 window.renderComunicaciones = function renderComunicaciones() {
     const state = window.crmState || { clientes: [], leads: [] };
     const leads = state.leads || [];
-    const clientes = state.clientes || [];
-
-    const container = document.getElementById('crm-comunicaciones-container');
-    if (!container) return;
-
     const searchInput = document.getElementById('crm-search-input');
     const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
@@ -649,186 +499,115 @@ window.renderComunicaciones = function renderComunicaciones() {
         const canal = (lead.canal || "").toLowerCase();
         const clienteId = (lead.clienteId || "").toLowerCase();
         const vendedor = (lead.vendedor || "").toLowerCase();
-
-        return nombre.includes(searchTerm) ||
-            telefono.includes(searchTerm) ||
-            canal.includes(searchTerm) ||
-            vendedor.includes(searchTerm) ||
-            clienteId.includes(searchTerm);
+        return nombre.includes(searchTerm) || telefono.includes(searchTerm) || canal.includes(searchTerm) || vendedor.includes(searchTerm) || clienteId.includes(searchTerm);
     });
-
-    if (leadsFiltrados.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-12 text-gray-400">
-                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed">
-                    <i class="fa-solid fa-magnifying-glass text-xl text-gray-300"></i>
-                </div>
-                <p class="text-sm font-bold text-gray-700">No se encontraron resultados</p>
-                <p class="text-xs text-gray-400 max-w-xs mx-auto mt-1">Ninguna interacción coincide con "${searchTerm}".</p>
-            </div>`;
-        return;
-    }
 
     const leadsAgrupados = leadsFiltrados.reduce((grupos, lead) => {
         if (!grupos[lead.clienteId]) {
-            grupos[lead.clienteId] = {
-                clienteId: lead.clienteId,
-                nombreCliente: lead.nombre,
-                telefonoCliente: lead.telefono,
-                interacciones: []
-            };
+            grupos[lead.clienteId] = { clienteId: lead.clienteId, nombreCliente: lead.nombre, telefonoCliente: lead.telefono, interacciones: [], ultimaInteraccion: 0 };
         }
         grupos[lead.clienteId].interacciones.push(lead);
+        const leadDate = getValidDate(lead.fecha);
+        if(leadDate > grupos[lead.clienteId].ultimaInteraccion) grupos[lead.clienteId].ultimaInteraccion = leadDate;
         return grupos;
     }, {});
 
-    let html = `<div class="space-y-4">`;
+    let gruposArray = Object.values(leadsAgrupados);
+    gruposArray.sort((a,b) => b.ultimaInteraccion - a.ultimaInteraccion);
+    gruposArray.forEach(g => g.interacciones.sort((a,b) => getValidDate(b.fecha) - getValidDate(a.fecha)));
 
-    Object.values(leadsAgrupados).forEach((grupo, index) => {
+    window.currentDataComunicacionesGroups = gruposArray;
+    renderComunicacionesPaginadas(gruposArray, false);
+};
+
+function renderComunicacionesPaginadas(gruposArray, keepPage = false) {
+    const container = document.getElementById('crm-comunicaciones-container');
+    const paginationContainer = document.getElementById('crm-comunicaciones-pagination');
+    const clientes = window.crmState?.clientes || [];
+    if (!container) return;
+
+    if (!keepPage) window.currentPageComunicaciones = 1;
+
+    const ITEMS_PER_PAGE = 10;
+    const totalPages = Math.ceil(gruposArray.length / ITEMS_PER_PAGE);
+    if (window.currentPageComunicaciones > totalPages && totalPages > 0) window.currentPageComunicaciones = totalPages;
+
+    if (gruposArray.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 text-gray-400"><div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed"><i class="fa-solid fa-magnifying-glass text-xl text-gray-300"></i></div><p class="text-sm font-bold text-gray-700">No se encontraron resultados</p></div>`;
+        if (paginationContainer) paginationContainer.innerHTML = '';
+        return;
+    }
+
+    const startIndex = (window.currentPageComunicaciones - 1) * ITEMS_PER_PAGE;
+    const paginatedGroups = gruposArray.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    let html = `<div class="space-y-4">`;
+    paginatedGroups.forEach((grupo) => {
         const ordenAsociada = clientes.find(c => c.id === grupo.clienteId);
         const estatusActual = ordenAsociada ? ordenAsociada.status : "Finalizado/Inactivo";
         const montoOrden = ordenAsociada ? `$${ordenAsociada.montoTotal.toFixed(2)}` : "N/A";
-
-        const badgeColor = estatusActual === 'Contactado'
-            ? 'bg-green-50 text-green-600 border-green-200'
-            : estatusActual === 'Pagado'
-                ? 'bg-purple-50 text-purple-600 border-purple-200'
-                : 'bg-blue-50 text-blue-600 border-blue-200';
-
-        // Generamos un ID único por cada tarjeta de cliente
+        const badgeColor = estatusActual === 'Contactado' ? 'bg-green-50 text-green-600 border-green-200' : estatusActual === 'Pagado' ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-blue-50 text-blue-600 border-blue-200';
         const collapseId = `collapse-cliente-${grupo.clienteId.replace(/\s+/g, '-')}`;
 
         html += `
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden group/card transition-all duration-200">
-                
-                <div onclick="toggleClienteLeads('${collapseId}')" 
-                     class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 sm:p-5 bg-gray-50/60 hover:bg-gray-50 cursor-pointer select-none transition-all duration-150">
+                <div onclick="toggleClienteLeads('${collapseId}')" class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 sm:p-5 bg-gray-50/60 hover:bg-gray-50 cursor-pointer select-none transition-all duration-150">
                     <div class="flex items-center gap-4 w-full sm:w-auto">
-                        <div id="icon-${collapseId}" class="w-8 h-8 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 transition-transform duration-200 transform rotate-0">
-                            <i class="fa-solid fa-chevron-down text-xs"></i>
-                        </div>
+                        <div id="icon-${collapseId}" class="w-8 h-8 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 transition-transform duration-200 transform rotate-0"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                         <div>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <h3 class="text-sm font-black text-gray-800">${grupo.nombreCliente}</h3>
-                                <span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border ${badgeColor}">
-                                    ${estatusActual}
-                                </span>
+                                <span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border ${badgeColor}">${estatusActual}</span>
                             </div>
-                            <p class="text-[11px] text-gray-500 mt-0.5">
-                                <i class="fa-solid fa-phone text-[10px] mr-1"></i> ${grupo.telefonoCliente} 
-                                <span class="mx-1 text-gray-300">|</span> 
-                                <i class="fa-solid fa-file-invoice text-[10px] mr-1"></i> Orden: <span class="font-mono font-bold">${grupo.clienteId}</span>
-                            </p>
+                            <p class="text-[11px] text-gray-500 mt-0.5"><i class="fa-solid fa-phone text-[10px] mr-1"></i> ${grupo.telefonoCliente} <span class="mx-1 text-gray-300">|</span> Orden: <span class="font-mono font-bold">${grupo.clienteId}</span></p>
                         </div>
                     </div>
-                    
                     <div class="flex items-center gap-3 self-end sm:self-auto">
-                        <div class="text-right bg-white px-3 py-1 rounded-xl border border-gray-100 shadow-sm">
-                            <span class="text-[9px] uppercase block font-bold text-gray-400">Total Orden</span>
-                            <span class="text-xs font-black text-gray-700">${montoOrden}</span>
-                        </div>
-                        <span class="bg-blue-50 text-blue-600 font-bold text-xs px-2.5 py-1 rounded-lg border border-blue-100">
-                            ${grupo.interacciones.length} ${grupo.interacciones.length === 1 ? 'lead' : 'leads'}
-                        </span>
+                        <div class="text-right bg-white px-3 py-1 rounded-xl border border-gray-100 shadow-sm"><span class="text-[9px] uppercase block font-bold text-gray-400">Total Orden</span><span class="text-xs font-black text-gray-700">${montoOrden}</span></div>
+                        <span class="bg-blue-50 text-blue-600 font-bold text-xs px-2.5 py-1 rounded-lg border border-blue-100">${grupo.interacciones.length} leads</span>
                     </div>
                 </div>
-
-                <div id="${collapseId}" class="hidden border-t border-gray-100 p-5 bg-white">
-                    <div class="relative border-l-2 border-blue-100 pl-6 ml-3 space-y-4">
-        `;
+                <div id="${collapseId}" class="hidden border-t border-gray-100 p-5 bg-white"><div class="relative border-l-2 border-blue-100 pl-6 ml-3 space-y-4">`;
 
         grupo.interacciones.forEach(lead => {
-            let channelIcon = "fa-comment";
-            let channelBg = "bg-blue-500 text-white";
-            let channelLabel = lead.canal ? lead.canal.toUpperCase() : "INTERACCIÓN";
+            let channelIcon = "fa-comment"; let channelBg = "bg-blue-500 text-white"; let channelLabel = lead.canal ? lead.canal.toUpperCase() : "INTERACCIÓN";
+            if (lead.canal === "whatsapp") { channelIcon = "fa-brands fa-whatsapp"; channelBg = "bg-emerald-500 text-white"; } 
+            else if (lead.canal === "sms") { channelIcon = "fa-solid fa-message"; channelBg = "bg-amber-500 text-white"; } 
+            else if (lead.canal === "llamada") { channelIcon = "fa-solid fa-phone"; channelBg = "bg-blue-500 text-white"; }
 
-            if (lead.canal === "whatsapp") {
-                channelIcon = "fa-brands fa-whatsapp";
-                channelBg = "bg-emerald-500 text-white";
-            } else if (lead.canal === "sms") {
-                channelIcon = "fa-solid fa-message";
-                channelBg = "bg-amber-500 text-white";
-            } else if (lead.canal === "llamada") {
-                channelIcon = "fa-solid fa-phone";
-                channelBg = "bg-blue-500 text-white";
-            }
-
-            const dateStr = lead.fecha ? new Date(lead.fecha).toLocaleString('es-VE', {
-                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-            }) : 'Sin fecha';
+            const dateStr = lead.fecha ? new Date(lead.fecha).toLocaleString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha';
 
             html += `
                 <div class="relative group">
-                    <div class="absolute -left-[33px] top-1 w-5 h-5 rounded-full ${channelBg} border-2 border-white shadow-sm flex items-center justify-center text-[9px]">
-                        <i class="${channelIcon}"></i>
-                    </div>
-
+                    <div class="absolute -left-[33px] top-1 w-5 h-5 rounded-full ${channelBg} border-2 border-white shadow-sm flex items-center justify-center text-[9px]"><i class="${channelIcon}"></i></div>
                     <div class="bg-gray-50/50 p-3 rounded-xl border border-gray-100 hover:border-gray-200 transition-all duration-150">
-                        <div class="flex justify-between items-center gap-2 mb-1">
-                            <span class="text-xs font-bold text-gray-700">
-                                Acción: <span class="text-blue-600 font-black">${channelLabel}</span>
-                            </span>
-                            <span class="text-[10px] text-gray-400 flex items-center gap-1">
-                                <i class="fa-regular fa-clock"></i> ${dateStr}
-                            </span>
-                        </div>
-                        <p class="text-xs text-gray-500">
-                            <i class="fa-solid fa-user-circle text-[10px] text-gray-400 mr-0.5"></i> 
-                            Atendido por: <span class="font-medium text-gray-700">${lead.vendedor || 'Sistema'}</span>
-                        </p>
-
-                        ${lead.comprobanteUrl ? `
-                        <div class="mt-2 p-1.5 bg-emerald-50/30 rounded-lg border border-emerald-100 inline-flex items-center gap-2">
-                            <img src="${lead.comprobanteUrl}" alt="Recibo" class="w-8 h-8 rounded object-cover border border-emerald-200 bg-white">
-                            <a href="${lead.comprobanteUrl}" target="_blank" class="text-blue-500 text-[10px] font-bold hover:underline">
-                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Comprobante
-                            </a>
-                        </div>
-                        ` : ''}
+                        <div class="flex justify-between items-center gap-2 mb-1"><span class="text-xs font-bold text-gray-700">Acción: <span class="text-blue-600 font-black">${channelLabel}</span></span><span class="text-[10px] text-gray-400"><i class="fa-regular fa-clock"></i> ${dateStr}</span></div>
+                        <p class="text-xs text-gray-500">Atendido por: <span class="font-medium text-gray-700">${lead.vendedor || 'Sistema'}</span></p>
+                        ${lead.comprobanteUrl ? `<div class="mt-2 p-1.5 bg-emerald-50/30 rounded-lg border border-emerald-100 inline-flex items-center gap-2"><img src="${lead.comprobanteUrl}" class="w-8 h-8 rounded object-cover border border-emerald-200 bg-white"><a href="${lead.comprobanteUrl}" target="_blank" class="text-blue-500 text-[10px] font-bold hover:underline">Ver Comprobante</a></div>` : ''}
                     </div>
-                </div>
-            `;
+                </div>`;
         });
-
-        html += `
-                    </div>
-                </div>
-            </div>
-        `;
+        html += `</div></div></div>`;
     });
-
     html += `</div>`;
     container.innerHTML = html;
-};
 
-// --- FUNCIÓN GLOBAL: Contraer/Desplegar tarjetas de clientes en comunicaciones ---
+    renderPaginationControlsHTML(totalPages, window.currentPageComunicaciones, paginationContainer, 'cambiarPaginaComunicaciones');
+}
+
 window.toggleClienteLeads = function toggleClienteLeads(elementId) {
     const target = document.getElementById(elementId);
     const iconContainer = document.getElementById(`icon-${elementId}`);
-
     if (!target) return;
-
     if (target.classList.contains('hidden')) {
-        // Desplegar tarjeta
         target.classList.remove('hidden');
-        if (iconContainer) {
-            iconContainer.classList.add('rotate-180', 'border-blue-200', 'text-blue-500');
-            iconContainer.classList.remove('rotate-0', 'text-gray-400');
-        }
+        if (iconContainer) { iconContainer.classList.add('rotate-180', 'border-blue-200', 'text-blue-500'); iconContainer.classList.remove('rotate-0', 'text-gray-400'); }
     } else {
-        // Ocultar tarjeta
         target.classList.add('hidden');
-        if (iconContainer) {
-            iconContainer.classList.add('rotate-0', 'text-gray-400');
-            iconContainer.classList.remove('rotate-180', 'border-blue-200', 'text-blue-500');
-        }
+        if (iconContainer) { iconContainer.classList.add('rotate-0', 'text-gray-400'); iconContainer.classList.remove('rotate-180', 'border-blue-200', 'text-blue-500'); }
     }
 };
 
-//////////////////////////////////////
-
-// Función global de puente para renderizar Pedidos desde el switchTab
 window.renderPedidosGlobal = function renderPedidosGlobal() {
-    const state = window.crmState || { clientes: [] };
-    renderPedidos(state.clientes);
+    window.applyCrmFilters();
 };
