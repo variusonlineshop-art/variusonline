@@ -23,7 +23,6 @@
             z-index: 10 !important;
         }
 
-        /* Utilidades para transiciones de pestañas */
         .tab-content {
             display: none;
         }
@@ -32,7 +31,6 @@
             display: block;
         }
 
-        /* Ejemplo para hacer más opacos los días normales */
         .fc-daygrid-day {
             background: #f8fafc;
         }
@@ -41,7 +39,7 @@
 
 <body>
     <input id="nav-toggle" type="checkbox" class="nav-toggle" aria-hidden="true">
-    <!-- Top bar -->
+    
     <header class="topbar">
         <div class="top-left">
             <label for="nav-toggle" class="hamburger" aria-hidden="true">
@@ -54,7 +52,6 @@
         </div>
 
         <div class="top-search">
-            <!-- input eliminado intencionalmente -->
             <div id="presence-pill" class="presence-pill offline" role="status" aria-live="polite">
                 <span class="dot"></span>
                 <span class="label">Desconectado</span>
@@ -78,12 +75,10 @@
     <main class="main">
         <div class="px-6 py-8">
 
-            <div
-                class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                 <div>
                     <h1 class="text-xl font-black text-gray-800">Centro de Relaciones (CRM)</h1>
-                    <p class="text-xs text-gray-400">Seguimiento de prospectos, clientes, comunicaciones y agenda
-                        comercial</p>
+                    <p class="text-xs text-gray-400">Seguimiento de prospectos, clientes, comunicaciones y agenda comercial</p>
                 </div>
                 <div class="flex flex-wrap gap-2 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-auto">
                     <button onclick="switchTab('clientes')" id="btn-tab-clientes"
@@ -109,19 +104,26 @@
                 </div>
             </div>
 
+            <!-- CONTENEDOR DE FILTROS -->
             <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-6">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 items-end">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
+                    <div class="sm:col-span-2 lg:col-span-3 xl:col-span-2">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Búsqueda Rápida</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </div>
+                            <input type="text" id="crm-search-input" oninput="applyCrmFilters()" placeholder="Cliente, Teléfono, ID o Producto..."
+                                class="w-full pl-10 p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
+                        </div>
+                    </div>
                     <div>
-                        <label
-                            class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Rango
-                            de fechas</label>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Rango de fechas</label>
                         <input type="date" id="crmFilterDate" onchange="applyCrmFilters()"
                             class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
                     </div>
                     <div>
-                        <label
-                            class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Estado
-                            de Pedido</label>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Estado de Pedido</label>
                         <select id="crmFilterStatus" onchange="applyCrmFilters()"
                             class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 cursor-pointer transition-all">
                             <option value="all">Todos los estados</option>
@@ -131,9 +133,7 @@
                         </select>
                     </div>
                     <div>
-                        <label
-                            class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Método
-                            de Contacto</label>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Método de Contacto</label>
                         <select id="crmFilterChannel" onchange="applyCrmFilters()"
                             class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 cursor-pointer transition-all">
                             <option value="all">Todos los canales</option>
@@ -141,103 +141,61 @@
                             <option value="llamada">Llamada Telefónica</option>
                         </select>
                     </div>
-                    <div class="sm:col-span-2 lg:col-span-2 xl:col-span-1">
+                    <div>
                         <button onclick="clearCrmFilters()"
                             class="w-full p-3 bg-red-50 text-red-500 font-bold rounded-2xl hover:bg-red-500 hover:text-white transition-all text-sm flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-eraser"></i> Limpiar Filtros
+                            <i class="fa-solid fa-eraser"></i> Limpiar 
                         </button>
                     </div>
                 </div>
             </div>
 
+            <!-- TABS -->
             <div id="tab-clientes" class="tab-content active space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!----
-                <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
-                        <h3
-                            class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-user-plus text-blue-500"></i> Agregar Nuevo Cliente
-                        </h3>
-                        <form id="form-nuevo-cliente" onsubmit="agregarCliente(event)"
-                            class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                                <input type="text" id="newClientName" placeholder="Nombre completo *" required
-                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
-                            </div>
-                            <div>
-                                <input type="tel" id="newClientPhone" placeholder="Teléfono (Ej: +58412...)" required
-                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
-                            </div>
-                            <div>
-                                <input type="email" id="newClientEmail" placeholder="Correo electrónico"
-                                    class="w-full p-3 bg-gray-50 border border-transparent rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition-all">
-                            </div>
-                            <div class="sm:col-span-3">
-                                <button type="submit"
-                                    class="w-full p-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-100">
-                                    <i class="fa-solid fa-floppy-disk"></i> Guardar Cliente
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                ---->
-
                     <div class="grid grid-cols-2 gap-4">
-                        <div
-                            class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-                                Cant. Ordenes</p>
+                        <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Cant. Ordenes</p>
                             <h3 class="text-3xl font-black text-gray-800" id="crm-kpi-qty">0</h3>
-                            <span class="text-[10px] text-emerald-500 font-bold mt-2"><i
-                                    class="fa-solid fa-arrow-up"></i> Global</span>
+                            <span class="text-[10px] text-emerald-500 font-bold mt-2"><i class="fa-solid fa-arrow-up"></i> Global</span>
                         </div>
-                        <div
-                            class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-                                Monto de Ordenes</p>
+                        <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Monto de Ordenes</p>
                             <h3 class="text-2xl font-black text-gray-800" id="crm-kpi-amount">$0,00</h3>
                             <span class="text-[10px] text-blue-500 font-bold mt-2">Ref. Divisas</span>
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Base de Datos de Clientes
-                    </h3>
-                    <div id="crm-clientes-container" class="space-y-4">
-                    </div>
+                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Base de Datos de Clientes</h3>
+                    <div id="crm-clientes-container" class="space-y-4"></div>
+                    <div id="crm-pagination-controls" class="mt-8 flex justify-center items-center gap-2 flex-wrap"></div>
                 </div>
             </div>
 
             <div id="tab-pedidos" class="tab-content space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div
-                        class="p-5 rounded-3xl bg-white border border-gray-100 shadow-sm flex items-center justify-between">
+                    <div class="p-5 rounded-3xl bg-white border border-gray-100 shadow-sm flex items-center justify-between">
                         <div>
                             <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Pedidos Pagados</p>
                             <h3 id="kpi-pedidos-count" class="text-2xl font-black text-purple-700 mt-1">0</h3>
                         </div>
-                        <div
-                            class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
+                        <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
                             <i class="fa-solid fa-basket-shopping"></i>
                         </div>
                     </div>
-
-                    <div
-                        class="p-5 rounded-3xl bg-white border border-gray-100 shadow-sm flex items-center justify-between">
+                    <div class="p-5 rounded-3xl bg-white border border-gray-100 shadow-sm flex items-center justify-between">
                         <div>
                             <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Facturación Total</p>
                             <h3 id="kpi-pedidos-revenue" class="text-2xl font-black text-emerald-600 mt-1">$0.00</h3>
                         </div>
-                        <div
-                            class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
                             <i class="fa-solid fa-sack-dollar"></i>
                         </div>
                     </div>
                 </div>
-
-                <div id="crm-pedidos-container" class="grid grid-cols-1 gap-4">
-                </div>
+                <div id="crm-pedidos-container" class="grid grid-cols-1 gap-4"></div>
+                <div id="crm-pedidos-pagination" class="mt-8 flex justify-center items-center gap-2 flex-wrap"></div>
             </div>
 
             <div id="tab-productos" class="tab-content space-y-6">
@@ -245,17 +203,16 @@
                     <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <i class="fa-solid fa-box text-blue-500"></i> Productos Vendidos
                     </h3>
-                    <div id="crm-productos-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <!-- Cards se insertan aquí -->
-                    </div>
+                    <div id="crm-productos-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                    <div id="crm-productos-pagination" class="mt-8 flex justify-center items-center gap-2 flex-wrap"></div>
                 </div>
             </div>
 
             <div id="tab-comunicaciones" class="tab-content space-y-6">
                 <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Historial de Interacciones
-                    </h3>
+                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Historial de Interacciones</h3>
                     <div id="crm-comunicaciones-container" class="space-y-4"></div>
+                    <div id="crm-comunicaciones-pagination" class="mt-8 flex justify-center items-center gap-2 flex-wrap"></div>
                 </div>
             </div>
 
@@ -271,12 +228,12 @@
         </div>
     </main>
 
-    <div id="leadsModalBackdrop"
-        class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
-    <div id="leadsModal" class="fixed inset-0 flex items-center justify-center z-50 hidden p-4 animate-fade-in">
-        <div
-            class="bg-white max-w-2xl w-full rounded-3xl shadow-xl border border-gray-100 flex flex-col max-h-[85vh] relative overflow-hidden transition-all transform scale-95 duration-300">
+    <!-- MODALES -->
 
+    <!-- Modal Historial Leads -->
+    <div id="leadsModalBackdrop" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+    <div id="leadsModal" class="fixed inset-0 flex items-center justify-center z-50 hidden p-4 animate-fade-in">
+        <div class="bg-white max-w-2xl w-full rounded-3xl shadow-xl border border-gray-100 flex flex-col max-h-[85vh] relative overflow-hidden transition-all transform scale-95 duration-300">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <div>
                     <h3 class="font-black text-gray-800 text-lg flex items-center gap-2" id="leadsModalTitle">
@@ -284,44 +241,58 @@
                     </h3>
                     <p class="text-xs text-gray-400 mt-0.5">Seguimiento cronológico del cliente seleccionado</p>
                 </div>
-                <button onclick="closeLeadsModal()"
-                    class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer text-sm">
+                <button onclick="closeLeadsModal()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer text-sm">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-
-            <div id="leadsModalList" class="p-6 overflow-y-auto space-y-6 flex-1 bg-white custom-scrollbar">
-            </div>
-
+            <div id="leadsModalList" class="p-6 overflow-y-auto space-y-6 flex-1 bg-white custom-scrollbar"></div>
             <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-                <button onclick="closeLeadsModal()"
-                    class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
+                <button onclick="closeLeadsModal()" class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
                     Cerrar Ventana
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal para detalle de agenda -->
-    <div id="agendaModalBackdrop"
-        class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+    <!-- NUEVO: Modal Detalle de Productos -->
+    <div id="productosModalBackdrop" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
+    <div id="productosModal" class="fixed inset-0 flex items-center justify-center z-50 hidden p-4 animate-fade-in">
+        <div class="bg-white max-w-2xl w-full rounded-3xl shadow-xl border border-gray-100 flex flex-col max-h-[85vh] relative overflow-hidden transition-all transform scale-95 duration-300">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                    <h3 class="font-black text-gray-800 text-lg flex items-center gap-2" id="productosModalTitle">
+                        <i class="fa-solid fa-box-open text-blue-500"></i> Productos de la Orden
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-0.5" id="productosModalSubtitle">Cargando...</p>
+                </div>
+                <button onclick="closeProductosModal()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="productosModalList" class="p-6 overflow-y-auto space-y-4 flex-1 bg-white custom-scrollbar"></div>
+            <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button onclick="closeProductosModal()" class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
+                    Cerrar Ventana
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Agenda -->
+    <div id="agendaModalBackdrop" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 hidden transition-all duration-300"></div>
     <div id="agendaModal" class="fixed inset-0 flex items-center justify-center z-50 hidden p-4 animate-fade-in">
-        <div
-            class="bg-white max-w-2xl w-full rounded-3xl shadow-xl border border-gray-100 flex flex-col max-h-[85vh] relative overflow-hidden transition-all transform scale-95 duration-300">
+        <div class="bg-white max-w-2xl w-full rounded-3xl shadow-xl border border-gray-100 flex flex-col max-h-[85vh] relative overflow-hidden transition-all transform scale-95 duration-300">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <h3 class="font-black text-gray-800 text-lg flex items-center gap-2" id="agendaModalTitle">
-                    <i class="fa-solid fa-calendar-day text-blue-500"></i>
-                    Detalle de agenda
+                    <i class="fa-solid fa-calendar-day text-blue-500"></i> Detalle de agenda
                 </h3>
-                <button onclick="closeAgendaModal()"
-                    class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer text-sm">
+                <button onclick="closeAgendaModal()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition-all cursor-pointer text-sm">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
             <div id="agendaModalBody" class="p-6 overflow-y-auto space-y-6 flex-1 bg-white custom-scrollbar"></div>
             <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-                <button onclick="closeAgendaModal()"
-                    class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
+                <button onclick="closeAgendaModal()" class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
                     Cerrar ventana
                 </button>
             </div>
@@ -332,7 +303,7 @@
 
     <script type="module" src="../assets/js/crm/crm-main.js"></script>
 
-    <!-- FullCalendar core (CSS+JS) -->
+    <!-- FullCalendar core -->
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
 
