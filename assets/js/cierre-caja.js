@@ -832,7 +832,8 @@ async function getOrdersForMultipleDays(fechasArray) {
 
         snap.forEach(doc => {
             const data = doc.data ? doc.data() : doc;
-            const orderDateRaw = data.orderDate ?? data.createdAt ?? null;
+            //const orderDateRaw = data.orderDate ?? data.createdAt ?? null;
+            const orderDateRaw = data.paymentUpdatedAt ?? data.orderDate ?? null;
             const dateObj = isoDateFromValue(orderDateRaw);
 
             if (dateObj) {
@@ -858,6 +859,7 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
     if (fechasSet.size === 0) {
         if (titleEl) titleEl.textContent = "Sin selección";
         if (pill) pill.innerHTML = '<span class="px-2.5 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wide">● SELECCIONE DÍAS</span>';
+        if (document.getElementById("audit-kpis-row")) document.getElementById("audit-kpis-row").innerHTML = ""; // Limpiar KPIs
         return;
     }
 
@@ -883,15 +885,25 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
     let vendedores = {}, motorizados = {};
     let totalV_bs = 0, totalV_usd = 0, totalM_bs = 0, totalM_usd = 0;
     let totalG_bs = 0, totalG_usd = 0;
+    
+    // Variables para los KPIs
+    let granTotalCobradoBs = 0;
+    let granTotalCobradoUsd = 0;
 
     const rawGerenteConfig = { commissionType: "amount", commissionValue: 0.5 };
 
     for (const ord of orders) {
-        const orderDateRaw = ord.orderDate ?? ord.createdAt ?? null;
+        const orderDateRaw = ord.paymentUpdatedAt ?? ord.orderDate ?? null;
         const dateObj = isoDateFromValue(orderDateRaw);
         const ordenKey = dateObj ? dateObj.toISOString().slice(0, 10) : '';
         const tasaAplicadaDeLaOrden = cierresDelMes[ordenKey]?.tasaEuroAplicada || tasaEuroDelDia;
+        
+        // Calcular los totales de la orden (esto ya suma Bs y USD por separado)
         const orderTotals = getOrderTotalInBsAndUsd((ord.payment && ord.payment.methods) || []);
+        
+        // Sumar a los grandes totales
+        granTotalCobradoBs += orderTotals.bs;
+        granTotalCobradoUsd += orderTotals.usd;
 
         const cantidadTotalProductos = (ord.items || []).reduce((total, item) => total + (Number(item.quantity) || 1), 0);
 
@@ -949,6 +961,49 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
         }
     }
 
+    // --- CÁLCULO DE KPIs ---
+    const totalComisionesBs = totalV_bs + totalM_bs + totalG_bs;
+    const totalComisionesUsd = totalV_usd + totalM_usd + totalG_usd;
+    
+    // Dinero de la empresa (Total Cobrado - Total Comisiones)
+    const dineroEmpresaBs = granTotalCobradoBs - totalComisionesBs;
+    const dineroEmpresaUsd = granTotalCobradoUsd - totalComisionesUsd;
+
+    // --- RENDERIZADO DE KPIs ---
+    const kpisDiv = document.getElementById("audit-kpis-row");
+    if (kpisDiv) {
+        kpisDiv.innerHTML = `
+        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-xl shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-1">Dinero Empresa</p>
+                <p class="text-sm font-bold text-indigo-900 font-mono">Bs ${dineroEmpresaBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                <p class="text-xs font-semibold text-indigo-600 font-mono mt-0.5">$${dineroEmpresaUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div class="w-10 h-10 bg-indigo-200/50 rounded-lg flex items-center justify-center text-indigo-600">
+                <i class="fa-solid fa-building-columns"></i>
+            </div>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">Total Cobrado (USD)</p>
+                <p class="text-lg font-bold text-emerald-900 font-mono mt-1">$${granTotalCobradoUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div class="w-10 h-10 bg-emerald-200/50 rounded-lg flex items-center justify-center text-emerald-600">
+                <i class="fa-solid fa-dollar-sign"></i>
+            </div>
+        </div>
+        <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1">Total Cobrado (BS)</p>
+                <p class="text-lg font-bold text-blue-900 font-mono mt-1">Bs ${granTotalCobradoBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div class="w-10 h-10 bg-blue-200/50 rounded-lg flex items-center justify-center text-blue-600">
+                <span class="font-bold">Bs</span>
+            </div>
+        </div>`;
+    }
+
+    // --- RENDERIZADO DE LISTAS DE PERSONAL ---
     const listDiv = document.getElementById("audit-orders-list");
     let html = '';
 
@@ -997,14 +1052,14 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
     }
 
     if (!Object.keys(vendedores).length && !Object.keys(motorizados).length) {
-        html = `<div class="p-4 text-center text-slate-400 border border-slate-100 rounded-xl">No hay información de comisiones en los días seleccionados.</div>`;
+        html = `<div class="p-4 text-center text-slate-400 border border-slate-100 rounded-xl mt-4">No hay información de comisiones en los días seleccionados.</div>`;
     }
 
     if (listDiv) listDiv.innerHTML = html;
 
     const summaryDiv = document.getElementById("audit-summary-row");
     if (summaryDiv) {
-        summaryDiv.className = "grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2";
+        summaryDiv.className = "grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 mt-4";
         summaryDiv.innerHTML = `
         <div class="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl shadow-sm">
             <p class="text-xs font-bold text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-user text-[10px] text-slate-400"></i> Total Vendedores</p>
@@ -1023,19 +1078,16 @@ async function renderAuditDaysAcumulado(fechasSet, cierresDelMes, orders) {
         </div>`;
     }
 
-    let totalBs = totalV_bs + totalM_bs + totalG_bs;
-    let totalUsd = totalV_usd + totalM_usd + totalG_usd;
-
     const footerDiv = document.getElementById("audit-dark-footer");
     if (footerDiv) {
         footerDiv.innerHTML = `
         <div class="bg-slate-900 text-white p-5 rounded-xl flex justify-between items-center relative overflow-hidden shadow-md mt-6">
             <div class="z-10">
                 <p class="text-[11px] opacity-60 font-semibold uppercase tracking-wider mb-0.5">Suma total de comisiones del período</p>
-                <p class="text-2xl font-mono font-bold text-blue-400">Bs ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                <p class="text-2xl font-mono font-bold text-blue-400">Bs ${totalComisionesBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
             </div>
             <div class="text-right z-10">
-                <p class="text-3xl font-mono font-bold text-emerald-400">$${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <p class="text-3xl font-mono font-bold text-emerald-400">$${totalComisionesUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 <p class="text-[10px] opacity-50 uppercase tracking-widest mt-1">Impacto total acumulado</p>
             </div>
         </div>`;
@@ -1057,6 +1109,7 @@ function calendarioInit() {
         if (stateSelectedSet.size === 0) {
             if (document.getElementById("selectedDateTitle")) document.getElementById("selectedDateTitle").textContent = "Sin selección";
             if (document.getElementById("statusPill")) document.getElementById("statusPill").innerHTML = '<span class="px-2.5 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wide">● SELECCIONE UN DÍA O RANGO</span>';
+            if (document.getElementById("audit-kpis-row")) document.getElementById("audit-kpis-row").innerHTML = ""; // AÑADE ESTA LÍNEA
             if (document.getElementById("audit-orders-list")) document.getElementById("audit-orders-list").innerHTML = "";
             if (document.getElementById("audit-summary-row")) document.getElementById("audit-summary-row").innerHTML = "";
             if (document.getElementById("audit-dark-footer")) document.getElementById("audit-dark-footer").innerHTML = "";
