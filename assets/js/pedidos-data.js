@@ -449,7 +449,7 @@ function renderCartPanel() {
             setTimeout(() => {
                 injectContactEnhancements();
             }, 50);
-            
+
             selectedEl.appendChild(div);
         }
 
@@ -1001,21 +1001,21 @@ function openConfirmInline(msg) {
 async function submitOrder(customerData) {
     if (!CART.items.length) { showToast('El carrito está vacío'); return; }
     if (IS_SUBMITTING) { console.warn('Intento de envío duplicado bloqueado'); return; }
-    
+
     IS_SUBMITTING = true;
-    
+
     const checkoutForm = document.getElementById('checkoutForm');
     const submitBtn = document.getElementById('checkoutSubmitBtn') || (checkoutForm ? checkoutForm.querySelector('button[type="submit"]') : null);
-    
-    if (submitBtn) { 
-        submitBtn.disabled = true; 
-        submitBtn.setAttribute('aria-disabled', 'true'); 
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.setAttribute('aria-disabled', 'true');
     }
-    
+
     const msgEl = document.getElementById('checkoutMsg');
-    if (msgEl) { 
-        msgEl.textContent = 'Enviando pedido…'; 
-        msgEl.style.color = '#64748b'; 
+    if (msgEl) {
+        msgEl.textContent = 'Enviando pedido…';
+        msgEl.style.color = '#64748b';
     }
 
     // --- LÓGICA DE FECHA LOCAL ---
@@ -1023,7 +1023,7 @@ async function submitOrder(customerData) {
     const year = ahora.getFullYear();
     const month = String(ahora.getMonth() + 1).padStart(2, '0');
     const day = String(ahora.getDate()).padStart(2, '0');
-    const fechaFormateada = `${year}-${month}-${day}`; 
+    const fechaFormateada = `${year}-${month}-${day}`;
     // Resultado: "2026-04-09" (si hoy es 9 de abril en tu PC)
 
     const orderData = {
@@ -1036,12 +1036,12 @@ async function submitOrder(customerData) {
             lng: customerData.lng || "",
             readable_address: customerData.address
         },
-        items: CART.items.map(i => ({ 
-            productId: i.productId, 
-            name: i.name, 
-            price: i.price, 
-            quantity: i.quantity, 
-            subtotal: i.subtotal 
+        items: CART.items.map(i => ({
+            productId: i.productId,
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+            subtotal: i.subtotal
         })),
         total: CART.total,
         status: "pendiente",
@@ -1054,7 +1054,11 @@ async function submitOrder(customerData) {
         const docRef = await addDoc(ordersCol, orderData);
 
         hideAllOrderConfirmations();
-        openConfirmInline('Su pedido será atendido pronto. Número: ' + docRef.id);
+        //openConfirmInline('Su pedido será atendido pronto. Número: ' + docRef.id);
+        // ----------------------------------------------------
+        // NUEVO LÓGICA: En lugar de openConfirmInline, llamamos al Ticket
+        mostrarTicketModal(docRef.id, orderData);
+        // ----------------------------------------------------
 
         clearCart();
         document.getElementById('checkoutPanel')?.classList.add('hidden');
@@ -1062,15 +1066,15 @@ async function submitOrder(customerData) {
         renderCartPanel();
     } catch (err) {
         console.error('Error guardando pedido:', err);
-        if (msgEl) { 
-            msgEl.textContent = 'Error al enviar pedido. Intente nuevamente.'; 
-            msgEl.style.color = '#ef4444'; 
+        if (msgEl) {
+            msgEl.textContent = 'Error al enviar pedido. Intente nuevamente.';
+            msgEl.style.color = '#ef4444';
         }
         showToast('Error guardando pedido en servidor');
     } finally {
-        if (submitBtn) { 
-            submitBtn.disabled = false; 
-            submitBtn.removeAttribute('aria-disabled'); 
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-disabled');
         }
         IS_SUBMITTING = false;
     }
@@ -1085,7 +1089,7 @@ function attachGlobalEvents() {
     const addrEl = document.getElementById('cust_address');
 
     if (nameEl) { nameEl.addEventListener('input', () => { validateName(); validateFormAll(); }); nameEl.addEventListener('blur', validateName); }
-   
+
     if (phoneOpEl) {
         phoneOpEl.addEventListener('change', () => { validatePhone(); validateFormAll(); });
     }
@@ -1111,6 +1115,85 @@ function attachGlobalEvents() {
         const ok = await showConfirm('Vaciar el carrito?');
         if (ok) clearCart();
     });
+}
+
+/* ---------------------- Mostrar Ticket y Enviar a WhatsApp ---------------------- */
+function mostrarTicketModal(orderId, orderData) {
+    const modal = document.getElementById('ticketModal');
+    if (!modal) return;
+
+    // Generar Número de Control (Ej: los últimos 6 caracteres del ID en mayúsculas)
+    const nroControl = orderId.slice(-6).toUpperCase();
+
+    // Obtener fecha y hora local actual
+    const dateObj = new Date();
+    const dateStr = dateObj.toLocaleDateString('es-VE') + ' ' + dateObj.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+
+    // Llenar datos de cabecera
+    document.getElementById('ticketOrderId').textContent = orderId;
+    document.getElementById('ticketControl').textContent = nroControl;
+    document.getElementById('ticketDate').textContent = dateStr;
+    document.getElementById('ticketClient').textContent = orderData.customerData.Customname;
+
+    // Llenar listado de productos
+    const itemsContainer = document.getElementById('ticketItems');
+    itemsContainer.innerHTML = '';
+    let wppItemsText = ''; // Variable para ir armando el texto de WhatsApp
+
+    orderData.items.forEach(item => {
+        // Crear elemento para el HTML
+        const li = document.createElement('li');
+        li.className = 'flex justify-between gap-2';
+        li.innerHTML = `
+            <span class="flex-1 truncate">${item.quantity}x ${item.name}</span>
+            <span class="font-semibold">${formatCurrency(item.subtotal)}</span>
+        `;
+        itemsContainer.appendChild(li);
+
+        // Concatenar para WhatsApp
+        wppItemsText += `▪ ${item.quantity}x ${item.name} - ${formatCurrency(item.subtotal)}\n`;
+    });
+
+    // Llenar total
+    document.getElementById('ticketTotal').textContent = formatCurrency(orderData.total);
+
+    // Preparar el mensaje formateado para WhatsApp
+    const wppNumber = "584126880417"; // El número configurado en tu página
+    const wppMessage =
+        `🧾 *NUEVO PEDIDO VARIUS* 🧾
+
+        *Orden ID:* ${orderId}
+        *Nro Control:* ${nroControl}
+        *Fecha:* ${dateStr}
+
+        👤 *DATOS DEL CLIENTE:*
+        *Nombre:* ${orderData.customerData.Customname}
+        *Teléfono:* ${orderData.customerData.phone}
+        *Dirección:* ${orderData.customerData.address}
+
+        🛒 *PRODUCTOS ADQUIRIDOS:*
+        ${wppItemsText}
+        💰 *TOTAL A PAGAR: ${formatCurrency(orderData.total)}*
+
+¡Gracias por preferir a Varius! Su pedido será procesado pronto.`;
+
+    // Configurar acción del botón
+    const btnFinalizar = document.getElementById('btnFinalizarTicket');
+    btnFinalizar.onclick = () => {
+        // Codificar el texto para que los espacios y saltos de línea funcionen en la URL
+        const encodedMsg = encodeURIComponent(wppMessage);
+        const wppUrl = `https://wa.me/${wppNumber}?text=${encodedMsg}`;
+
+        // Abrir WhatsApp en una nueva pestaña
+        window.open(wppUrl, '_blank');
+
+        // Ocultar modal y resetear la vista (recargando a un estado limpio)
+        modal.classList.add('hidden');
+        window.location.reload();
+    };
+
+    // Mostrar el modal
+    modal.classList.remove('hidden');
 }
 
 /* Eventos y boot */
